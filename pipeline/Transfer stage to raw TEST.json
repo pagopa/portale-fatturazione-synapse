@@ -24,6 +24,8 @@
 						{
 							"name": "Transfer Files to raw",
 							"type": "Copy",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
 									"activity": "FileName",
@@ -142,7 +144,7 @@
 							"type": "SetVariable",
 							"dependsOn": [
 								{
-									"activity": "Get FileName",
+									"activity": "Parquet Filter",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -162,19 +164,24 @@
 							}
 						},
 						{
-							"name": "Filter1",
+							"name": "Parquet Filter",
 							"type": "Filter",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [],
+							"dependsOn": [
+								{
+									"activity": "Get FileName",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
 							"userProperties": [],
 							"typeProperties": {
 								"items": {
-									"value": "@activity('Get Metadata1').output.childItems",
+									"value": "@activity('Get FileName').output.childItems",
 									"type": "Expression"
 								},
 								"condition": {
-									"value": "@and(\nequals(item().type, 'File'),\nstartswith(item().name,variables('Generic_ItemFileName'))\n)",
+									"value": "@if(equals(split(item(), '.')[1], 'parquet'), 'parquet', '')",
 									"type": "Expression"
 								}
 							}
