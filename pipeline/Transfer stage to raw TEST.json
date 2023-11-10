@@ -24,8 +24,6 @@
 						{
 							"name": "Transfer Files to raw",
 							"type": "Copy",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
 									"activity": "FileName",
@@ -158,7 +156,7 @@
 							"typeProperties": {
 								"variableName": "FileName",
 								"value": {
-									"value": "@{string(activity('Get FileName').output.childItems)}",
+									"value": "@{string(activity('Parquet Filter').output.value)}",
 									"type": "Expression"
 								}
 							}
@@ -181,7 +179,7 @@
 									"type": "Expression"
 								},
 								"condition": {
-									"value": "@if(equals(split(item(), '.')[1], 'parquet'), 'parquet', '')",
+									"value": "@equals(concat(split(string(item()), '.')[1], ''), 'parquet')",
 									"type": "Expression"
 								}
 							}
