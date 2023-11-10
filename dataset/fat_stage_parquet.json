@@ -15,7 +15,6 @@
 		"typeProperties": {
 			"location": {
 				"type": "AzureBlobStorageLocation",
-				"fileName": "*.parquet",
 				"folderPath": {
 					"value": "@dataset().PathFolderFile",
 					"type": "Expression"
