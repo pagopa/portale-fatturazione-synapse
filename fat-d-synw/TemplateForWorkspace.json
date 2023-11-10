@@ -1104,7 +1104,7 @@
 									"type": "SetVariable",
 									"dependsOn": [
 										{
-											"activity": "Get FileName",
+											"activity": "Parquet Filter",
 											"dependencyConditions": [
 												"Succeeded"
 											]
@@ -1118,25 +1118,30 @@
 									"typeProperties": {
 										"variableName": "FileName",
 										"value": {
-											"value": "@{string(activity('Get FileName').output.childItems)}",
+											"value": "@{string(activity('Parquet Filter').output.value)}",
 											"type": "Expression"
 										}
 									}
 								},
 								{
-									"name": "Filter1",
+									"name": "Parquet Filter",
 									"type": "Filter",
-									"state": "Inactive",
-									"onInactiveMarkAs": "Succeeded",
-									"dependsOn": [],
+									"dependsOn": [
+										{
+											"activity": "Get FileName",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
 									"userProperties": [],
 									"typeProperties": {
 										"items": {
-											"value": "@activity('Get Metadata1').output.childItems",
+											"value": "@activity('Get FileName').output.childItems",
 											"type": "Expression"
 										},
 										"condition": {
-											"value": "@and(\nequals(item().type, 'File'),\nstartswith(item().name,variables('Generic_ItemFileName'))\n)",
+											"value": "@equals(concat(split(string(item()), '.')[1], ''), 'parquet')",
 											"type": "Expression"
 										}
 									}
