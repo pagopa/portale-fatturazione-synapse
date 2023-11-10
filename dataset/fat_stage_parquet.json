@@ -1,0 +1,30 @@
+{
+	"name": "fat_stage_parquet",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "fat_stage_sa",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"PathFolderFile": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": "*.parquet",
+				"folderPath": {
+					"value": "@dataset().PathFolderFile",
+					"type": "Expression"
+				},
+				"container": "pfstage"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

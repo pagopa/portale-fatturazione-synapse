@@ -1,0 +1,223 @@
+{
+	"name": "delta_lake_provisioning",
+	"properties": {
+		"folder": {
+			"name": "Provisioning"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "61905ccc-9df4-478c-9489-2ea857966d79"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net",
+					"authHeader": null
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Configurations"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Variables\r\n",
+					"linked_service_name = 'fat_adls'\r\n",
+					"container_name = 'synapse'"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Get adls account name\n",
+					"raw_adls_container_name = mssparkutils.credentials.getFullConnectionString(linked_service_name)\n",
+					"print(raw_adls_container_name)"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"adls_account_name = raw_adls_container_name.split('url=https://')[1].split('/;token')[0]\n",
+					"# delta_path = \"abfss://synapse@\" + adls_account_name +\"/synapse/\"\n",
+					"print(adls_account_name)"
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Set configuration (SAS Token)\r\n",
+					"adls_sas_token = mssparkutils.credentials.getConnectionStringOrCreds(linked_service_name)\r\n",
+					"spark.conf.set('fs.azure.sas.%s.%s' % (container_name, adls_account_name), adls_sas_token)\r\n",
+					"print(adls_sas_token)"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Create Database"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Create Database \"epson_delta\"\r\n",
+					"spark.sql(f\"\"\"CREATE DATABASE IF NOT EXISTS fat_delta\"\"\")"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Create Tables"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# device\r\n",
+					"spark.sql('DROP TABLE IF EXISTS  fat_delta.test')\r\n",
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"    CREATE TABLE fat_delta.test  \r\n",
+					"    (\r\n",
+					"          ID string\r\n",
+					"        , Code string\r\n",
+					"        , Value double\r\n",
+					"        , CreatedOn timestamp                        \r\n",
+					"    ) USING DELTA\r\n",
+					"    LOCATION 'test'\r\n",
+					"    TBLPROPERTIES (\r\n",
+					"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+					"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+					"    \"\"\"\r\n",
+					")"
+				],
+				"execution_count": 2
+			}
+		]
+	}
+}

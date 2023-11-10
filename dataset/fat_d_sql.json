@@ -1,0 +1,26 @@
+{
+	"name": "fat_d_sql",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "fat_sql",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "FolderInput",
+				"type": "varchar"
+			},
+			{
+				"name": "FolderOutput",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "cfg",
+			"table": "RawParquet"
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

@@ -1,0 +1,7 @@
+{
+	"name": "AzureDataLakeStorage514",
+	"properties": {
+		"privateLinkResourceId": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Storage/storageAccounts/fatdstagesa",
+		"groupId": "dfs"
+	}
+}
