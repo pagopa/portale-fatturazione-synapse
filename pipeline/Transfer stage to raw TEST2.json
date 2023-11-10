@@ -1,5 +1,5 @@
 {
-	"name": "Transfer stage to raw TEST",
+	"name": "Transfer stage to raw TEST2",
 	"properties": {
 		"activities": [
 			{
@@ -26,7 +26,7 @@
 							"type": "Copy",
 							"dependsOn": [
 								{
-									"activity": "Parquet Filter",
+									"activity": "FileName",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -94,7 +94,7 @@
 									"type": "DatasetReference",
 									"parameters": {
 										"PathFolderSink": {
-											"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),'/',substring(string(activity('Parquet Filter').output.value),add(indexOf(string(activity('Parquet Filter').output.value),'_20'),1),4),'/',substring(string(activity('Parquet Filter').output.value),add(indexOf(string(activity('Parquet Filter').output.value),'_20'),5),2),'/',substring(string(activity('Parquet Filter').output.value),add(indexOf(string(activity('Parquet Filter').output.value),'_20'),7),2),'/',replace(string(item().FolderInput),'send/',''))",
+											"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),1),4),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),5),2),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),7),2),'/',replace(string(item().FolderInput),'send/',''))",
 											"type": "Expression"
 										}
 									}
@@ -138,8 +138,8 @@
 							}
 						},
 						{
-							"name": "Parquet Filter",
-							"type": "Filter",
+							"name": "FileName",
+							"type": "SetVariable",
 							"dependsOn": [
 								{
 									"activity": "Get FileName",
@@ -148,14 +148,33 @@
 									]
 								}
 							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "FileName",
+								"value": {
+									"value": "@{string(activity('Get FileName').output.childItems)[1]}",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Filter1",
+							"type": "Filter",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
+							"dependsOn": [],
 							"userProperties": [],
 							"typeProperties": {
 								"items": {
-									"value": "@activity('Get FileName').output.childItems",
+									"value": "@activity('Get Metadata1').output.childItems",
 									"type": "Expression"
 								},
 								"condition": {
-									"value": "@equals(split(string(item()), '.')[1], 'parquet')",
+									"value": "@and(\nequals(item().type, 'File'),\nstartswith(item().name,variables('Generic_ItemFileName'))\n)",
 									"type": "Expression"
 								}
 							}
@@ -231,6 +250,11 @@
 				}
 			}
 		],
+		"variables": {
+			"FileName": {
+				"type": "String"
+			}
+		},
 		"annotations": [],
 		"lastPublishTime": "2023-11-10T11:49:13Z"
 	},
