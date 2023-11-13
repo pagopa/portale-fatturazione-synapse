@@ -21,7 +21,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "f8b3c93b-9778-47ba-977e-1dffbbf7f42e"
+				"spark.autotune.trackingId": "e1b826dd-2efc-412f-9ca2-d169948c00ea"
 			}
 		},
 		"metadata": {
@@ -318,7 +318,7 @@
 					"        , product string\r\n",
 					"        , filename string\r\n",
 					"        , onboardingtokenid string\r\n",
-					"        , pricinplan string\r\n",
+					"        , pricingplan string\r\n",
 					"        , updatedat string\r\n",
 					"        , createdat timestamp\r\n",
 					"        , closedat timestamp\r\n",
@@ -334,7 +334,7 @@
 					"    \"\"\"\r\n",
 					")"
 				],
-				"execution_count": null
+				"execution_count": 2
 			}
 		]
 	}
