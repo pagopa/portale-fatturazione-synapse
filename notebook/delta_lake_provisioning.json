@@ -21,7 +21,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "e1b826dd-2efc-412f-9ca2-d169948c00ea"
+				"spark.autotune.trackingId": "0e9299af-9faa-4512-a965-a74426e34381"
 			}
 		},
 		"metadata": {
@@ -335,6 +335,25 @@
 					")"
 				],
 				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df = spark.createDataFrame([(\"contratti\",), (\"enti\",)], [\"TableName\"])\r\n",
+					"df.write.format(\"delta\").mode(\"append\").insertInto(\"fat_delta.watermark\")"
+				],
+				"execution_count": 6
 			}
 		]
 	}
