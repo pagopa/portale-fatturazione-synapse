@@ -865,7 +865,7 @@
 						"spark.dynamicAllocation.enabled": "true",
 						"spark.dynamicAllocation.minExecutors": "1",
 						"spark.dynamicAllocation.maxExecutors": "2",
-						"spark.autotune.trackingId": "b9f233b2-0b04-48c9-a2b3-c7b61084b5a2"
+						"spark.autotune.trackingId": "a08fa1ac-1fa0-435e-94df-828ab6051906"
 					}
 				},
 				"metadata": {
@@ -890,7 +890,8 @@
 						"sparkVersion": "3.3",
 						"nodeCount": 10,
 						"cores": 4,
-						"memory": 28
+						"memory": 28,
+						"automaticScaleJobs": true
 					},
 					"sessionKeepAliveTimeout": 30
 				},
@@ -910,6 +911,7 @@
 					},
 					{
 						"cell_type": "code",
+						"metadata": {},
 						"source": [
 							"#Variables\r\n",
 							"tableNameEnti = 'fat_delta.enti'\r\n",
@@ -918,7 +920,7 @@
 							"sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/08/selfcare_contract/selfcare_contract_20231108.parquet'"
 						],
 						"outputs": [],
-						"execution_count": 7
+						"execution_count": 17
 					},
 					{
 						"cell_type": "markdown",
@@ -952,7 +954,7 @@
 							"from pyspark.sql.functions import max"
 						],
 						"outputs": [],
-						"execution_count": 2
+						"execution_count": 18
 					},
 					{
 						"cell_type": "markdown",
@@ -985,7 +987,7 @@
 							"tDeltaContratti = DeltaTable.forName(spark, tableNameContratti)"
 						],
 						"outputs": [],
-						"execution_count": 6
+						"execution_count": 19
 					},
 					{
 						"cell_type": "markdown",
@@ -1033,7 +1035,7 @@
 							"dfContratti = dfTmp.select(\"internalistitutionid\", \"product\", \"filename\", \"onboardingtokenid\", \"pricingplan\", \"updatedat\", \"createdat\", \"closedat\", \"year\", \"month\", \"daily\")"
 						],
 						"outputs": [],
-						"execution_count": 12
+						"execution_count": 20
 					},
 					{
 						"cell_type": "markdown",
@@ -1067,7 +1069,7 @@
 							"dfContratti = dfContratti.withColumn(\"LastModified\", actualTimeStamp)"
 						],
 						"outputs": [],
-						"execution_count": 13
+						"execution_count": 21
 					},
 					{
 						"cell_type": "markdown",
@@ -1103,11 +1105,11 @@
 							"\r\n",
 							"mergedDfContratti = tDeltaContratti.alias(\"target\").merge(\r\n",
 							"    dfContratti.alias(\"source\"),\r\n",
-							"    \"target.internalistitutionid = source.internalistitutionid & target.product = source.product\"\r\n",
+							"    \"target.internalistitutionid = source.internalistitutionid AND target.product = source.product\"\r\n",
 							").whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()"
 						],
 						"outputs": [],
-						"execution_count": null
+						"execution_count": 23
 					},
 					{
 						"cell_type": "markdown",
@@ -1136,10 +1138,13 @@
 							}
 						},
 						"source": [
-							""
+							"watermarkTable =  DeltaTable.forName(spark, \"fat_delta.watermark\")\r\n",
+							"\r\n",
+							"watermarkTable.update(\"TableName = 'enti'\", {\"LastModified\": actualTimeStamp})\r\n",
+							"watermarkTable.update(\"TableName = 'contratti'\", {\"LastModified\": actualTimeStamp})"
 						],
 						"outputs": [],
-						"execution_count": null
+						"execution_count": 26
 					}
 				]
 			},
@@ -1238,7 +1243,7 @@
 						"spark.dynamicAllocation.enabled": "true",
 						"spark.dynamicAllocation.minExecutors": "1",
 						"spark.dynamicAllocation.maxExecutors": "2",
-						"spark.autotune.trackingId": "5cecfac2-c781-4d66-9d96-ac9281c30963"
+						"spark.autotune.trackingId": "f115c748-d6f1-4a28-987c-13245ce2038e"
 					}
 				},
 				"metadata": {
@@ -1263,8 +1268,7 @@
 						"sparkVersion": "3.3",
 						"nodeCount": 10,
 						"cores": 4,
-						"memory": 28,
-						"automaticScaleJobs": true
+						"memory": 28
 					},
 					"sessionKeepAliveTimeout": 30
 				},
@@ -1284,7 +1288,6 @@
 					},
 					{
 						"cell_type": "code",
-						"metadata": {},
 						"source": [
 							"# Variables\r\n",
 							"linked_service_name = 'fat_adls'\r\n",
@@ -1577,11 +1580,41 @@
 							}
 						},
 						"source": [
-							"df = spark.createDataFrame([(\"contratti\",), (\"enti\",)], [\"TableName\"])\r\n",
+							"from pyspark.sql import functions as F\r\n",
+							"\r\n",
+							"actualTimeStamp = F.current_timestamp()\r\n",
+							"data = [(\"contratti\",  actualTimeStamp), (\"enti\", actualTimeStamp)]\r\n",
+							"df = spark.createDataFrame(data, [\"TableName\",\"TimeStamp\"])\r\n",
 							"df.write.format(\"delta\").mode(\"append\").insertInto(\"fat_delta.watermark\")"
 						],
 						"outputs": [],
-						"execution_count": 6
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"spark.sql(\r\n",
+							"    f\"\"\"\r\n",
+							"        INSERT INTO fat_delta.watermark (TableName, LastModified) \r\n",
+							"        VALUES \r\n",
+							"        (\"contratti\",null),\r\n",
+							"        (\"enti\",null)\r\n",
+							"    \"\"\"\r\n",
+							")"
+						],
+						"outputs": [],
+						"execution_count": 16
 					}
 				]
 			},
