@@ -21,7 +21,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "e13845c2-d496-45eb-a5d1-8d6729f3f564"
+				"spark.autotune.trackingId": "6987cf19-3eff-4ba7-be34-c6057717264b"
 			}
 		},
 		"metadata": {
@@ -235,8 +235,8 @@
 					"    f\"\"\"\r\n",
 					"    CREATE TABLE fat_delta.watermark  \r\n",
 					"    (\r\n",
-					"          NomeTabella string\r\n",
-					"        , UltimaModifica timestamp                        \r\n",
+					"          TableName string\r\n",
+					"        , LastModified timestamp                        \r\n",
 					"    ) USING DELTA\r\n",
 					"    LOCATION 'watermark'\r\n",
 					"    TBLPROPERTIES (\r\n",
@@ -261,7 +261,36 @@
 					}
 				},
 				"source": [
-					"# Creazione tabella Enti"
+					"# Creazione tabella Enti\r\n",
+					"spark.sql('DROP TABLE IF EXISTS  fat_delta.enti')\r\n",
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"    CREATE TABLE fat_delta.enti  \r\n",
+					"    (\r\n",
+					"          InternalIstitutionId string\r\n",
+					"        , institutionType string\r\n",
+					"        , description string\r\n",
+					"        , digitalAddress string\r\n",
+					"        , address string\r\n",
+					"        , originId string\r\n",
+					"        , zipCode string\r\n",
+					"        , istatCode string\r\n",
+					"        , city string\r\n",
+					"        , country string\r\n",
+					"        , county string\r\n",
+					"        , subUnitCode string\r\n",
+					"        , subUnitType string\r\n",
+					"        , paymentServiceProvider string\r\n",
+					"        , vatnumber string\r\n",
+					"        , publicservices string\r\n",
+					"        , LastModified timestamp                        \r\n",
+					"    ) USING DELTA\r\n",
+					"    LOCATION 'enti'\r\n",
+					"    TBLPROPERTIES (\r\n",
+					"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+					"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+					"    \"\"\"\r\n",
+					")"
 				],
 				"execution_count": null
 			},
@@ -279,7 +308,31 @@
 					}
 				},
 				"source": [
-					"# Creazione tabella Contratti"
+					"# Creazione tabella Contratti\r\n",
+					"spark.sql('DROP TABLE IF EXISTS  fat_delta.contratti')\r\n",
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"    CREATE TABLE fat_delta.contratti  \r\n",
+					"    (\r\n",
+					"          internalistitutionid string\r\n",
+					"        , product string\r\n",
+					"        , filename string\r\n",
+					"        , onboardingtokenid string\r\n",
+					"        , pricinplan string\r\n",
+					"        , updatedat string\r\n",
+					"        , createdat timestamp\r\n",
+					"        , closedat timestamp\r\n",
+					"        , year int\r\n",
+					"        , month int\r\n",
+					"        , daily int\r\n",
+					"        , LastModified timestamp                        \r\n",
+					"    ) USING DELTA\r\n",
+					"    LOCATION 'contratti'\r\n",
+					"    TBLPROPERTIES (\r\n",
+					"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+					"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+					"    \"\"\"\r\n",
+					")"
 				],
 				"execution_count": null
 			}
