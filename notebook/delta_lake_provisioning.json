@@ -21,7 +21,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "6987cf19-3eff-4ba7-be34-c6057717264b"
+				"spark.autotune.trackingId": "f8b3c93b-9778-47ba-977e-1dffbbf7f42e"
 			}
 		},
 		"metadata": {
@@ -324,7 +324,7 @@
 					"        , closedat timestamp\r\n",
 					"        , year int\r\n",
 					"        , month int\r\n",
-					"        , daily int\r\n",
+					"        , daily string\r\n",
 					"        , LastModified timestamp                        \r\n",
 					"    ) USING DELTA\r\n",
 					"    LOCATION 'contratti'\r\n",
