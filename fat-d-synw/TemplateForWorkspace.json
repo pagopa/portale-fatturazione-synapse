@@ -822,6 +822,26 @@
 			"dependsOn": []
 		},
 		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 1')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "SELECT TOP (100) * FROM [fat_delta].[dbo].[enti]",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "fat_delta",
+						"poolName": "Built-in"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
 			"name": "[concat(parameters('workspaceName'), '/IngestSelfCare')]",
 			"type": "Microsoft.Synapse/workspaces/notebooks",
 			"apiVersion": "2019-06-01-preview",
@@ -845,7 +865,7 @@
 						"spark.dynamicAllocation.enabled": "true",
 						"spark.dynamicAllocation.minExecutors": "1",
 						"spark.dynamicAllocation.maxExecutors": "2",
-						"spark.autotune.trackingId": "03c99768-b4ab-478d-a5d7-e60a4417bc9c"
+						"spark.autotune.trackingId": "b9f233b2-0b04-48c9-a2b3-c7b61084b5a2"
 					}
 				},
 				"metadata": {
@@ -870,8 +890,7 @@
 						"sparkVersion": "3.3",
 						"nodeCount": 10,
 						"cores": 4,
-						"memory": 28,
-						"automaticScaleJobs": true
+						"memory": 28
 					},
 					"sessionKeepAliveTimeout": 30
 				},
@@ -891,7 +910,6 @@
 					},
 					{
 						"cell_type": "code",
-						"metadata": {},
 						"source": [
 							"#Variables\r\n",
 							"tableNameEnti = 'fat_delta.enti'\r\n",
@@ -1220,7 +1238,7 @@
 						"spark.dynamicAllocation.enabled": "true",
 						"spark.dynamicAllocation.minExecutors": "1",
 						"spark.dynamicAllocation.maxExecutors": "2",
-						"spark.autotune.trackingId": "e1b826dd-2efc-412f-9ca2-d169948c00ea"
+						"spark.autotune.trackingId": "5cecfac2-c781-4d66-9d96-ac9281c30963"
 					}
 				},
 				"metadata": {
@@ -1245,7 +1263,8 @@
 						"sparkVersion": "3.3",
 						"nodeCount": 10,
 						"cores": 4,
-						"memory": 28
+						"memory": 28,
+						"automaticScaleJobs": true
 					},
 					"sessionKeepAliveTimeout": 30
 				},
@@ -1265,6 +1284,7 @@
 					},
 					{
 						"cell_type": "code",
+						"metadata": {},
 						"source": [
 							"# Variables\r\n",
 							"linked_service_name = 'fat_adls'\r\n",
@@ -1542,6 +1562,26 @@
 						],
 						"outputs": [],
 						"execution_count": 2
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"df = spark.createDataFrame([(\"contratti\",), (\"enti\",)], [\"TableName\"])\r\n",
+							"df.write.format(\"delta\").mode(\"append\").insertInto(\"fat_delta.watermark\")"
+						],
+						"outputs": [],
+						"execution_count": 6
 					}
 				]
 			},
