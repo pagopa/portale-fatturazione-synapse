@@ -148,7 +148,7 @@
 			"properties": {
 				"activities": [
 					{
-						"name": "Copy data1",
+						"name": "LakeToSql",
 						"type": "Copy",
 						"dependsOn": [],
 						"policy": {
@@ -194,7 +194,7 @@
 								"referenceName": "SqlDatabse",
 								"type": "DatasetReference",
 								"parameters": {
-									"TableSql": "contratti"
+									"TableSql": "pfd.Contratti"
 								}
 							}
 						]
@@ -755,7 +755,7 @@
 				"type": "AzureSqlDWTable",
 				"schema": [],
 				"typeProperties": {
-					"schema": "fat_delta",
+					"schema": "dbo",
 					"table": {
 						"value": "@dataset().TableLake",
 						"type": "Expression"
