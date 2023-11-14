@@ -164,6 +164,8 @@
 						{
 							"name": "Delete Files in stage",
 							"type": "Delete",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
 									"activity": "Transfer Files to raw",
