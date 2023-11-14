@@ -59,7 +59,7 @@
 						"storeSettings": {
 							"type": "AzureBlobFSReadSettings",
 							"recursive": true,
-							"wildcardFolderPath": "send / 2023 / 11 / 08 / selfcare_contract",
+							"wildcardFolderPath": "send/2023/11/08/selfcare_contract",
 							"wildcardFileName": "*.parquet",
 							"enablePartitionDiscovery": false
 						},
@@ -71,7 +71,7 @@
 						"referenceName": "pfstage_ingestSource",
 						"type": "DatasetReference",
 						"parameters": {
-							"FolderIngestSource": "send / 2023 / 11 / 08 / selfcare_contract"
+							"FolderIngestSource": "send/2023/11/08/selfcare_contract"
 						}
 					}
 				}
