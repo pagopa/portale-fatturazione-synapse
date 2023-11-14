@@ -265,6 +265,24 @@
 											"enablePartitionDiscovery": false
 										}
 									}
+								},
+								{
+									"name": "Filter1_copy1",
+									"type": "Filter",
+									"state": "Inactive",
+									"onInactiveMarkAs": "Succeeded",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"items": {
+											"value": "@activity('Get Metadata1').output.childItems",
+											"type": "Expression"
+										},
+										"condition": {
+											"value": "@and(\nequals(item().type, 'File'),\nstartswith(item().name,variables('Generic_ItemFileName'))\n)",
+											"type": "Expression"
+										}
+									}
 								}
 							]
 						}
@@ -865,7 +883,7 @@
 						"spark.dynamicAllocation.enabled": "true",
 						"spark.dynamicAllocation.minExecutors": "1",
 						"spark.dynamicAllocation.maxExecutors": "2",
-						"spark.autotune.trackingId": "ff32ba81-3087-4258-817a-667ade16905f"
+						"spark.autotune.trackingId": "cc2086f4-92b1-487c-9189-315fbc6eca39"
 					}
 				},
 				"metadata": {
@@ -890,8 +908,7 @@
 						"sparkVersion": "3.3",
 						"nodeCount": 10,
 						"cores": 4,
-						"memory": 28,
-						"automaticScaleJobs": true
+						"memory": 28
 					},
 					"sessionKeepAliveTimeout": 30
 				},
@@ -911,7 +928,6 @@
 					},
 					{
 						"cell_type": "code",
-						"metadata": {},
 						"source": [
 							"#Variables\r\n",
 							"tableNameEnti = 'fat_delta.enti'\r\n",
