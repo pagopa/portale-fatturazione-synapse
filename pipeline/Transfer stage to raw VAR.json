@@ -168,7 +168,7 @@
 							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
-									"activity": "Execute IngestSelfCare",
+									"activity": "IngestSelfCare",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -229,14 +229,9 @@
 						{
 							"name": "Execute IngestSelfCare",
 							"type": "ExecutePipeline",
-							"dependsOn": [
-								{
-									"activity": "Transfer Files to raw",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
+							"dependsOn": [],
 							"userProperties": [],
 							"typeProperties": {
 								"pipeline": {
@@ -250,6 +245,45 @@
 										"type": "Expression"
 									}
 								}
+							}
+						},
+						{
+							"name": "IngestSelfCare",
+							"type": "SynapseNotebook",
+							"dependsOn": [
+								{
+									"activity": "Transfer Files to raw",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"notebook": {
+									"referenceName": "IngestSelfCare",
+									"type": "NotebookReference"
+								},
+								"snapshot": true,
+								"sparkPool": {
+									"referenceName": "sparkcls01",
+									"type": "BigDataPoolReference"
+								},
+								"executorSize": "Small",
+								"conf": {
+									"spark.dynamicAllocation.enabled": null,
+									"spark.dynamicAllocation.minExecutors": null,
+									"spark.dynamicAllocation.maxExecutors": null
+								},
+								"driverSize": "Small",
+								"numExecutors": null
 							}
 						}
 					]
