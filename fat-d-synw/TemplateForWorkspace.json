@@ -99,6 +99,8 @@
 					{
 						"name": "Lookup1",
 						"type": "Lookup",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
 						"dependsOn": [],
 						"policy": {
 							"timeout": "0.12:00:00",
@@ -440,6 +442,42 @@
 											"enablePartitionDiscovery": false
 										}
 									}
+								},
+								{
+									"name": "Filter1_copy1",
+									"type": "Filter",
+									"state": "Inactive",
+									"onInactiveMarkAs": "Succeeded",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"items": {
+											"value": "@activity('Get Metadata1').output.childItems",
+											"type": "Expression"
+										},
+										"condition": {
+											"value": "@and(\nequals(item().type, 'File'),\nstartswith(item().name,variables('Generic_ItemFileName'))\n)",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Filter1_copy2",
+									"type": "Filter",
+									"state": "Inactive",
+									"onInactiveMarkAs": "Succeeded",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"items": {
+											"value": "@activity('Get Metadata1').output.childItems",
+											"type": "Expression"
+										},
+										"condition": {
+											"value": "@and(\nequals(item().type, 'File'),\nstartswith(item().name,variables('Generic_ItemFileName'))\n)",
+											"type": "Expression"
+										}
+									}
 								}
 							]
 						}
@@ -692,6 +730,27 @@
 											"enablePartitionDiscovery": false
 										}
 									}
+								},
+								{
+									"name": "Execute Pipeline1",
+									"type": "ExecutePipeline",
+									"dependsOn": [
+										{
+											"activity": "Delete Files in stage",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "IngestSelfCare",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {}
+									}
 								}
 							]
 						}
@@ -738,7 +797,8 @@
 			"dependsOn": [
 				"[concat(variables('workspaceId'), '/datasets/fat_d_sql')]",
 				"[concat(variables('workspaceId'), '/datasets/fat_stage_parquet')]",
-				"[concat(variables('workspaceId'), '/datasets/fat_ddls_parquet')]"
+				"[concat(variables('workspaceId'), '/datasets/fat_ddls_parquet')]",
+				"[concat(variables('workspaceId'), '/pipelines/IngestSelfCare')]"
 			]
 		},
 		{
