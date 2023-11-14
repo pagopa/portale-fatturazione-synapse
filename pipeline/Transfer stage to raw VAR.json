@@ -168,7 +168,7 @@
 							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
-									"activity": "Transfer Files to raw",
+									"activity": "Execute IngestSelfCare",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -231,7 +231,7 @@
 							"type": "ExecutePipeline",
 							"dependsOn": [
 								{
-									"activity": "Delete Files in stage",
+									"activity": "Transfer Files to raw",
 									"dependencyConditions": [
 										"Succeeded"
 									]
