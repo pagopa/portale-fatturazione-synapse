@@ -43,7 +43,7 @@
 	},
 	"resources": [
 		{
-			"name": "[concat(parameters('workspaceName'), '/IngestSefCare')]",
+			"name": "[concat(parameters('workspaceName'), '/IngestSelfCare')]",
 			"type": "Microsoft.Synapse/workspaces/pipelines",
 			"apiVersion": "2019-06-01-preview",
 			"properties": {
@@ -82,15 +82,61 @@
 								}
 							}
 						}
+					},
+					{
+						"name": "IngestSelfCare",
+						"type": "SynapseNotebook",
+						"dependsOn": [
+							{
+								"activity": "Lookup1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebook": {
+								"referenceName": "IngestSelfCare",
+								"type": "NotebookReference"
+							},
+							"snapshot": true,
+							"sparkPool": {
+								"referenceName": "sparkcls01",
+								"type": "BigDataPoolReference"
+							},
+							"executorSize": "Small",
+							"conf": {
+								"spark.dynamicAllocation.enabled": null,
+								"spark.dynamicAllocation.minExecutors": null,
+								"spark.dynamicAllocation.maxExecutors": null
+							},
+							"driverSize": "Small",
+							"numExecutors": null
+						}
 					}
 				],
 				"policy": {
 					"elapsedTimeMetric": {}
 				},
+				"variables": {
+					"Test_source": {
+						"type": "String"
+					}
+				},
 				"annotations": []
 			},
 			"dependsOn": [
-				"[concat(variables('workspaceId'), '/datasets/fat_ddls_ingestSource')]"
+				"[concat(variables('workspaceId'), '/datasets/fat_ddls_ingestSource')]",
+				"[concat(variables('workspaceId'), '/notebooks/IngestSelfCare')]",
+				"[concat(variables('workspaceId'), '/bigDataPools/sparkcls01')]"
 			]
 		},
 		{
@@ -583,7 +629,7 @@
 									"userProperties": [],
 									"typeProperties": {
 										"pipeline": {
-											"referenceName": "IngestSefCare",
+											"referenceName": "IngestSelfCare",
 											"type": "PipelineReference"
 										},
 										"waitOnCompletion": true,
@@ -636,7 +682,7 @@
 				"[concat(variables('workspaceId'), '/datasets/fat_d_sql')]",
 				"[concat(variables('workspaceId'), '/datasets/fat_stage_parquet')]",
 				"[concat(variables('workspaceId'), '/datasets/fat_ddls_parquet')]",
-				"[concat(variables('workspaceId'), '/pipelines/IngestSefCare')]"
+				"[concat(variables('workspaceId'), '/pipelines/IngestSelfCare')]"
 			]
 		},
 		{
