@@ -1,0 +1,29 @@
+{
+	"name": "fat_ddls_ingestSource",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "pfstage",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"FolderIngestSource": {
+				"type": "string",
+				"defaultValue": "send/2023/11/08/selfcare_contract"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": {
+					"value": "@dataset().FolderIngestSource",
+					"type": "Expression"
+				},
+				"fileSystem": "raw"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	}
+}
