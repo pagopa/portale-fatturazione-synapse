@@ -1,8 +1,8 @@
 {
-	"name": "fat_ddls_ingestSource",
+	"name": "pfstage_ingestSource",
 	"properties": {
 		"linkedServiceName": {
-			"referenceName": "pfstage",
+			"referenceName": "fat_adls",
 			"type": "LinkedServiceReference"
 		},
 		"parameters": {

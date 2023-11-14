@@ -29,7 +29,7 @@
 						}
 					},
 					"dataset": {
-						"referenceName": "fat_ddls_ingestSource",
+						"referenceName": "pfstage_ingestSource",
 						"type": "DatasetReference",
 						"parameters": {
 							"FolderIngestSource": "send/2023/11/08/selfcare_contract"
@@ -67,7 +67,13 @@
 						"type": "BigDataPoolReference"
 					},
 					"executorSize": "Small",
-					"driverSize": "Small"
+					"conf": {
+						"spark.dynamicAllocation.enabled": null,
+						"spark.dynamicAllocation.minExecutors": null,
+						"spark.dynamicAllocation.maxExecutors": null
+					},
+					"driverSize": "Small",
+					"numExecutors": null
 				}
 			}
 		],
