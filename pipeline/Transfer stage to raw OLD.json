@@ -219,6 +219,42 @@
 									"enablePartitionDiscovery": false
 								}
 							}
+						},
+						{
+							"name": "Filter1_copy1",
+							"type": "Filter",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"items": {
+									"value": "@activity('Get Metadata1').output.childItems",
+									"type": "Expression"
+								},
+								"condition": {
+									"value": "@and(\nequals(item().type, 'File'),\nstartswith(item().name,variables('Generic_ItemFileName'))\n)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Filter1_copy2",
+							"type": "Filter",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"items": {
+									"value": "@activity('Get Metadata1').output.childItems",
+									"type": "Expression"
+								},
+								"condition": {
+									"value": "@and(\nequals(item().type, 'File'),\nstartswith(item().name,variables('Generic_ItemFileName'))\n)",
+									"type": "Expression"
+								}
+							}
 						}
 					]
 				}
