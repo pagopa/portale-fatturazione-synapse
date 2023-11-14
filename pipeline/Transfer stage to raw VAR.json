@@ -227,27 +227,6 @@
 							}
 						},
 						{
-							"name": "Execute IngestSelfCare",
-							"type": "ExecutePipeline",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [],
-							"userProperties": [],
-							"typeProperties": {
-								"pipeline": {
-									"referenceName": "IngestSelfCare",
-									"type": "PipelineReference"
-								},
-								"waitOnCompletion": true,
-								"parameters": {
-									"IngestFileSource": {
-										"value": "@variables('PathFile')",
-										"type": "Expression"
-									}
-								}
-							}
-						},
-						{
 							"name": "IngestSelfCare",
 							"type": "SynapseNotebook",
 							"dependsOn": [
