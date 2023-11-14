@@ -90,8 +90,6 @@
 					{
 						"name": "Lookup1",
 						"type": "Lookup",
-						"state": "Inactive",
-						"onInactiveMarkAs": "Succeeded",
 						"dependsOn": [],
 						"policy": {
 							"timeout": "0.12:00:00",
@@ -897,7 +895,7 @@
 			"apiVersion": "2019-06-01-preview",
 			"properties": {
 				"linkedServiceName": {
-					"referenceName": "pfstage",
+					"referenceName": "fat_adls",
 					"type": "LinkedServiceReference"
 				},
 				"parameters": {
@@ -921,7 +919,7 @@
 				"schema": []
 			},
 			"dependsOn": [
-				"[concat(variables('workspaceId'), '/linkedServices/pfstage')]"
+				"[concat(variables('workspaceId'), '/linkedServices/fat_adls')]"
 			]
 		},
 		{
