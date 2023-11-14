@@ -17,7 +17,7 @@
 		"type": "AzureSqlDWTable",
 		"schema": [],
 		"typeProperties": {
-			"schema": "fat_delta",
+			"schema": "dbo",
 			"table": {
 				"value": "@dataset().TableLake",
 				"type": "Expression"
