@@ -1,5 +1,5 @@
 {
-	"name": "IngestSefCare",
+	"name": "IngestSelfCare",
 	"properties": {
 		"activities": [
 			{
@@ -36,8 +36,46 @@
 						}
 					}
 				}
+			},
+			{
+				"name": "IngestSelfCare",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "Lookup1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "IngestSelfCare",
+						"type": "NotebookReference"
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"driverSize": "Small"
+				}
 			}
 		],
+		"variables": {
+			"Test_source": {
+				"type": "String"
+			}
+		},
 		"annotations": []
 	}
 }

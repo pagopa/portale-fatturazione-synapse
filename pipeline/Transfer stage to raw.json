@@ -214,7 +214,7 @@
 							"userProperties": [],
 							"typeProperties": {
 								"pipeline": {
-									"referenceName": "IngestSefCare",
+									"referenceName": "IngestSelfCare",
 									"type": "PipelineReference"
 								},
 								"waitOnCompletion": true
