@@ -1,0 +1,24 @@
+{
+	"name": "SqlDatabse",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "fat_sql",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"TableSql": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "pfd",
+			"table": {
+				"value": "@dataset().TableSql",
+				"type": "Expression"
+			}
+		}
+	}
+}

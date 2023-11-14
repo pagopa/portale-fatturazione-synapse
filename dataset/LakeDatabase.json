@@ -1,0 +1,27 @@
+{
+	"name": "LakeDatabase",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "fat-d-synw-WorkspaceDefaultSqlServer",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"DBName": "fat_delta"
+			}
+		},
+		"parameters": {
+			"TableLake": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlDWTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "fat_delta",
+			"table": {
+				"value": "@dataset().TableLake",
+				"type": "Expression"
+			}
+		}
+	}
+}
