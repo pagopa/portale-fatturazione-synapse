@@ -225,6 +225,32 @@
 									"type": "Expression"
 								}
 							}
+						},
+						{
+							"name": "Execute IngestSelfCare",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Delete Files in stage",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "IngestSelfCare",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"IngestFileSource": {
+										"value": "@variables('PathFile')",
+										"type": "Expression"
+									}
+								}
+							}
 						}
 					]
 				}
