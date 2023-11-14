@@ -43,6 +43,57 @@
 	},
 	"resources": [
 		{
+			"name": "[concat(parameters('workspaceName'), '/IngestSefCare')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Lookup1",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFolderPath": "send/2023/11/08/selfcare_contract",
+									"wildcardFileName": "*.parquet",
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "ParquetReadSettings"
+								}
+							},
+							"dataset": {
+								"referenceName": "fat_ddls_ingestSource",
+								"type": "DatasetReference",
+								"parameters": {
+									"FolderIngestSource": "send/2023/11/08/selfcare_contract"
+								}
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/fat_ddls_ingestSource')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('workspaceName'), '/Transfer stage to raw OLD')]",
 			"type": "Microsoft.Synapse/workspaces/pipelines",
 			"apiVersion": "2019-06-01-preview",
@@ -517,6 +568,27 @@
 											"enablePartitionDiscovery": false
 										}
 									}
+								},
+								{
+									"name": "Execute Pipeline1",
+									"type": "ExecutePipeline",
+									"dependsOn": [
+										{
+											"activity": "Delete Files in stage",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "IngestSefCare",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {}
+									}
 								}
 							]
 						}
@@ -563,7 +635,8 @@
 			"dependsOn": [
 				"[concat(variables('workspaceId'), '/datasets/fat_d_sql')]",
 				"[concat(variables('workspaceId'), '/datasets/fat_stage_parquet')]",
-				"[concat(variables('workspaceId'), '/datasets/fat_ddls_parquet')]"
+				"[concat(variables('workspaceId'), '/datasets/fat_ddls_parquet')]",
+				"[concat(variables('workspaceId'), '/pipelines/IngestSefCare')]"
 			]
 		},
 		{
@@ -594,6 +667,40 @@
 			},
 			"dependsOn": [
 				"[concat(variables('workspaceId'), '/linkedServices/fat_sql')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/fat_ddls_ingestSource')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "pfstage",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FolderIngestSource": {
+						"type": "string",
+						"defaultValue": "send/2023/11/08/selfcare_contract"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().FolderIngestSource",
+							"type": "Expression"
+						},
+						"fileSystem": "raw"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/pfstage')]"
 			]
 		},
 		{
