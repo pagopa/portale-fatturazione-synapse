@@ -75,7 +75,7 @@
 								}
 							},
 							"dataset": {
-								"referenceName": "fat_ddls_ingestSource",
+								"referenceName": "pfstage_ingestSource",
 								"type": "DatasetReference",
 								"parameters": {
 									"FolderIngestSource": "send/2023/11/08/selfcare_contract"
@@ -134,7 +134,7 @@
 				"annotations": []
 			},
 			"dependsOn": [
-				"[concat(variables('workspaceId'), '/datasets/fat_ddls_ingestSource')]",
+				"[concat(variables('workspaceId'), '/datasets/pfstage_ingestSource')]",
 				"[concat(variables('workspaceId'), '/notebooks/IngestSelfCare')]",
 				"[concat(variables('workspaceId'), '/bigDataPools/sparkcls01')]"
 			]
@@ -716,40 +716,6 @@
 			]
 		},
 		{
-			"name": "[concat(parameters('workspaceName'), '/fat_ddls_ingestSource')]",
-			"type": "Microsoft.Synapse/workspaces/datasets",
-			"apiVersion": "2019-06-01-preview",
-			"properties": {
-				"linkedServiceName": {
-					"referenceName": "pfstage",
-					"type": "LinkedServiceReference"
-				},
-				"parameters": {
-					"FolderIngestSource": {
-						"type": "string",
-						"defaultValue": "send/2023/11/08/selfcare_contract"
-					}
-				},
-				"annotations": [],
-				"type": "Parquet",
-				"typeProperties": {
-					"location": {
-						"type": "AzureBlobFSLocation",
-						"folderPath": {
-							"value": "@dataset().FolderIngestSource",
-							"type": "Expression"
-						},
-						"fileSystem": "raw"
-					},
-					"compressionCodec": "snappy"
-				},
-				"schema": []
-			},
-			"dependsOn": [
-				"[concat(variables('workspaceId'), '/linkedServices/pfstage')]"
-			]
-		},
-		{
 			"name": "[concat(parameters('workspaceName'), '/fat_ddls_parquet')]",
 			"type": "Microsoft.Synapse/workspaces/datasets",
 			"apiVersion": "2019-06-01-preview",
@@ -813,6 +779,40 @@
 			},
 			"dependsOn": [
 				"[concat(variables('workspaceId'), '/linkedServices/fat_stage_sa')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/pfstage_ingestSource')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "fat_adls",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FolderIngestSource": {
+						"type": "string",
+						"defaultValue": "send/2023/11/08/selfcare_contract"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().FolderIngestSource",
+							"type": "Expression"
+						},
+						"fileSystem": "raw"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/fat_adls')]"
 			]
 		},
 		{
