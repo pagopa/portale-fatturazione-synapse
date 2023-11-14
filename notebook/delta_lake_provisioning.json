@@ -21,7 +21,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "743e0826-b87c-41e8-8881-d92a65c7ef5a"
+				"spark.autotune.trackingId": "949b7123-a617-4bfd-9624-3dcbfe488fa8"
 			}
 		},
 		"metadata": {
@@ -213,7 +213,7 @@
 					")\r\n",
 					""
 				],
-				"execution_count": 2
+				"execution_count": 6
 			},
 			{
 				"cell_type": "code",
@@ -245,7 +245,7 @@
 					"    \"\"\"\r\n",
 					")"
 				],
-				"execution_count": null
+				"execution_count": 7
 			},
 			{
 				"cell_type": "code",
@@ -292,7 +292,7 @@
 					"    \"\"\"\r\n",
 					")"
 				],
-				"execution_count": null
+				"execution_count": 8
 			},
 			{
 				"cell_type": "code",
@@ -334,7 +334,7 @@
 					"    \"\"\"\r\n",
 					")"
 				],
-				"execution_count": 2
+				"execution_count": 9
 			},
 			{
 				"cell_type": "code",
@@ -357,7 +357,7 @@
 					"df = spark.createDataFrame(data, [\"TableName\",\"TimeStamp\"])\r\n",
 					"df.write.format(\"delta\").mode(\"append\").insertInto(\"fat_delta.watermark\")"
 				],
-				"execution_count": null
+				"execution_count": 10
 			},
 			{
 				"cell_type": "code",
@@ -382,7 +382,7 @@
 					"    \"\"\"\r\n",
 					")"
 				],
-				"execution_count": 16
+				"execution_count": null
 			}
 		]
 	}
