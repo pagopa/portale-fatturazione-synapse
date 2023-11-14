@@ -2,7 +2,7 @@
 	"name": "pfstage_ingestSource",
 	"properties": {
 		"linkedServiceName": {
-			"referenceName": "fat_adls",
+			"referenceName": "pfstage",
 			"type": "LinkedServiceReference"
 		},
 		"parameters": {
