@@ -49,41 +49,6 @@
 			"properties": {
 				"activities": [
 					{
-						"name": "Lookup1",
-						"type": "Lookup",
-						"dependsOn": [],
-						"policy": {
-							"timeout": "0.12:00:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"source": {
-								"type": "ParquetSource",
-								"storeSettings": {
-									"type": "AzureBlobFSReadSettings",
-									"recursive": true,
-									"wildcardFolderPath": "send/2023/11/08/selfcare_contract",
-									"wildcardFileName": "*.parquet",
-									"enablePartitionDiscovery": false
-								},
-								"formatSettings": {
-									"type": "ParquetReadSettings"
-								}
-							},
-							"dataset": {
-								"referenceName": "pfstage_ingestSource",
-								"type": "DatasetReference",
-								"parameters": {
-									"FolderIngestSource": "send/2023/11/08/selfcare_contract"
-								}
-							}
-						}
-					},
-					{
 						"name": "IngestSelfCare",
 						"type": "SynapseNotebook",
 						"dependsOn": [
@@ -121,6 +86,43 @@
 							"driverSize": "Small",
 							"numExecutors": null
 						}
+					},
+					{
+						"name": "Lookup1",
+						"type": "Lookup",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFolderPath": "send / 2023 / 11 / 08 / selfcare_contract",
+									"wildcardFileName": "*.parquet",
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "ParquetReadSettings"
+								}
+							},
+							"dataset": {
+								"referenceName": "pfstage_ingestSource",
+								"type": "DatasetReference",
+								"parameters": {
+									"FolderIngestSource": "send / 2023 / 11 / 08 / selfcare_contract"
+								}
+							}
+						}
 					}
 				],
 				"policy": {
@@ -134,9 +136,9 @@
 				"annotations": []
 			},
 			"dependsOn": [
-				"[concat(variables('workspaceId'), '/datasets/pfstage_ingestSource')]",
 				"[concat(variables('workspaceId'), '/notebooks/IngestSelfCare')]",
-				"[concat(variables('workspaceId'), '/bigDataPools/sparkcls01')]"
+				"[concat(variables('workspaceId'), '/bigDataPools/sparkcls01')]",
+				"[concat(variables('workspaceId'), '/datasets/pfstage_ingestSource')]"
 			]
 		},
 		{
@@ -614,27 +616,6 @@
 											"enablePartitionDiscovery": false
 										}
 									}
-								},
-								{
-									"name": "Execute Pipeline1",
-									"type": "ExecutePipeline",
-									"dependsOn": [
-										{
-											"activity": "Delete Files in stage",
-											"dependencyConditions": [
-												"Succeeded"
-											]
-										}
-									],
-									"userProperties": [],
-									"typeProperties": {
-										"pipeline": {
-											"referenceName": "IngestSelfCare",
-											"type": "PipelineReference"
-										},
-										"waitOnCompletion": true,
-										"parameters": {}
-									}
 								}
 							]
 						}
@@ -681,8 +662,7 @@
 			"dependsOn": [
 				"[concat(variables('workspaceId'), '/datasets/fat_d_sql')]",
 				"[concat(variables('workspaceId'), '/datasets/fat_stage_parquet')]",
-				"[concat(variables('workspaceId'), '/datasets/fat_ddls_parquet')]",
-				"[concat(variables('workspaceId'), '/pipelines/IngestSelfCare')]"
+				"[concat(variables('workspaceId'), '/datasets/fat_ddls_parquet')]"
 			]
 		},
 		{
@@ -787,7 +767,7 @@
 			"apiVersion": "2019-06-01-preview",
 			"properties": {
 				"linkedServiceName": {
-					"referenceName": "fat_adls",
+					"referenceName": "pfstage",
 					"type": "LinkedServiceReference"
 				},
 				"parameters": {
@@ -811,7 +791,7 @@
 				"schema": []
 			},
 			"dependsOn": [
-				"[concat(variables('workspaceId'), '/linkedServices/fat_adls')]"
+				"[concat(variables('workspaceId'), '/linkedServices/pfstage')]"
 			]
 		},
 		{
@@ -1858,6 +1838,18 @@
 			"dependsOn": [
 				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
 			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Pipeline 1')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": []
 		}
 	]
 }
