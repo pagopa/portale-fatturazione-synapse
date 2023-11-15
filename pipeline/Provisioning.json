@@ -3,8 +3,8 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "LakeToSql",
-				"type": "Copy",
+				"name": "Read Source Schema",
+				"type": "Lookup",
 				"dependsOn": [],
 				"policy": {
 					"timeout": "0.12:00:00",
@@ -16,47 +16,101 @@
 				"userProperties": [],
 				"typeProperties": {
 					"source": {
-						"type": "SqlDWSource",
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT [SchemaInput],[TableInput],\n[SchemaOutput],[TableOutput]\nFROM [cfg].[RawParquet]\nwhere Pipeline = 'Provisioning' and FlagEnabled = 1",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
-					"sink": {
-						"type": "AzureSqlSink",
-						"writeBehavior": "insert",
-						"sqlWriterUseTableLock": false,
-						"tableOption": "autoCreate",
-						"disableMetricsCollection": false
+					"dataset": {
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
 					},
-					"enableStaging": false,
-					"translator": {
-						"type": "TabularTranslator",
-						"typeConversion": true,
-						"typeConversionSettings": {
-							"allowDataTruncation": true,
-							"treatBooleanAsNumber": false
-						}
-					}
-				},
-				"inputs": [
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
 					{
-						"referenceName": "LakeDatabase",
-						"type": "DatasetReference",
-						"parameters": {
-							"TableLake": "contratti",
-							"SchemaLake": "dbo"
-						}
+						"activity": "Read Source Schema",
+						"dependencyConditions": [
+							"Succeeded"
+						]
 					}
 				],
-				"outputs": [
-					{
-						"referenceName": "SqlDatabse",
-						"type": "DatasetReference",
-						"parameters": {
-							"TableSql": "Contratti",
-							"SchemaSql": "pfd"
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Read Source Schema').output.value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "LakeToSql",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlDWSource",
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "AzureSqlSink",
+									"writeBehavior": "insert",
+									"sqlWriterUseTableLock": false,
+									"tableOption": "autoCreate",
+									"disableMetricsCollection": false
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "LakeDatabase",
+									"type": "DatasetReference",
+									"parameters": {
+										"TableLake": {
+											"value": "@item().TableInput",
+											"type": "Expression"
+										},
+										"SchemaLake": "@item().SchemaInput"
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "SqlDatabse",
+									"type": "DatasetReference",
+									"parameters": {
+										"TableSql": {
+											"value": "@item().TableOutput",
+											"type": "Expression"
+										},
+										"SchemaSql": "@item().SchemaOutput"
+									}
+								}
+							]
 						}
-					}
-				]
+					]
+				}
 			}
 		],
 		"annotations": []
