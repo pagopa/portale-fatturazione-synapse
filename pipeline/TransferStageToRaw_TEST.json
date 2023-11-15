@@ -1,5 +1,5 @@
 {
-	"name": "TransferStageToRaw",
+	"name": "TransferStageToRaw_TEST",
 	"properties": {
 		"activities": [
 			{
@@ -26,7 +26,7 @@
 							"type": "Copy",
 							"dependsOn": [
 								{
-									"activity": "PathFile",
+									"activity": "PathFileFull",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -229,6 +229,8 @@
 						{
 							"name": "IngestSelfCare",
 							"type": "SynapseNotebook",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
 									"activity": "Transfer Files to raw",
@@ -263,6 +265,30 @@
 								},
 								"driverSize": "Small",
 								"numExecutors": null
+							}
+						},
+						{
+							"name": "PathFileFull",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "PathFile",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "PathFileFull",
+								"value": {
+									"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),1),4),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),5),2),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),7),2),\n'/',replace(string(item().FolderInput),'send/',''),\n'/',substring(string(variables('FileName')), 12, add(add(indexOf(string(variables('FileName')),'.parquet'),8),-12)))",
+									"type": "Expression"
+								}
 							}
 						}
 					]
