@@ -17,7 +17,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [SchemaInput],[TableInput],\n[SchemaOutput],[TableOutput]\nFROM [cfg].[RawParquet]\nwhere Pipeline = 'Provisioning' and FlagEnabled = 1",
+						"sqlReaderQuery": "SELECT [SchemaInput],[TableInput],\n[SchemaOutput],[TableOutput], [MergeProcedure]\nFROM [cfg].[RawParquet]\nwhere Pipeline = 'Provisioning' and FlagEnabled = 1",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -50,7 +50,14 @@
 						{
 							"name": "LakeToSql",
 							"type": "Copy",
-							"dependsOn": [],
+							"dependsOn": [
+								{
+									"activity": "Read Watermark",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
 							"policy": {
 								"timeout": "0.12:00:00",
 								"retry": 0,
@@ -62,11 +69,19 @@
 							"typeProperties": {
 								"source": {
 									"type": "SqlDWSource",
+									"sqlReaderQuery": {
+										"value": "@concat('SELECT * FROM ',string(item().SchemaInput),'.',string(item().TableInput),' WHERE [LastModified] > ''', '2023-11-14T16:29:12.072','''' )",
+										"type": "Expression"
+									},
 									"queryTimeout": "02:00:00",
 									"partitionOption": "None"
 								},
 								"sink": {
 									"type": "AzureSqlSink",
+									"preCopyScript": {
+										"value": "@{CONCAT('TRUNCATE TABLE ', string(item().SchemaOutput),string(item().TableOutput))}",
+										"type": "Expression"
+									},
 									"writeBehavior": "insert",
 									"sqlWriterUseTableLock": false,
 									"tableOption": "autoCreate",
@@ -108,6 +123,69 @@
 									}
 								}
 							]
+						},
+						{
+							"name": "Stored procedureMerge",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "LakeToSql",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": {
+									"value": "@item().MergeProcedure",
+									"type": "Expression"
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "fat_sql",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Read Watermark",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlDWSource",
+									"sqlReaderQuery": {
+										"value": "@concat('SELECT TOP (100) * FROM [fat_delta].[dbo].[watermark] WHERE TableName = ''',item().TableInput,'''')",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "LakeDatabase",
+									"type": "DatasetReference",
+									"parameters": {
+										"TableLake": "watermark",
+										"SchemaLake": "dbo"
+									}
+								},
+								"firstRowOnly": false
+							}
 						}
 					]
 				}
