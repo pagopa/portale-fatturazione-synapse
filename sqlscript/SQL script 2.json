@@ -1,0 +1,17 @@
+{
+	"name": "SQL script 2",
+	"properties": {
+		"content": {
+			"query": "SELECT TOP (100) [InternalIstitutionId]\n,[institutionType]\n,[description]\n,[digitalAddress]\n,[address]\n,[originId]\n,[zipCode]\n,[istatCode]\n,[city]\n,[country]\n,[county]\n,[subUnitCode]\n,[subUnitType]\n,[paymentServiceProvider]\n,[vatnumber]\n,[publicservices]\n,[LastModified]\n FROM [dbo].[Enti]",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "fat_sqlstage",
+				"poolName": "Built-in"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}
