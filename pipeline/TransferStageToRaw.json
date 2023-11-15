@@ -221,7 +221,7 @@
 							"typeProperties": {
 								"variableName": "PathFile",
 								"value": {
-									"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),1),4),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),5),2),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),7),2),\n'/',replace(string(item().FolderInput),'send/',''),\n'/',substring(string(variables('FileName')), 12, add(add(indexOf(string(variables('FileName')),'.parquet'),8),-12)))",
+									"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),1),4),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),5),2),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),7),2),'/',replace(string(item().FolderInput),'send/',''))",
 									"type": "Expression"
 								}
 							}
