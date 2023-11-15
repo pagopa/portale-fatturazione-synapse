@@ -286,7 +286,7 @@
 							"typeProperties": {
 								"variableName": "PathFileFull",
 								"value": {
-									"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),1),4),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),5),2),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),7),2),\n'/',replace(string(item().FolderInput),'send/',''),\n'/',substring(string(variables('FileName')), 9, add(add(indexOf(string(variables('FileName')),'.parquet'),8),-12)))",
+									"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),1),4),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),5),2),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),7),2),\n'/',replace(string(item().FolderInput),'send/',''),\n'/',substring(string(variables('FileName')), 9, add(add(indexOf(string(variables('FileName')),'.parquet'),8),-9)))",
 									"type": "Expression"
 								}
 							}

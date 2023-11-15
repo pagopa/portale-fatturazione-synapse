@@ -20,7 +20,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "9e7d25b4-3e48-4036-90ab-818631e64315"
+				"spark.autotune.trackingId": "41306586-cf37-4de3-a513-810f06503b01"
 			}
 		},
 		"metadata": {
@@ -104,7 +104,8 @@
 				"source": [
 					"from pyspark.sql import functions as F\r\n",
 					"from delta.tables import *\r\n",
-					"from pyspark.sql.functions import max"
+					"from pyspark.sql.functions import max\r\n",
+					"from datetime import datetime"
 				],
 				"execution_count": 18
 			},
@@ -214,9 +215,12 @@
 					}
 				},
 				"source": [
-					"actualTimeStamp = F.current_timestamp()\r\n",
-					"dfEnti = dfEnti.withColumn(\"LastModified\", actualTimeStamp)\r\n",
-					"dfContratti = dfContratti.withColumn(\"LastModified\", actualTimeStamp)"
+					"#actualTimeStamp = F.current_timestamp()\r\n",
+					"#dfEnti = dfEnti.withColumn(\"LastModified\", actualTimeStamp)\r\n",
+					"#dfContratti = dfContratti.withColumn(\"LastModified\", actualTimeStamp)\r\n",
+					"actualTimeStamp = datetime.now()\r\n",
+					"dfEnti = dfEnti.withColumn(\"LastModified\",  F.lit(actualTimeStamp))\r\n",
+					"dfContratti = dfContratti.withColumn(\"LastModified\",  F.lit(actualTimeStamp))"
 				],
 				"execution_count": 21
 			},
@@ -288,8 +292,11 @@
 				"source": [
 					"watermarkTable =  DeltaTable.forName(spark, \"fat_delta.watermark\")\r\n",
 					"\r\n",
-					"watermarkTable.update(\"TableName = 'enti'\", {\"LastModified\": actualTimeStamp})\r\n",
-					"watermarkTable.update(\"TableName = 'contratti'\", {\"LastModified\": actualTimeStamp})"
+					"#watermarkTable.update(\"TableName = 'enti'\", {\"LastModified\": actualTimeStamp})\r\n",
+					"#watermarkTable.update(\"TableName = 'contratti'\", {\"LastModified\": actualTimeStamp})\r\n",
+					"\r\n",
+					"watermarkTable.update(\"TableName = 'enti'\", {\"LastModified\": F.lit(actualTimeStamp)})\r\n",
+					"watermarkTable.update(\"TableName = 'contratti'\", {\"LastModified\": F.lit(actualTimeStamp)})"
 				],
 				"execution_count": 26
 			}
