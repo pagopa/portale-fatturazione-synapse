@@ -285,7 +285,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [FolderInput]\nFROM [cfg].[RawParquet]",
+						"sqlReaderQuery": "SELECT [FolderInput]\nFROM [cfg].[RawParquet]\nwhere Pipeline = 'TransferStageToRaw'",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
