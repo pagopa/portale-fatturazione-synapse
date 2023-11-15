@@ -70,7 +70,7 @@
 								"source": {
 									"type": "SqlDWSource",
 									"sqlReaderQuery": {
-										"value": "@concat('SELECT * FROM ',string(item().SchemaInput),'.',string(item().TableInput),' WHERE [LastModified] > ''', '2023-11-14T16:29:12.072','''' )",
+										"value": "@concat('SELECT * FROM ',string(item().SchemaInput),'.',string(item().TableInput),' WHERE [LastModified] > ''', activity('Read Watermark').output.LastModified,'''' )",
 										"type": "Expression"
 									},
 									"queryTimeout": "02:00:00",
@@ -170,7 +170,7 @@
 								"source": {
 									"type": "SqlDWSource",
 									"sqlReaderQuery": {
-										"value": "@concat('SELECT TOP (100) * FROM [fat_delta].[dbo].[watermark] WHERE TableName = ''',item().TableInput,'''')",
+										"value": "@concat('SELECT * FROM [fat_delta].[dbo].[watermark] WHERE TableName = ''',item().TableInput,'''')",
 										"type": "Expression"
 									},
 									"queryTimeout": "02:00:00",
