@@ -24,6 +24,8 @@
 						{
 							"name": "Transfer Files to raw",
 							"type": "Copy",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
 									"activity": "PathFileFull",
@@ -138,30 +140,6 @@
 							}
 						},
 						{
-							"name": "FileName",
-							"type": "SetVariable",
-							"dependsOn": [
-								{
-									"activity": "Get FileName",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "FileName",
-								"value": {
-									"value": "@{string(activity('Get FileName').output.childItems[1])}",
-									"type": "Expression"
-								}
-							}
-						},
-						{
 							"name": "Delete Files in stage",
 							"type": "Delete",
 							"state": "Inactive",
@@ -207,7 +185,7 @@
 							"type": "SetVariable",
 							"dependsOn": [
 								{
-									"activity": "FileName",
+									"activity": "Get FileName",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -221,7 +199,7 @@
 							"typeProperties": {
 								"variableName": "PathFile",
 								"value": {
-									"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),1),4),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),5),2),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),7),2),'/',replace(string(item().FolderInput),'send/',''))",
+									"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),1),4),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),5),2),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),7),2),'/',replace(string(item().FolderInput),'send/',''))",
 									"type": "Expression"
 								}
 							}
@@ -286,7 +264,7 @@
 							"typeProperties": {
 								"variableName": "PathFileFull",
 								"value": {
-									"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),1),4),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),5),2),\n'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),7),2),\n'/',replace(string(item().FolderInput),'send/',''),\n'/',substring(string(variables('FileName')), 9, add(add(indexOf(string(variables('FileName')),'.parquet'),8),-9)))",
+									"value": "@string(activity('Get FileName').output.childItems[1].name)",
 									"type": "Expression"
 								}
 							}
