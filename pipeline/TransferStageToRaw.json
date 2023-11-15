@@ -229,8 +229,6 @@
 						{
 							"name": "IngestSelfCare",
 							"type": "SynapseNotebook",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
 									"activity": "Transfer Files to raw",
