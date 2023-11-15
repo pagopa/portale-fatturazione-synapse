@@ -8,13 +8,19 @@
 		"parameters": {
 			"TableSql": {
 				"type": "string"
+			},
+			"SchemaSql": {
+				"type": "string"
 			}
 		},
 		"annotations": [],
 		"type": "AzureSqlTable",
 		"schema": [],
 		"typeProperties": {
-			"schema": "pfd",
+			"schema": {
+				"value": "@dataset().SchemaSql",
+				"type": "Expression"
+			},
 			"table": {
 				"value": "@dataset().TableSql",
 				"type": "Expression"

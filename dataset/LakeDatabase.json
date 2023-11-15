@@ -2,7 +2,7 @@
 	"name": "LakeDatabase",
 	"properties": {
 		"linkedServiceName": {
-			"referenceName": "fat-d-synw-WorkspaceDefaultSqlServer",
+			"referenceName": "fat_delta",
 			"type": "LinkedServiceReference",
 			"parameters": {
 				"DBName": "fat_delta"
@@ -11,13 +11,19 @@
 		"parameters": {
 			"TableLake": {
 				"type": "string"
+			},
+			"SchemaLake": {
+				"type": "string"
 			}
 		},
 		"annotations": [],
 		"type": "AzureSqlDWTable",
 		"schema": [],
 		"typeProperties": {
-			"schema": "dbo",
+			"schema": {
+				"value": "@dataset().SchemaLake",
+				"type": "Expression"
+			},
 			"table": {
 				"value": "@dataset().TableLake",
 				"type": "Expression"
