@@ -168,7 +168,7 @@
 							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
-									"activity": "IngestSelfCare",
+									"activity": "IngestSelfCare_History",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -248,6 +248,45 @@
 							"typeProperties": {
 								"notebook": {
 									"referenceName": "IngestSelfCare",
+									"type": "NotebookReference"
+								},
+								"snapshot": true,
+								"sparkPool": {
+									"referenceName": "sparkcls01",
+									"type": "BigDataPoolReference"
+								},
+								"executorSize": "Small",
+								"conf": {
+									"spark.dynamicAllocation.enabled": null,
+									"spark.dynamicAllocation.minExecutors": null,
+									"spark.dynamicAllocation.maxExecutors": null
+								},
+								"driverSize": "Small",
+								"numExecutors": null
+							}
+						},
+						{
+							"name": "IngestSelfCare_History",
+							"type": "SynapseNotebook",
+							"dependsOn": [
+								{
+									"activity": "IngestSelfCare",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"notebook": {
+									"referenceName": "IngestSelfCare_History",
 									"type": "NotebookReference"
 								},
 								"snapshot": true,
