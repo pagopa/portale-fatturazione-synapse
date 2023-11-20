@@ -58,7 +58,7 @@
 								},
 								"ifTrueActivities": [
 									{
-										"name": "Execute Pipeline1",
+										"name": "Execute Selfcare-Transfer",
 										"type": "ExecutePipeline",
 										"dependsOn": [],
 										"userProperties": [],
