@@ -1,5 +1,5 @@
 {
-	"name": "TransferStageToRaw_TEST",
+	"name": "TransferStageToRaw_TEST_OLD_TODELETE",
 	"properties": {
 		"activities": [
 			{
@@ -331,6 +331,9 @@
 			"PathFileFull": {
 				"type": "String"
 			}
+		},
+		"folder": {
+			"name": "OLD"
 		},
 		"annotations": [],
 		"lastPublishTime": "2023-11-10T11:49:13Z"
