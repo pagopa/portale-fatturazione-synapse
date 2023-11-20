@@ -230,7 +230,10 @@
 								},
 								"parameters": {
 									"sourcefile": {
-										"value": "abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/08/selfcare_contract/selfcare_contract_20231108.parquet",
+										"value": {
+											"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFile'),'/',variables('PathFileFull'))",
+											"type": "Expression"
+										},
 										"type": "string"
 									}
 								},
@@ -332,7 +335,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [FolderInput]\nFROM [cfg].[RawParquet]\nwhere Pipeline = 'TransferStageToRaw' and FlagEnabled = 1",
+						"sqlReaderQuery": "SELECT [FolderInput]\nFROM [cfg].[RawParquet]\nwhere Pipeline = 'TransferStageToRaw' and FlagEnabled = 1 and FolderInput = 'send/selfcare_contract'",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
