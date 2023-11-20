@@ -20,7 +20,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "41306586-cf37-4de3-a513-810f06503b01"
+				"spark.autotune.trackingId": "c28f0a1f-124c-45e9-8184-a29a3340b1c7"
 			}
 		},
 		"metadata": {
@@ -66,6 +66,11 @@
 			},
 			{
 				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
 				"source": [
 					"#Variables\r\n",
 					"tableNameEnti = 'fat_delta.enti'\r\n",
