@@ -42,7 +42,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"items": {
-						"value": "@activity('Read Source Path').output.value",
+						"value": "@activity('Read Activities').output.value",
 						"type": "Expression"
 					},
 					"activities": [
