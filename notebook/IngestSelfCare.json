@@ -20,7 +20,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "b7be008e-1c3d-4164-87a5-a4d518cab403"
+				"spark.autotune.trackingId": "0677aadd-a0af-452f-8849-bb2821e7486e"
 			}
 		},
 		"metadata": {
@@ -45,7 +45,8 @@
 				"sparkVersion": "3.3",
 				"nodeCount": 10,
 				"cores": 4,
-				"memory": 28
+				"memory": 28,
+				"automaticScaleJobs": true
 			},
 			"sessionKeepAliveTimeout": 30
 		},
@@ -75,7 +76,8 @@
 					"tableNameEnti = 'fat_delta.enti'\r\n",
 					"tableNameContratti = 'fat_delta.contratti'\r\n",
 					"linked_service_name = 'nomeLinkedService'\r\n",
-					"sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/08/selfcare_contract/selfcare_contract_20231108.parquet'"
+					"#sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/08/selfcare_contract/selfcare_contract_20231108.parquet'\r\n",
+					"#sourcefile = 'abfss://rawfatddls.dfs.core.windows.net/send/2023/11/08/selfcare_contract/selfcare_contract_20231108.parquet'"
 				],
 				"execution_count": 1
 			},
