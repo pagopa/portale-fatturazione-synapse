@@ -20,7 +20,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "90834de7-98bd-4ad7-88d5-033fad94b1bf"
+				"spark.autotune.trackingId": "48d34918-1f7b-48ad-88fb-46ce6c4314f1"
 			}
 		},
 		"metadata": {
@@ -62,7 +62,7 @@
 					"sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/08/selfcare_contract/selfcare_contract_20231108.parquet'\r\n",
 					""
 				],
-				"execution_count": 3
+				"execution_count": 1
 			},
 			{
 				"cell_type": "code",
@@ -112,9 +112,40 @@
 					"\r\n",
 					"# Create a new column for insertion timestamp\r\n",
 					"insertionTimestamp = datetime.now()\r\n",
-					"dfNewFile = dfNewFile.withColumn(\"InsertionTimestamp\", lit(insertionTimestamp)).withColumn(\"SourceFile\", lit(sourcefile))"
+					"dfNewFile = dfNewFile.withColumn(\"InsertionTimestamp\", lit(insertionTimestamp)).withColumn(\"SourceFile\", lit(sourcefile))\r\n",
+					"\r\n",
+					"#print(dtTmp.count())\r\n",
+					"dfTmp = dfNewFile.filter(\"state = 'ACTIVE'\")\r\n",
+					"\r\n",
+					"#print(dtTmp.count())\r\n",
+					"dfAgg = dfTmp.groupBy(\"internalistitutionid\", \"product\").agg(max(\"updatedat\").alias(\"max_date\"))\r\n",
+					"\r\n",
+					"#dfTmp = dfTmp.join(dfAgg,(dfTmp[\"internalistitutionid\"]==dfAgg[\"internalistitutionid\"]) & (dfTmp[\"createdat\"]== dfAgg[\"max_date\"]) & (dfTmp[\"product\"] == dfAgg[\"product\"]))\r\n",
+					"#dfTmp = dfTmp.drop(dfAgg[\"internalistitutionid\"]).drop(dfAgg[\"max_date\"]).drop(dfAgg[\"product\"])\r\n",
+					"#print(dtTmp.count())\r\n",
+					"\r\n",
+					""
 				],
-				"execution_count": 4
+				"execution_count": 11
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"print(dfNewFile.dtypes)\r\n",
+					"print(dfEntiHistory.dtypes)"
+				],
+				"execution_count": 5
 			},
 			{
 				"cell_type": "code",
@@ -131,9 +162,9 @@
 				},
 				"source": [
 					"# Select columns for history tables\r\n",
-					"dfEntiHistory = dfNewFile.select(\"internalistitutionid\", \"institution.institutionType\", \"institution.description\", \"institution.digitalAddress\", \"institution.address\", \"institution.originId\", \"institution.zipCode\", \"institution.istatCode\", \"institution.city\", \"institution.country\", \"institution.county\", \"institution.subUnitCode\", \"institution.subUnitType\", \"institution.paymentServiceProvider\", \"billing.vatnumber\", \"billing.publicservices\", \"InsertionTimestamp\", \"SourceFile\")\r\n",
+					"dfEntiHistory = dfTmp.select(\"internalistitutionid\", \"institution.institutionType\", \"institution.description\", \"institution.digitalAddress\", \"institution.address\", \"institution.originId\", \"institution.zipCode\", \"institution.istatCode\", \"institution.city\", \"institution.country\", \"institution.county\", \"institution.subUnitCode\", \"institution.subUnitType\", \"institution.paymentServiceProvider\", \"billing.vatnumber\", \"billing.publicservices\", \"InsertionTimestamp\", \"SourceFile\")\r\n",
 					"\r\n",
-					"dfContrattiHistory = dfNewFile.select(\"internalistitutionid\", \"product\", \"filename\", \"onboardingtokenid\", \"pricingplan\", \"updatedat\", \"createdat\", \"closedat\", \"year\", \"month\", \"daily\", \"InsertionTimestamp\", \"SourceFile\")\r\n",
+					"dfContrattiHistory = dfTmp.select(\"internalistitutionid\", \"product\", \"filename\", \"onboardingtokenid\", \"pricingplan\", \"updatedat\", \"createdat\", \"closedat\", \"year\", \"month\", \"daily\", \"InsertionTimestamp\", \"SourceFile\")\r\n",
 					"\r\n",
 					"# Write to delta history tables\r\n",
 					"dfEntiHistory.write.format(\"delta\").mode(\"append\").saveAsTable(tableNameEntiHistory)\r\n",
@@ -141,7 +172,7 @@
 					"\r\n",
 					""
 				],
-				"execution_count": 5
+				"execution_count": 7
 			}
 		]
 	}

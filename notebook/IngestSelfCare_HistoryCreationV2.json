@@ -1,5 +1,5 @@
 {
-	"name": "IngestSelfCare",
+	"name": "IngestSelfCare_HistoryCreationV2",
 	"properties": {
 		"folder": {
 			"name": "Ingestion"
@@ -20,7 +20,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "b7be008e-1c3d-4164-87a5-a4d518cab403"
+				"spark.autotune.trackingId": "a30efbc9-ff25-413d-9b51-62952f32b5fd"
 			}
 		},
 		"metadata": {
@@ -73,8 +73,8 @@
 				},
 				"source": [
 					"#Variables\r\n",
-					"tableNameEnti = 'fat_delta.enti'\r\n",
-					"tableNameContratti = 'fat_delta.contratti'\r\n",
+					"tableNameEnti = 'fat_delta.enti_history'\r\n",
+					"tableNameContratti = 'fat_delta.contratti_history'\r\n",
 					"linked_service_name = 'nomeLinkedService'\r\n",
 					"sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/08/selfcare_contract/selfcare_contract_20231108.parquet'"
 				],
@@ -112,7 +112,7 @@
 					"from pyspark.sql.functions import max\r\n",
 					"from datetime import datetime"
 				],
-				"execution_count": null
+				"execution_count": 2
 			},
 			{
 				"cell_type": "markdown",
@@ -144,7 +144,7 @@
 					"tDeltaEnti = DeltaTable.forName(spark, tableNameEnti)\r\n",
 					"tDeltaContratti = DeltaTable.forName(spark, tableNameContratti)"
 				],
-				"execution_count": null
+				"execution_count": 3
 			},
 			{
 				"cell_type": "markdown",
@@ -191,7 +191,7 @@
 					"dfEnti = dfTmp.select(\"internalistitutionid\",\"institution.institutionType\",\"institution.description\", \"institution.digitalAddress\", \"institution.address\", \"institution.originId\", \"institution.zipCode\", \"institution.istatCode\", \"institution.city\", \"institution.country\", \"institution.county\", \"institution.subUnitCode\", \"institution.subUnitType\", \"institution.paymentServiceProvider\", \"billing.vatnumber\", \"billing.publicservices\")\r\n",
 					"dfContratti = dfTmp.select(\"internalistitutionid\", \"product\", \"filename\", \"onboardingtokenid\", \"pricingplan\", \"updatedat\", \"createdat\", \"closedat\", \"year\", \"month\", \"daily\")"
 				],
-				"execution_count": null
+				"execution_count": 4
 			},
 			{
 				"cell_type": "markdown",
@@ -224,10 +224,14 @@
 					"#dfEnti = dfEnti.withColumn(\"LastModified\", actualTimeStamp)\r\n",
 					"#dfContratti = dfContratti.withColumn(\"LastModified\", actualTimeStamp)\r\n",
 					"actualTimeStamp = datetime.now()\r\n",
-					"dfEnti = dfEnti.withColumn(\"LastModified\",  F.lit(actualTimeStamp))\r\n",
-					"dfContratti = dfContratti.withColumn(\"LastModified\",  F.lit(actualTimeStamp))"
+					"dfEnti = dfEnti.withColumn(\"insertionTimestamp\",  F.lit(actualTimeStamp))\r\n",
+					"dfContratti = dfContratti.withColumn(\"insertionTimestamp\",  F.lit(actualTimeStamp))\r\n",
+					"\r\n",
+					"\r\n",
+					"dfEnti = dfEnti.withColumn(\"SourceFile\",  F.lit(sourcefile))\r\n",
+					"dfContratti = dfContratti.withColumn(\"SourceFile\",  F.lit(sourcefile))"
 				],
-				"execution_count": null
+				"execution_count": 5
 			},
 			{
 				"cell_type": "markdown",
@@ -256,54 +260,13 @@
 					}
 				},
 				"source": [
-					"mergedDfEnti = tDeltaEnti.alias(\"target\").merge(\r\n",
-					"    dfEnti.alias(\"source\"),\r\n",
-					"    \"target.internalistitutionid = source.internalistitutionid\"\r\n",
-					").whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()\r\n",
 					"\r\n",
-					"mergedDfContratti = tDeltaContratti.alias(\"target\").merge(\r\n",
-					"    dfContratti.alias(\"source\"),\r\n",
-					"    \"target.internalistitutionid = source.internalistitutionid AND target.product = source.product\"\r\n",
-					").whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()"
+					"dfEnti.write.format(\"delta\").mode(\"append\").saveAsTable(tableNameEnti)\r\n",
+					"dfContratti.write.format(\"delta\").mode(\"append\").saveAsTable(tableNameContratti)\r\n",
+					"\r\n",
+					""
 				],
-				"execution_count": null
-			},
-			{
-				"cell_type": "markdown",
-				"metadata": {
-					"nteract": {
-						"transient": {
-							"deleting": false
-						}
-					}
-				},
-				"source": [
-					"# Update watermark table"
-				]
-			},
-			{
-				"cell_type": "code",
-				"metadata": {
-					"jupyter": {
-						"source_hidden": false,
-						"outputs_hidden": false
-					},
-					"nteract": {
-						"transient": {
-							"deleting": false
-						}
-					}
-				},
-				"source": [
-					"watermarkTable =  DeltaTable.forName(spark, \"fat_delta.watermark\")\r\n",
-					"\r\n",
-					"#watermarkTable.update(\"TableName = 'enti'\", {\"LastModified\": actualTimeStamp})\r\n",
-					"#watermarkTable.update(\"TableName = 'contratti'\", {\"LastModified\": actualTimeStamp})\r\n",
-					"\r\n",
-					"watermarkTable.update(\"TableName = 'enti'\", {\"LastModified\": F.lit(actualTimeStamp)})\r\n",
-					"watermarkTable.update(\"TableName = 'contratti'\", {\"LastModified\": F.lit(actualTimeStamp)})"
-				],
-				"execution_count": null
+				"execution_count": 7
 			}
 		]
 	}
