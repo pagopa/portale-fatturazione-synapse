@@ -352,19 +352,6 @@
 						"type": "ParquetReadSettings"
 					}
 				}
-			},
-			{
-				"name": "ForEachFile",
-				"type": "ForEach",
-				"dependsOn": [
-					{
-						"activity": "Get FilesInFolder",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"userProperties": []
 			}
 		],
 		"variables": {
