@@ -1,0 +1,37 @@
+{
+	"name": "InitializeEnvironment",
+	"properties": {
+		"activities": [
+			{
+				"name": "data_lake_provisioning",
+				"type": "SynapseNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "delta_lake_provisioning",
+						"type": "NotebookReference"
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"driverSize": "Small"
+				}
+			}
+		],
+		"folder": {
+			"name": "Provisioning"
+		},
+		"annotations": []
+	}
+}
