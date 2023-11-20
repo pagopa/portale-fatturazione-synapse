@@ -146,7 +146,7 @@
 							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
-									"activity": "IngestSelfCare_History ",
+									"activity": "IngestSelfCare_History",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -207,8 +207,6 @@
 						{
 							"name": "IngestSelfCare",
 							"type": "SynapseNotebook",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
 									"activity": "Transfer Files to raw",
@@ -229,6 +227,12 @@
 								"notebook": {
 									"referenceName": "IngestSelfCare",
 									"type": "NotebookReference"
+								},
+								"parameters": {
+									"sourcefile": {
+										"value": "abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/08/selfcare_contract/selfcare_contract_20231108.parquet",
+										"type": "string"
+									}
 								},
 								"snapshot": true,
 								"sparkPool": {
