@@ -1,0 +1,148 @@
+{
+	"name": "IngestSelfCareHistoryCreation",
+	"properties": {
+		"folder": {
+			"name": "Ingestion"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "0b3c8580-8efe-4430-9d54-22c7f6ca7d85"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": true
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"# Parameters\r\n",
+					"# Variables\r\n",
+					"tableNameEntiHistory = 'fat_delta.enti_history'\r\n",
+					"tableNameContrattiHistory = 'fat_delta.contratti_history'\r\n",
+					"linked_service_name = 'nomeLinkedService'\r\n",
+					"sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/08/selfcare_contract/selfcare_contract_20231108.parquet'\r\n",
+					""
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"\r\n",
+					"# Import libraries\r\n",
+					"from pyspark.sql import functions as F\r\n",
+					"from delta.tables import *\r\n",
+					"from pyspark.sql.functions import lit\r\n",
+					"from datetime import datetime\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Load delta tables\r\n",
+					"tDeltaEntiHistory = DeltaTable.forName(spark, tableNameEntiHistory)\r\n",
+					"tDeltaContrattiHistory = DeltaTable.forName(spark, tableNameContrattiHistory)\r\n",
+					"\r\n",
+					"# Load and process source file\r\n",
+					"dfNewFile = spark.read.format(\"parquet\").load(sourcefile)\r\n",
+					"\r\n",
+					"# Create a new column for insertion timestamp\r\n",
+					"insertionTimestamp = datetime.now()\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"InsertionTimestamp\", lit(insertionTimestamp)).withColumn(\"SourceFile\", lit(sourcefile))"
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Select columns for history tables\r\n",
+					"dfEntiHistory = dfNewFile.select(\"internalistitutionid\", \"institution.institutionType\", \"institution.description\", \"institution.digitalAddress\", \"institution.address\", \"institution.originId\", \"institution.zipCode\", \"institution.istatCode\", \"institution.city\", \"institution.country\", \"institution.county\", \"institution.subUnitCode\", \"institution.subUnitType\", \"institution.paymentServiceProvider\", \"billing.vatnumber\", \"billing.publicservices\", \"InsertionTimestamp\", \"SourceFile\")\r\n",
+					"\r\n",
+					"dfContrattiHistory = dfNewFile.select(\"internalistitutionid\", \"product\", \"filename\", \"onboardingtokenid\", \"pricingplan\", \"updatedat\", \"createdat\", \"closedat\", \"year\", \"month\", \"daily\", \"InsertionTimestamp\", \"SourceFile\")\r\n",
+					"\r\n",
+					"# Write to delta history tables\r\n",
+					"#dfEntiHistory.write.format(\"delta\").mode(\"append\").saveAsTable(tableNameEntiHistory)\r\n",
+					"dfContrattiHistory.write.format(\"delta\").mode(\"append\").saveAsTable(tableNameContrattiHistory)\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": 6
+			}
+		]
+	}
+}
