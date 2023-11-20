@@ -1,5 +1,5 @@
 {
-	"name": "delta_lake_provisioning",
+	"name": "DeltaLakeProvisioning",
 	"properties": {
 		"folder": {
 			"name": "Provisioning"
@@ -21,7 +21,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "966f2542-26fb-48d7-99d7-168321852c03"
+				"spark.autotune.trackingId": "25c311b9-3ddd-4207-8675-9ea6b575bc3a"
 			}
 		},
 		"metadata": {
