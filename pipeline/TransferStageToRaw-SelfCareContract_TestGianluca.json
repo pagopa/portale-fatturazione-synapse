@@ -322,6 +322,9 @@
 			},
 			"PathFileFull": {
 				"type": "String"
+			},
+			"VarForEach": {
+				"type": "String"
 			}
 		},
 		"annotations": [],
