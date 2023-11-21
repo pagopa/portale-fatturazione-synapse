@@ -9,7 +9,7 @@
 				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
-						"activity": "PathFileFull",
+						"activity": "File Name",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -234,7 +234,7 @@
 				}
 			},
 			{
-				"name": "Get FileName",
+				"name": "Source Path",
 				"type": "GetMetadata",
 				"dependsOn": [],
 				"policy": {
@@ -257,8 +257,7 @@
 						}
 					},
 					"fieldList": [
-						"childItems",
-						"itemName"
+						"childItems"
 					],
 					"storeSettings": {
 						"type": "AzureBlobStorageReadSettings",
@@ -271,11 +270,11 @@
 				}
 			},
 			{
-				"name": "PathFile",
+				"name": "Child Items Name",
 				"type": "SetVariable",
 				"dependsOn": [
 					{
-						"activity": "Get FileName",
+						"activity": "Source Path",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -289,16 +288,14 @@
 				"typeProperties": {
 					"variableName": "Child Items Name",
 					"value": {
-						"value": "@activity('Get FileName').output.childItems[1]",
+						"value": "@activity('Source Path').output.childItems[1]",
 						"type": "Expression"
 					}
 				}
 			},
 			{
-				"name": "PathFileFull",
+				"name": "File Name",
 				"type": "SetVariable",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Get Child Items FileName",
@@ -313,9 +310,9 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"variableName": "PathFileFull",
+					"variableName": "File Name",
 					"value": {
-						"value": "@string(activity('Get FileName').output.childItems[1].name)",
+						"value": "@activity('Get Child Items FileName').output.pipelineReturnValue",
 						"type": "Expression"
 					}
 				}
@@ -325,7 +322,7 @@
 				"type": "GetMetadata",
 				"dependsOn": [
 					{
-						"activity": "PathFile",
+						"activity": "Child Items Name",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -345,7 +342,7 @@
 						"type": "DatasetReference",
 						"parameters": {
 							"PathFolderFile": {
-								"value": "@variables('Child Items Name')",
+								"value": "@string(variables('Child Items Name'))",
 								"type": "Expression"
 							}
 						}
@@ -376,6 +373,9 @@
 				"type": "String"
 			},
 			"Child Items Name": {
+				"type": "String"
+			},
+			"File Name": {
 				"type": "String"
 			}
 		},
