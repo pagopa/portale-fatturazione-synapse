@@ -91,6 +91,9 @@
 		"variables": {
 			"Source Path": {
 				"type": "String"
+			},
+			"Path Name": {
+				"type": "String"
 			}
 		},
 		"annotations": []

@@ -257,7 +257,8 @@
 						}
 					},
 					"fieldList": [
-						"childItems"
+						"childItems",
+						"itemName"
 					],
 					"storeSettings": {
 						"type": "AzureBlobStorageReadSettings",
@@ -270,7 +271,7 @@
 				}
 			},
 			{
-				"name": "Child Items Name",
+				"name": "Path Name",
 				"type": "SetVariable",
 				"dependsOn": [
 					{
@@ -286,9 +287,9 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"variableName": "Child Items Name",
+					"variableName": "Path Name",
 					"value": {
-						"value": "@string(activity('Source Path').output)",
+						"value": "@string(activity('Source Path').output.itemName)",
 						"type": "Expression"
 					}
 				}
@@ -322,7 +323,7 @@
 				"type": "GetMetadata",
 				"dependsOn": [
 					{
-						"activity": "Child Items Name",
+						"activity": "Path Name",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -342,7 +343,7 @@
 						"type": "DatasetReference",
 						"parameters": {
 							"PathFolderFile": {
-								"value": "@variables('Child Items Name')",
+								"value": "@variables('Path Name')",
 								"type": "Expression"
 							}
 						}
@@ -376,6 +377,9 @@
 				"type": "String"
 			},
 			"File Name": {
+				"type": "String"
+			},
+			"Path Name": {
 				"type": "String"
 			}
 		},
