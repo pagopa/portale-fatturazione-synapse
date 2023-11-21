@@ -28,7 +28,7 @@
 							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
-									"activity": "PathFile_copy1",
+									"activity": "PathFile_copy2",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -247,7 +247,31 @@
 							"typeProperties": {
 								"variableName": "PathFile",
 								"value": {
-									"value": "@item().value",
+									"value": "@item().name",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "PathFile_copy2",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "PathFile_copy1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "PathFile",
+								"value": {
+									"value": "@concat(substring(string(pipeline().parameters.TestFolderInput),0,indexOf(string(pipeline().parameters.TestFolderInput),'/')),'/',substring(string(activity('Get FileName').output.childItems),add(indexOf(string(activity('Get FileName').output.childItems),'_20'),1),4),'/',substring(string(activity('Get FileName').output.childItems),add(indexOf(string(activity('Get FileName').output.childItems),'_20'),5),2),'/',substring(string(activity('Get FileName').output.childItems),add(indexOf(string(activity('Get FileName').output.childItems),'_20'),7),2),'/',replace(string(pipeline().parameters.TestFolderInput),'send/',''))",
 									"type": "Expression"
 								}
 							}
