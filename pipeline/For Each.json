@@ -33,6 +33,12 @@
 				"type": "ForEach",
 				"dependsOn": [
 					{
+						"activity": "Read Source Path",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
 						"activity": "Source Path",
 						"dependencyConditions": [
 							"Succeeded"
@@ -42,7 +48,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"items": {
-						"value": "@variables('Source Path')",
+						"value": "@activity('Read Source Path').output.value",
 						"type": "Expression"
 					},
 					"isSequential": true,
