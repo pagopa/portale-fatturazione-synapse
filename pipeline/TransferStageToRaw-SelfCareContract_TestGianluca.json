@@ -7,7 +7,7 @@
 				"type": "ForEach",
 				"dependsOn": [
 					{
-						"activity": "Get FileName",
+						"activity": "PathFile",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -145,23 +145,6 @@
 							}
 						},
 						{
-							"name": "PathFile",
-							"type": "SetVariable",
-							"dependsOn": [],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "PathFile",
-								"value": {
-									"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),1),4),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),5),2),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),7),2),'/',replace(string(item().FolderInput),'send/',''))",
-									"type": "Expression"
-								}
-							}
-						},
-						{
 							"name": "IngestSelfCare",
 							"type": "SynapseNotebook",
 							"state": "Inactive",
@@ -214,14 +197,7 @@
 						{
 							"name": "PathFileFull",
 							"type": "SetVariable",
-							"dependsOn": [
-								{
-									"activity": "PathFile",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
+							"dependsOn": [],
 							"policy": {
 								"secureOutput": false,
 								"secureInput": false
@@ -275,42 +251,6 @@
 								"driverSize": "Small",
 								"numExecutors": null
 							}
-						},
-						{
-							"name": "Get FileName_copy1",
-							"type": "GetMetadata",
-							"dependsOn": [],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"dataset": {
-									"referenceName": "fat_stage_parquet",
-									"type": "DatasetReference",
-									"parameters": {
-										"PathFolderFile": {
-											"value": "@item().FolderInput",
-											"type": "Expression"
-										}
-									}
-								},
-								"fieldList": [
-									"childItems"
-								],
-								"storeSettings": {
-									"type": "AzureBlobStorageReadSettings",
-									"recursive": true,
-									"enablePartitionDiscovery": false
-								},
-								"formatSettings": {
-									"type": "ParquetReadSettings"
-								}
-							}
 						}
 					]
 				}
@@ -318,14 +258,7 @@
 			{
 				"name": "Get FileName",
 				"type": "GetMetadata",
-				"dependsOn": [
-					{
-						"activity": "Read Source Path",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
+				"dependsOn": [],
 				"policy": {
 					"timeout": "0.12:00:00",
 					"retry": 0,
@@ -340,7 +273,7 @@
 						"type": "DatasetReference",
 						"parameters": {
 							"PathFolderFile": {
-								"value": "@activity('Read Source Path').output.value",
+								"value": "@string(activity('Read Source Path').output.value[0].FolderInput)",
 								"type": "Expression"
 							}
 						}
@@ -359,36 +292,31 @@
 				}
 			},
 			{
-				"name": "Read Source Path",
-				"type": "Lookup",
-				"dependsOn": [],
+				"name": "PathFile",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Get FileName",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
 				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
 					"secureOutput": false,
 					"secureInput": false
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"source": {
-						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [FolderInput]\nFROM [cfg].[RawParquet]\nwhere Pipeline = 'TransferStageToRaw' and FlagEnabled = 1 and FolderInput = 'send/selfcare_contract'",
-						"queryTimeout": "02:00:00",
-						"partitionOption": "None"
-					},
-					"dataset": {
-						"referenceName": "fat_d_sql",
-						"type": "DatasetReference"
-					},
-					"firstRowOnly": false
+					"variableName": "PathFile",
+					"value": {
+						"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),1),4),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),5),2),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),7),2),'/',replace(string(item().FolderInput),'send/',''))",
+						"type": "Expression"
+					}
 				}
 			}
 		],
 		"variables": {
-			"FileName": {
-				"type": "String"
-			},
 			"PathFile": {
 				"type": "String"
 			},
