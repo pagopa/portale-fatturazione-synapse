@@ -288,7 +288,7 @@
 				"typeProperties": {
 					"variableName": "Child Items Name",
 					"value": {
-						"value": "@activity('Source Path').output.childItems[1]",
+						"value": "@string(activity('Source Path').output.childItems[1])",
 						"type": "Expression"
 					}
 				}
@@ -312,7 +312,7 @@
 				"typeProperties": {
 					"variableName": "File Name",
 					"value": {
-						"value": "@activity('Get Child Items FileName').output.pipelineReturnValue",
+						"value": "@string(activity('Get Child Items FileName').output.pipelineReturnValue)",
 						"type": "Expression"
 					}
 				}
@@ -342,7 +342,7 @@
 						"type": "DatasetReference",
 						"parameters": {
 							"PathFolderFile": {
-								"value": "@string(variables('Child Items Name'))",
+								"value": "@variables('Child Items Name')",
 								"type": "Expression"
 							}
 						}
