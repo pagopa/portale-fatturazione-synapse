@@ -5,6 +5,8 @@
 			{
 				"name": "Loop",
 				"type": "ForEach",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "PathFileFull",
@@ -249,7 +251,7 @@
 						"type": "DatasetReference",
 						"parameters": {
 							"PathFolderFile": {
-								"value": "@string(variables('VarForEach'))",
+								"value": "@string(variables('Source Path'))",
 								"type": "Expression"
 							}
 						}
@@ -270,6 +272,8 @@
 			{
 				"name": "PathFile",
 				"type": "SetVariable",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Get FileName",
@@ -294,6 +298,8 @@
 			{
 				"name": "PathFileFull",
 				"type": "SetVariable",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "PathFile",
@@ -324,6 +330,9 @@
 				"type": "String"
 			},
 			"VarForEach": {
+				"type": "String"
+			},
+			"Source Path": {
 				"type": "String"
 			}
 		},
