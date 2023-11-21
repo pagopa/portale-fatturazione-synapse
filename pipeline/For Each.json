@@ -82,7 +82,7 @@
 				"typeProperties": {
 					"variableName": "Source Path",
 					"value": {
-						"value": "@activity('Read Source Path').output.value",
+						"value": "@string(activity('Read Source Path').output.value)",
 						"type": "Expression"
 					}
 				}
