@@ -48,7 +48,7 @@
 					"isSequential": true,
 					"activities": [
 						{
-							"name": "Execute TransferStageToRaw",
+							"name": "Execute Pipeline1",
 							"type": "ExecutePipeline",
 							"dependsOn": [
 								{
@@ -64,7 +64,13 @@
 									"referenceName": "TransferStageToRaw-SelfCareContract_TestGianluca",
 									"type": "PipelineReference"
 								},
-								"waitOnCompletion": true
+								"waitOnCompletion": true,
+								"parameters": {
+									"TestFolderInput": {
+										"value": "@variables('Source Path')",
+										"type": "Expression"
+									}
+								}
 							}
 						},
 						{
@@ -90,9 +96,6 @@
 		],
 		"variables": {
 			"Source Path": {
-				"type": "String"
-			},
-			"Path Name": {
 				"type": "String"
 			}
 		},

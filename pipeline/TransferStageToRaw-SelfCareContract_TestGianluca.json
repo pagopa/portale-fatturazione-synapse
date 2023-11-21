@@ -5,11 +5,9 @@
 			{
 				"name": "Loop",
 				"type": "ForEach",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
-						"activity": "File Name",
+						"activity": "PathFileFull",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -18,7 +16,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"items": {
-						"value": "@activity('Get FileName').output.pipelineReturnValue",
+						"value": "@activity('Get FileName').output.childItems",
 						"type": "Expression"
 					},
 					"isSequential": true,
@@ -28,7 +26,14 @@
 							"type": "Copy",
 							"state": "Inactive",
 							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [],
+							"dependsOn": [
+								{
+									"activity": "PathFile_copy1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
 							"policy": {
 								"timeout": "0.12:00:00",
 								"retry": 0,
@@ -229,12 +234,29 @@
 								"driverSize": "Small",
 								"numExecutors": null
 							}
+						},
+						{
+							"name": "PathFile_copy1",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "PathFile",
+								"value": {
+									"value": "@item().value",
+									"type": "Expression"
+								}
+							}
 						}
 					]
 				}
 			},
 			{
-				"name": "Source Path",
+				"name": "Get FileName",
 				"type": "GetMetadata",
 				"dependsOn": [],
 				"policy": {
@@ -251,14 +273,15 @@
 						"type": "DatasetReference",
 						"parameters": {
 							"PathFolderFile": {
-								"value": "@variables('Source Path')",
+								"value": "@pipeline().parameters.TestFolderInput",
 								"type": "Expression"
 							}
 						}
 					},
 					"fieldList": [
 						"childItems",
-						"itemName"
+						"itemName",
+						"itemType"
 					],
 					"storeSettings": {
 						"type": "AzureBlobStorageReadSettings",
@@ -271,11 +294,13 @@
 				}
 			},
 			{
-				"name": "Path Name",
+				"name": "PathFileFull",
 				"type": "SetVariable",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
-						"activity": "Source Path",
+						"activity": "PathFile",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -287,19 +312,21 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"variableName": "Path Name",
+					"variableName": "PathFileFull",
 					"value": {
-						"value": "@string(activity('Source Path').output.itemName)",
+						"value": "@string(activity('Get FileName').output.childItems[1].name)",
 						"type": "Expression"
 					}
 				}
 			},
 			{
-				"name": "File Name",
+				"name": "PathFile",
 				"type": "SetVariable",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
-						"activity": "Get Child Items FileName",
+						"activity": "Get FileName",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -311,75 +338,24 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"variableName": "File Name",
+					"variableName": "PathFile",
 					"value": {
-						"value": "@string(activity('Get Child Items FileName').output.pipelineReturnValue)",
+						"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),1),4),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),5),2),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),7),2),'/',replace(string(item().FolderInput),'send/',''))",
 						"type": "Expression"
-					}
-				}
-			},
-			{
-				"name": "Get Child Items FileName",
-				"type": "GetMetadata",
-				"dependsOn": [
-					{
-						"activity": "Path Name",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"dataset": {
-						"referenceName": "fat_stage_parquet",
-						"type": "DatasetReference",
-						"parameters": {
-							"PathFolderFile": {
-								"value": "@variables('Path Name')",
-								"type": "Expression"
-							}
-						}
-					},
-					"fieldList": [
-						"childItems",
-						"itemName"
-					],
-					"storeSettings": {
-						"type": "AzureBlobStorageReadSettings",
-						"recursive": true,
-						"enablePartitionDiscovery": false
-					},
-					"formatSettings": {
-						"type": "ParquetReadSettings"
 					}
 				}
 			}
 		],
+		"parameters": {
+			"TestFolderInput": {
+				"type": "string"
+			}
+		},
 		"variables": {
 			"PathFile": {
 				"type": "String"
 			},
 			"PathFileFull": {
-				"type": "String"
-			},
-			"Source Path": {
-				"type": "String"
-			},
-			"Child Items Name": {
-				"type": "String"
-			},
-			"File Name": {
-				"type": "String"
-			},
-			"Path Name": {
 				"type": "String"
 			}
 		},
