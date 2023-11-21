@@ -269,9 +269,9 @@
 							},
 							"userProperties": [],
 							"typeProperties": {
-								"variableName": "PathFile",
+								"variableName": "PathFileRaw",
 								"value": {
-									"value": "@concat(substring(string(pipeline().parameters.TestFolderInput),0,indexOf(string(pipeline().parameters.TestFolderInput),'/')),'/',substring(string(activity('Get FileName').output.childItems),add(indexOf(string(activity('Get FileName').output.childItems),'_20'),1),4),'/',substring(string(activity('Get FileName').output.childItems),add(indexOf(string(activity('Get FileName').output.childItems),'_20'),5),2),'/',substring(string(activity('Get FileName').output.childItems),add(indexOf(string(activity('Get FileName').output.childItems),'_20'),7),2),'/',replace(string(pipeline().parameters.TestFolderInput),'send/',''))",
+									"value": "@concat(substring(string(pipeline().parameters.TestFolderInput),0,indexOf(string(pipeline().parameters.TestFolderInput),'/')),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),1),4),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),5),2),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),7),2),'/',replace(string(pipeline().parameters.TestFolderInput),'send/',''))",
 									"type": "Expression"
 								}
 							}
@@ -380,6 +380,9 @@
 				"type": "String"
 			},
 			"PathFileFull": {
+				"type": "String"
+			},
+			"PathFileRaw": {
 				"type": "String"
 			}
 		},
