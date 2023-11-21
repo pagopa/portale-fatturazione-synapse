@@ -33,7 +33,7 @@
 				"type": "ForEach",
 				"dependsOn": [
 					{
-						"activity": "Source Path",
+						"activity": "Read Source Path",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -42,7 +42,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"items": {
-						"value": "@activity('Read Source Path').output.value",
+						"value": "@array(activity('Read Source Path').output.value)",
 						"type": "Expression"
 					},
 					"isSequential": true,
@@ -50,7 +50,14 @@
 						{
 							"name": "Execute Pipeline1",
 							"type": "ExecutePipeline",
-							"dependsOn": [],
+							"dependsOn": [
+								{
+									"activity": "Source Path",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
 							"userProperties": [],
 							"typeProperties": {
 								"pipeline": {
@@ -59,32 +66,25 @@
 								},
 								"waitOnCompletion": true
 							}
+						},
+						{
+							"name": "Source Path",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Source Path",
+								"value": {
+									"value": "@item().value",
+									"type": "Expression"
+								}
+							}
 						}
 					]
-				}
-			},
-			{
-				"name": "Source Path",
-				"type": "SetVariable",
-				"dependsOn": [
-					{
-						"activity": "Read Source Path",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"variableName": "Source Path",
-					"value": {
-						"value": "@string(activity('Read Source Path').output.value)",
-						"type": "Expression"
-					}
 				}
 			}
 		],

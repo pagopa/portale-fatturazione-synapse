@@ -251,7 +251,7 @@
 						"type": "DatasetReference",
 						"parameters": {
 							"PathFolderFile": {
-								"value": "@string(variables('Source Path'))",
+								"value": "@variables('Source Path')",
 								"type": "Expression"
 							}
 						}
@@ -327,9 +327,6 @@
 				"type": "String"
 			},
 			"PathFileFull": {
-				"type": "String"
-			},
-			"VarForEach": {
 				"type": "String"
 			},
 			"Source Path": {
