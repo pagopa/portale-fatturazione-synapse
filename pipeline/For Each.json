@@ -48,7 +48,7 @@
 					"isSequential": true,
 					"activities": [
 						{
-							"name": "Execute Pipeline1",
+							"name": "Execute TransferStageToRaw",
 							"type": "ExecutePipeline",
 							"dependsOn": [
 								{
