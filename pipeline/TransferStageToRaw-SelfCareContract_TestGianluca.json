@@ -7,7 +7,7 @@
 				"type": "ForEach",
 				"dependsOn": [
 					{
-						"activity": "PathFile",
+						"activity": "PathFileFull",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -26,14 +26,7 @@
 							"type": "Copy",
 							"state": "Inactive",
 							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [
-								{
-									"activity": "PathFileFull",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
+							"dependsOn": [],
 							"policy": {
 								"timeout": "0.12:00:00",
 								"retry": 0,
@@ -195,23 +188,6 @@
 							}
 						},
 						{
-							"name": "PathFileFull",
-							"type": "SetVariable",
-							"dependsOn": [],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "PathFileFull",
-								"value": {
-									"value": "@string(activity('Get FileName').output.childItems[1].name)",
-									"type": "Expression"
-								}
-							}
-						},
-						{
 							"name": "IngestSelfCare_History",
 							"type": "SynapseNotebook",
 							"state": "Inactive",
@@ -273,7 +249,7 @@
 						"type": "DatasetReference",
 						"parameters": {
 							"PathFolderFile": {
-								"value": "@string(activity('Read Source Path').output.value[0].FolderInput)",
+								"value": "@string(variables('VarForEach'))",
 								"type": "Expression"
 							}
 						}
@@ -311,6 +287,30 @@
 					"variableName": "PathFile",
 					"value": {
 						"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),1),4),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),5),2),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),7),2),'/',replace(string(item().FolderInput),'send/',''))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "PathFileFull",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "PathFile",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "PathFileFull",
+					"value": {
+						"value": "@string(activity('Get FileName').output.childItems[1].name)",
 						"type": "Expression"
 					}
 				}
