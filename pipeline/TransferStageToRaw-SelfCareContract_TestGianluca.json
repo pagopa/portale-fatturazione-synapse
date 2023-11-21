@@ -255,9 +255,11 @@
 						{
 							"name": "PathFile_copy2",
 							"type": "SetVariable",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
-									"activity": "PathFile_copy1",
+									"activity": "If Condition1",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -274,6 +276,165 @@
 									"value": "@concat(substring(string(pipeline().parameters.TestFolderInput),0,indexOf(string(pipeline().parameters.TestFolderInput),'/')),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),1),4),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),5),2),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),7),2),'/',replace(string(pipeline().parameters.TestFolderInput),'send/',''))",
 									"type": "Expression"
 								}
+							}
+						},
+						{
+							"name": "If Condition1",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "PathFile_copy1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@not(endswith(variables('PathFile'), '.txt'))",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "PathFile_copy2_copy1",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "PathFileRaw",
+											"value": {
+												"value": "@concat(substring(string(pipeline().parameters.TestFolderInput),0,indexOf(string(pipeline().parameters.TestFolderInput),'/')),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),1),4),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),5),2),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),7),2),'/',replace(string(pipeline().parameters.TestFolderInput),'send/',''))",
+												"type": "Expression"
+											}
+										}
+									},
+									{
+										"name": "Transfer Files to raw_copy1",
+										"type": "Copy",
+										"dependsOn": [
+											{
+												"activity": "PathFile_copy2_copy1",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "ParquetSource",
+												"storeSettings": {
+													"type": "AzureBlobStorageReadSettings",
+													"recursive": true,
+													"wildcardFolderPath": {
+														"value": "@pipeline().parameters.TestFolderInput",
+														"type": "Expression"
+													},
+													"wildcardFileName": "*.parquet",
+													"enablePartitionDiscovery": false
+												},
+												"formatSettings": {
+													"type": "ParquetReadSettings"
+												}
+											},
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "fat_stage_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"PathFolderFile": {
+														"value": "@pipeline().parameters.TestFolderInput",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "fat_ddls_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"PathFolderSink": {
+														"value": "@variables('PathFileRaw')",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									},
+									{
+										"name": "Delete Files in stage_copy1",
+										"type": "Delete",
+										"state": "Inactive",
+										"onInactiveMarkAs": "Succeeded",
+										"dependsOn": [
+											{
+												"activity": "Transfer Files to raw_copy1",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"dataset": {
+												"referenceName": "fat_stage_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"PathFolderFile": {
+														"value": "@pipeline().parameters.TestFolderInput",
+														"type": "Expression"
+													}
+												}
+											},
+											"enableLogging": false,
+											"storeSettings": {
+												"type": "AzureBlobStorageReadSettings",
+												"recursive": true,
+												"wildcardFileName": "*.parquet",
+												"enablePartitionDiscovery": false
+											}
+										}
+									}
+								]
 							}
 						}
 					]
@@ -324,7 +485,7 @@
 				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
-						"activity": "PathFile",
+						"activity": "Get FileName",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -339,32 +500,6 @@
 					"variableName": "PathFileFull",
 					"value": {
 						"value": "@string(activity('Get FileName').output.childItems[1].name)",
-						"type": "Expression"
-					}
-				}
-			},
-			{
-				"name": "PathFile",
-				"type": "SetVariable",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
-				"dependsOn": [
-					{
-						"activity": "Get FileName",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"variableName": "PathFile",
-					"value": {
-						"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),1),4),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),5),2),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),7),2),'/',replace(string(item().FolderInput),'send/',''))",
 						"type": "Expression"
 					}
 				}
