@@ -33,12 +33,6 @@
 				"type": "ForEach",
 				"dependsOn": [
 					{
-						"activity": "Read Source Path",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					},
-					{
 						"activity": "Source Path",
 						"dependencyConditions": [
 							"Succeeded"
