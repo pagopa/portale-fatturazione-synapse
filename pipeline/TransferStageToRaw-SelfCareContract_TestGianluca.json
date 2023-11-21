@@ -288,7 +288,7 @@
 				"typeProperties": {
 					"variableName": "Child Items Name",
 					"value": {
-						"value": "@string(activity('Source Path').output.childItems[1])",
+						"value": "@string(activity('Source Path').output)",
 						"type": "Expression"
 					}
 				}
