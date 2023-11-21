@@ -79,7 +79,7 @@
 							"typeProperties": {
 								"variableName": "Source Path",
 								"value": {
-									"value": "@item().value",
+									"value": "@item().FolderInput",
 									"type": "Expression"
 								}
 							}
