@@ -17,124 +17,6 @@
 					"isSequential": true,
 					"activities": [
 						{
-							"name": "Transfer Files to raw",
-							"type": "Copy",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [
-								{
-									"activity": "PathFileFull",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"source": {
-									"type": "ParquetSource",
-									"storeSettings": {
-										"type": "AzureBlobStorageReadSettings",
-										"recursive": true,
-										"wildcardFolderPath": {
-											"value": "@item().FolderInput",
-											"type": "Expression"
-										},
-										"wildcardFileName": "*.parquet",
-										"enablePartitionDiscovery": false
-									},
-									"formatSettings": {
-										"type": "ParquetReadSettings"
-									}
-								},
-								"sink": {
-									"type": "ParquetSink",
-									"storeSettings": {
-										"type": "AzureBlobFSWriteSettings"
-									},
-									"formatSettings": {
-										"type": "ParquetWriteSettings"
-									}
-								},
-								"enableStaging": false,
-								"translator": {
-									"type": "TabularTranslator",
-									"typeConversion": true,
-									"typeConversionSettings": {
-										"allowDataTruncation": true,
-										"treatBooleanAsNumber": false
-									}
-								}
-							},
-							"inputs": [
-								{
-									"referenceName": "fat_stage_parquet",
-									"type": "DatasetReference",
-									"parameters": {
-										"PathFolderFile": {
-											"value": "@item().FolderInput",
-											"type": "Expression"
-										}
-									}
-								}
-							],
-							"outputs": [
-								{
-									"referenceName": "fat_ddls_parquet",
-									"type": "DatasetReference",
-									"parameters": {
-										"PathFolderSink": {
-											"value": "@variables('PathFile')",
-											"type": "Expression"
-										}
-									}
-								}
-							]
-						},
-						{
-							"name": "Get FileName",
-							"type": "GetMetadata",
-							"dependsOn": [],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"dataset": {
-									"referenceName": "fat_stage_parquet",
-									"type": "DatasetReference",
-									"parameters": {
-										"PathFolderFile": {
-											"value": "@item().FolderInput",
-											"type": "Expression"
-										}
-									}
-								},
-								"fieldList": [
-									"childItems"
-								],
-								"storeSettings": {
-									"type": "AzureBlobStorageReadSettings",
-									"recursive": true,
-									"enablePartitionDiscovery": false
-								},
-								"formatSettings": {
-									"type": "ParquetReadSettings"
-								}
-							}
-						},
-						{
 							"name": "Delete Files in stage",
 							"type": "Delete",
 							"state": "Inactive",
@@ -176,42 +58,11 @@
 							}
 						},
 						{
-							"name": "PathFile",
-							"type": "SetVariable",
-							"dependsOn": [
-								{
-									"activity": "Get FileName",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "PathFile",
-								"value": {
-									"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),1),4),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),5),2),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),7),2),'/',replace(string(item().FolderInput),'send/',''))",
-									"type": "Expression"
-								}
-							}
-						},
-						{
 							"name": "IngestSelfCare",
 							"type": "SynapseNotebook",
 							"state": "Inactive",
 							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [
-								{
-									"activity": "Transfer Files to raw",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
+							"dependsOn": [],
 							"policy": {
 								"timeout": "0.12:00:00",
 								"retry": 0,
@@ -247,30 +98,6 @@
 								},
 								"driverSize": "Small",
 								"numExecutors": null
-							}
-						},
-						{
-							"name": "PathFileFull",
-							"type": "SetVariable",
-							"dependsOn": [
-								{
-									"activity": "PathFile",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "PathFileFull",
-								"value": {
-									"value": "@string(activity('Get FileName').output.childItems[1].name)",
-									"type": "Expression"
-								}
 							}
 						},
 						{
@@ -350,6 +177,151 @@
 					},
 					"formatSettings": {
 						"type": "ParquetReadSettings"
+					}
+				}
+			},
+			{
+				"name": "Transfer Files to raw",
+				"type": "Copy",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "ParquetSource",
+						"storeSettings": {
+							"type": "AzureBlobStorageReadSettings",
+							"recursive": true,
+							"wildcardFolderPath": {
+								"value": "@item().FolderInput",
+								"type": "Expression"
+							},
+							"wildcardFileName": "*.parquet",
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "ParquetReadSettings"
+						}
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "fat_stage_parquet",
+						"type": "DatasetReference",
+						"parameters": {
+							"PathFolderFile": {
+								"value": "@item().FolderInput",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "fat_ddls_parquet",
+						"type": "DatasetReference",
+						"parameters": {
+							"PathFolderSink": {
+								"value": "@variables('PathFile')",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "Get FileName",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "fat_stage_parquet",
+						"type": "DatasetReference",
+						"parameters": {
+							"PathFolderFile": {
+								"value": "@item().FolderInput",
+								"type": "Expression"
+							}
+						}
+					},
+					"fieldList": [
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "ParquetReadSettings"
+					}
+				}
+			},
+			{
+				"name": "PathFile",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "PathFile",
+					"value": {
+						"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),1),4),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),5),2),'/',substring(string(activity('Get FileName').output.childItems[1].name),add(indexOf(string(activity('Get FileName').output.childItems[1].name),'_20'),7),2),'/',replace(string(item().FolderInput),'send/',''))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "PathFileFull",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "PathFileFull",
+					"value": {
+						"value": "@string(activity('Get FileName').output.childItems[1].name)",
+						"type": "Expression"
 					}
 				}
 			}
