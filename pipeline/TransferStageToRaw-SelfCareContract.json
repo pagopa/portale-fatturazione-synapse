@@ -182,11 +182,6 @@
 												"storeSettings": {
 													"type": "AzureBlobStorageReadSettings",
 													"recursive": true,
-													"wildcardFolderPath": {
-														"value": "@pipeline().parameters.TestFolderInput",
-														"type": "Expression"
-													},
-													"wildcardFileName": "*.parquet",
 													"enablePartitionDiscovery": false
 												},
 												"formatSettings": {
@@ -218,7 +213,7 @@
 												"type": "DatasetReference",
 												"parameters": {
 													"PathFolderFile": {
-														"value": "@pipeline().parameters.TestFolderInput",
+														"value": "@concat(string(pipeline().parameters.TestFolderInput), '/', variables('FileName'))",
 														"type": "Expression"
 													}
 												}
@@ -240,6 +235,8 @@
 									{
 										"name": "DeleteFilesInStage",
 										"type": "Delete",
+										"state": "Inactive",
+										"onInactiveMarkAs": "Succeeded",
 										"dependsOn": [
 											{
 												"activity": "PathFileFullStage",
@@ -350,9 +347,6 @@
 			}
 		},
 		"variables": {
-			"PathFile": {
-				"type": "String"
-			},
 			"PathFileFullRaw": {
 				"type": "String"
 			},
