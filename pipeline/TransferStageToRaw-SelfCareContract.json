@@ -154,7 +154,7 @@
 							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
-									"activity": "IngestSelfCare_History",
+									"activity": "SwitchNotebookIngest",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -216,97 +216,6 @@
 							}
 						},
 						{
-							"name": "IngestSelfCare",
-							"type": "SynapseNotebook",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [
-								{
-									"activity": "SwitchNotebookIngest",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"notebook": {
-									"referenceName": "IngestSelfCare",
-									"type": "NotebookReference"
-								},
-								"parameters": {
-									"sourcefile": {
-										"value": {
-											"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFile'),'/',variables('PathFileFull'))",
-											"type": "Expression"
-										},
-										"type": "string"
-									}
-								},
-								"snapshot": true,
-								"sparkPool": {
-									"referenceName": "sparkcls01",
-									"type": "BigDataPoolReference"
-								},
-								"executorSize": "Small",
-								"conf": {
-									"spark.dynamicAllocation.enabled": null,
-									"spark.dynamicAllocation.minExecutors": null,
-									"spark.dynamicAllocation.maxExecutors": null
-								},
-								"driverSize": "Small",
-								"numExecutors": null
-							}
-						},
-						{
-							"name": "IngestSelfCare_History",
-							"type": "SynapseNotebook",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [
-								{
-									"activity": "IngestSelfCare",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"notebook": {
-									"referenceName": "IngestSelfCare_History",
-									"type": "NotebookReference"
-								},
-								"snapshot": true,
-								"sparkPool": {
-									"referenceName": "sparkcls01",
-									"type": "BigDataPoolReference"
-								},
-								"executorSize": "Small",
-								"conf": {
-									"spark.dynamicAllocation.enabled": null,
-									"spark.dynamicAllocation.minExecutors": null,
-									"spark.dynamicAllocation.maxExecutors": null
-								},
-								"driverSize": "Small",
-								"numExecutors": null
-							}
-						},
-						{
 							"name": "SwitchNotebookIngest",
 							"type": "Switch",
 							"dependsOn": [
@@ -328,10 +237,8 @@
 										"value": "selfcare_contract",
 										"activities": [
 											{
-												"name": "IngestSelfCare_copy1",
+												"name": "IngestSelfCare",
 												"type": "SynapseNotebook",
-												"state": "Inactive",
-												"onInactiveMarkAs": "Succeeded",
 												"dependsOn": [],
 												"policy": {
 													"timeout": "0.12:00:00",
@@ -349,7 +256,7 @@
 													"parameters": {
 														"sourcefile": {
 															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFile'),'/',variables('PathFileFull'))",
+																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFileFullRaw'),'/',variables('FileName'))",
 																"type": "Expression"
 															},
 															"type": "string"
@@ -371,13 +278,11 @@
 												}
 											},
 											{
-												"name": "IngestSelfCare_History_copy1",
+												"name": "IngestSelfCare_History",
 												"type": "SynapseNotebook",
-												"state": "Inactive",
-												"onInactiveMarkAs": "Succeeded",
 												"dependsOn": [
 													{
-														"activity": "IngestSelfCare_copy1",
+														"activity": "IngestSelfCare",
 														"dependencyConditions": [
 															"Succeeded"
 														]
@@ -395,6 +300,15 @@
 													"notebook": {
 														"referenceName": "IngestSelfCare_History",
 														"type": "NotebookReference"
+													},
+													"parameters": {
+														"sourcefile": {
+															"value": {
+																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFileFullRaw'),'/',variables('FileName'))",
+																"type": "Expression"
+															},
+															"type": "string"
+														}
 													},
 													"snapshot": true,
 													"sparkPool": {
