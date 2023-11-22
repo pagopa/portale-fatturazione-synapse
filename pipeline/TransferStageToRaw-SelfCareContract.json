@@ -65,8 +65,6 @@
 						{
 							"name": "TransferFilesToRaw",
 							"type": "Copy",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
 									"activity": "PathFileFullRaw",
@@ -150,8 +148,6 @@
 						{
 							"name": "DeleteFilesInStage",
 							"type": "Delete",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
 									"activity": "SwitchNotebookIngest",
