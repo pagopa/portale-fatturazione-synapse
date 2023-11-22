@@ -325,12 +325,6 @@
 								},
 								"cases": [
 									{
-										"value": "invoicing_timeline"
-									},
-									{
-										"value": "notification"
-									},
-									{
 										"value": "selfcare_contract",
 										"activities": [
 											{
