@@ -1,5 +1,5 @@
 {
-	"name": "TransferStageToRaw-SelfCareContract_TestGianluca",
+	"name": "TransferStageToRaw-SelfCareContractNew",
 	"properties": {
 		"activities": [
 			{
@@ -7,7 +7,7 @@
 				"type": "ForEach",
 				"dependsOn": [
 					{
-						"activity": "PathFileFull",
+						"activity": "Get FileName",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -26,14 +26,7 @@
 							"type": "Copy",
 							"state": "Inactive",
 							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [
-								{
-									"activity": "PathFile_copy2",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
+							"dependsOn": [],
 							"policy": {
 								"timeout": "0.12:00:00",
 								"retry": 0,
@@ -236,7 +229,7 @@
 							}
 						},
 						{
-							"name": "PathFile_copy1",
+							"name": "FileName",
 							"type": "SetVariable",
 							"dependsOn": [],
 							"policy": {
@@ -245,35 +238,9 @@
 							},
 							"userProperties": [],
 							"typeProperties": {
-								"variableName": "PathFile",
+								"variableName": "FileName",
 								"value": {
 									"value": "@item().name",
-									"type": "Expression"
-								}
-							}
-						},
-						{
-							"name": "PathFile_copy2",
-							"type": "SetVariable",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [
-								{
-									"activity": "If Condition1",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "PathFileRaw",
-								"value": {
-									"value": "@concat(substring(string(pipeline().parameters.TestFolderInput),0,indexOf(string(pipeline().parameters.TestFolderInput),'/')),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),1),4),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),5),2),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),7),2),'/',replace(string(pipeline().parameters.TestFolderInput),'send/',''))",
 									"type": "Expression"
 								}
 							}
@@ -283,7 +250,7 @@
 							"type": "IfCondition",
 							"dependsOn": [
 								{
-									"activity": "PathFile_copy1",
+									"activity": "FileName",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -297,7 +264,7 @@
 								},
 								"ifTrueActivities": [
 									{
-										"name": "PathFile_copy2_copy1",
+										"name": "PathFileFullRaw",
 										"type": "SetVariable",
 										"dependsOn": [],
 										"policy": {
@@ -306,9 +273,9 @@
 										},
 										"userProperties": [],
 										"typeProperties": {
-											"variableName": "PathFileRaw",
+											"variableName": "PathFileFullRaw",
 											"value": {
-												"value": "@concat(substring(string(pipeline().parameters.TestFolderInput),0,indexOf(string(pipeline().parameters.TestFolderInput),'/')),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),1),4),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),5),2),'/',substring(string(variables('PathFile')),add(indexOf(string(variables('PathFile')),'_20'),7),2),'/',replace(string(pipeline().parameters.TestFolderInput),'send/',''))",
+												"value": "@concat(substring(string(pipeline().parameters.TestFolderInput),0,indexOf(string(pipeline().parameters.TestFolderInput),'/')),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),1),4),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),5),2),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),7),2),'/',replace(string(pipeline().parameters.TestFolderInput),'send/',''))",
 												"type": "Expression"
 											}
 										}
@@ -316,9 +283,11 @@
 									{
 										"name": "Transfer Files to raw_copy1",
 										"type": "Copy",
+										"state": "Inactive",
+										"onInactiveMarkAs": "Succeeded",
 										"dependsOn": [
 											{
-												"activity": "PathFile_copy2_copy1",
+												"activity": "PathFileFullRaw",
 												"dependencyConditions": [
 													"Succeeded"
 												]
@@ -386,7 +355,7 @@
 												"type": "DatasetReference",
 												"parameters": {
 													"PathFolderSink": {
-														"value": "@variables('PathFileRaw')",
+														"value": "@variables('PathFileFullRaw')",
 														"type": "Expression"
 													}
 												}
@@ -400,7 +369,7 @@
 										"onInactiveMarkAs": "Succeeded",
 										"dependsOn": [
 											{
-												"activity": "Transfer Files to raw_copy1",
+												"activity": "PathFileFullStage",
 												"dependencyConditions": [
 													"Succeeded"
 												]
@@ -431,6 +400,30 @@
 												"recursive": true,
 												"wildcardFileName": "*.parquet",
 												"enablePartitionDiscovery": false
+											}
+										}
+									},
+									{
+										"name": "PathFileFullStage",
+										"type": "SetVariable",
+										"dependsOn": [
+											{
+												"activity": "Transfer Files to raw_copy1",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "PathFileFullStage",
+											"value": {
+												"value": "@concat(string(pipeline().parameters.TestFolderInput), '/',variables('FileName'))",
+												"type": "Expression"
 											}
 										}
 									}
@@ -477,32 +470,6 @@
 						"type": "ParquetReadSettings"
 					}
 				}
-			},
-			{
-				"name": "PathFileFull",
-				"type": "SetVariable",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
-				"dependsOn": [
-					{
-						"activity": "Get FileName",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"variableName": "PathFileFull",
-					"value": {
-						"value": "@string(activity('Get FileName').output.childItems[1].name)",
-						"type": "Expression"
-					}
-				}
 			}
 		],
 		"parameters": {
@@ -514,10 +481,16 @@
 			"PathFile": {
 				"type": "String"
 			},
-			"PathFileFull": {
+			"PathFileFullRaw": {
 				"type": "String"
 			},
-			"PathFileRaw": {
+			"PathFileFullStage": {
+				"type": "String"
+			},
+			"FileName": {
+				"type": "String"
+			},
+			"SourcePath": {
 				"type": "String"
 			}
 		},

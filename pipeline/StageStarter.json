@@ -1,5 +1,5 @@
 {
-	"name": "For Each",
+	"name": "StageStarter",
 	"properties": {
 		"activities": [
 			{
@@ -48,11 +48,11 @@
 					"isSequential": true,
 					"activities": [
 						{
-							"name": "Execute Pipeline1",
+							"name": "TransferStageToRaw",
 							"type": "ExecutePipeline",
 							"dependsOn": [
 								{
-									"activity": "Source Path",
+									"activity": "SourcePath",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -61,20 +61,20 @@
 							"userProperties": [],
 							"typeProperties": {
 								"pipeline": {
-									"referenceName": "TransferStageToRaw-SelfCareContract_TestGianluca",
+									"referenceName": "TransferStageToRaw-SelfCareContractNew",
 									"type": "PipelineReference"
 								},
 								"waitOnCompletion": true,
 								"parameters": {
 									"TestFolderInput": {
-										"value": "@variables('Source Path')",
+										"value": "@variables('SourcePath')",
 										"type": "Expression"
 									}
 								}
 							}
 						},
 						{
-							"name": "Source Path",
+							"name": "SourcePath",
 							"type": "SetVariable",
 							"dependsOn": [],
 							"policy": {
@@ -83,7 +83,7 @@
 							},
 							"userProperties": [],
 							"typeProperties": {
-								"variableName": "Source Path",
+								"variableName": "SourcePath",
 								"value": {
 									"value": "@item().FolderInput",
 									"type": "Expression"
@@ -95,7 +95,16 @@
 			}
 		],
 		"variables": {
-			"Source Path": {
+			"PathFileFullRaw": {
+				"type": "String"
+			},
+			"PathFileFullStage": {
+				"type": "String"
+			},
+			"FileName": {
+				"type": "String"
+			},
+			"SourcePath": {
 				"type": "String"
 			}
 		},
