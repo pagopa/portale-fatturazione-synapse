@@ -64,13 +64,7 @@
 									"referenceName": "TransferStageToRaw-SelfCareContract",
 									"type": "PipelineReference"
 								},
-								"waitOnCompletion": true,
-								"parameters": {
-									"TestFolderInput": {
-										"value": "@variables('SourcePath')",
-										"type": "Expression"
-									}
-								}
+								"waitOnCompletion": true
 							}
 						},
 						{

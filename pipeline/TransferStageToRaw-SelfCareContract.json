@@ -22,90 +22,6 @@
 					"isSequential": true,
 					"activities": [
 						{
-							"name": "IngestSelfCare",
-							"type": "SynapseNotebook",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"notebook": {
-									"referenceName": "IngestSelfCare",
-									"type": "NotebookReference"
-								},
-								"parameters": {
-									"sourcefile": {
-										"value": {
-											"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFile'),'/',variables('PathFileFull'))",
-											"type": "Expression"
-										},
-										"type": "string"
-									}
-								},
-								"snapshot": true,
-								"sparkPool": {
-									"referenceName": "sparkcls01",
-									"type": "BigDataPoolReference"
-								},
-								"executorSize": "Small",
-								"conf": {
-									"spark.dynamicAllocation.enabled": null,
-									"spark.dynamicAllocation.minExecutors": null,
-									"spark.dynamicAllocation.maxExecutors": null
-								},
-								"driverSize": "Small",
-								"numExecutors": null
-							}
-						},
-						{
-							"name": "IngestSelfCare_History",
-							"type": "SynapseNotebook",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [
-								{
-									"activity": "IngestSelfCare",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"notebook": {
-									"referenceName": "IngestSelfCare_History",
-									"type": "NotebookReference"
-								},
-								"snapshot": true,
-								"sparkPool": {
-									"referenceName": "sparkcls01",
-									"type": "BigDataPoolReference"
-								},
-								"executorSize": "Small",
-								"conf": {
-									"spark.dynamicAllocation.enabled": null,
-									"spark.dynamicAllocation.minExecutors": null,
-									"spark.dynamicAllocation.maxExecutors": null
-								},
-								"driverSize": "Small",
-								"numExecutors": null
-							}
-						},
-						{
 							"name": "FileName",
 							"type": "SetVariable",
 							"dependsOn": [],
@@ -152,7 +68,7 @@
 										"typeProperties": {
 											"variableName": "PathFileFullRaw",
 											"value": {
-												"value": "@concat(substring(string(pipeline().parameters.TestFolderInput),0,indexOf(string(pipeline().parameters.TestFolderInput),'/')),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),1),4),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),5),2),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),7),2),'/',replace(string(pipeline().parameters.TestFolderInput),'send/',''))",
+												"value": "@concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),1),4),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),5),2),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),7),2),'/',replace(string(pipeline().parameters.FolderInput),'send/',''))",
 												"type": "Expression"
 											}
 										}
@@ -183,7 +99,7 @@
 													"type": "AzureBlobStorageReadSettings",
 													"recursive": true,
 													"wildcardFolderPath": {
-														"value": "@pipeline().parameters.TestFolderInput",
+														"value": "@pipeline().parameters.FolderInput",
 														"type": "Expression"
 													},
 													"wildcardFileName": {
@@ -221,7 +137,7 @@
 												"type": "DatasetReference",
 												"parameters": {
 													"PathFolderFile": {
-														"value": "@pipeline().parameters.TestFolderInput",
+														"value": "@pipeline().parameters.FolderInput",
 														"type": "Expression"
 													}
 												}
@@ -243,11 +159,9 @@
 									{
 										"name": "DeleteFilesInStage",
 										"type": "Delete",
-										"state": "Inactive",
-										"onInactiveMarkAs": "Succeeded",
 										"dependsOn": [
 											{
-												"activity": "PathFileFullStage",
+												"activity": "IngestSelfCare_History",
 												"dependencyConditions": [
 													"Succeeded"
 												]
@@ -267,7 +181,7 @@
 												"type": "DatasetReference",
 												"parameters": {
 													"PathFolderFile": {
-														"value": "@concat(string(pipeline().parameters.TestFolderInput), '/', variables('FileName'))",
+														"value": "@pipeline().parameters.FolderInput",
 														"type": "Expression"
 													}
 												}
@@ -276,6 +190,10 @@
 											"storeSettings": {
 												"type": "AzureBlobStorageReadSettings",
 												"recursive": true,
+												"wildcardFileName": {
+													"value": "@{variables('FileName')}",
+													"type": "Expression"
+												},
 												"enablePartitionDiscovery": false
 											}
 										}
@@ -299,9 +217,100 @@
 										"typeProperties": {
 											"variableName": "PathFileFullStage",
 											"value": {
-												"value": "@concat(string(pipeline().parameters.TestFolderInput), '/',variables('FileName'))",
+												"value": "@concat(string(pipeline().parameters.FolderInput), '/',variables('FileName'))",
 												"type": "Expression"
 											}
+										}
+									},
+									{
+										"name": "IngestSelfCare",
+										"type": "SynapseNotebook",
+										"state": "Inactive",
+										"onInactiveMarkAs": "Succeeded",
+										"dependsOn": [
+											{
+												"activity": "PathFileFullStage",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"notebook": {
+												"referenceName": "IngestSelfCare",
+												"type": "NotebookReference"
+											},
+											"parameters": {
+												"sourcefile": {
+													"value": {
+														"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFile'),'/',variables('PathFileFull'))",
+														"type": "Expression"
+													},
+													"type": "string"
+												}
+											},
+											"snapshot": true,
+											"sparkPool": {
+												"referenceName": "sparkcls01",
+												"type": "BigDataPoolReference"
+											},
+											"executorSize": "Small",
+											"conf": {
+												"spark.dynamicAllocation.enabled": null,
+												"spark.dynamicAllocation.minExecutors": null,
+												"spark.dynamicAllocation.maxExecutors": null
+											},
+											"driverSize": "Small",
+											"numExecutors": null
+										}
+									},
+									{
+										"name": "IngestSelfCare_History",
+										"type": "SynapseNotebook",
+										"state": "Inactive",
+										"onInactiveMarkAs": "Succeeded",
+										"dependsOn": [
+											{
+												"activity": "IngestSelfCare",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"notebook": {
+												"referenceName": "IngestSelfCare_History",
+												"type": "NotebookReference"
+											},
+											"snapshot": true,
+											"sparkPool": {
+												"referenceName": "sparkcls01",
+												"type": "BigDataPoolReference"
+											},
+											"executorSize": "Small",
+											"conf": {
+												"spark.dynamicAllocation.enabled": null,
+												"spark.dynamicAllocation.minExecutors": null,
+												"spark.dynamicAllocation.maxExecutors": null
+											},
+											"driverSize": "Small",
+											"numExecutors": null
 										}
 									}
 								]
@@ -328,7 +337,7 @@
 						"type": "DatasetReference",
 						"parameters": {
 							"PathFolderFile": {
-								"value": "@pipeline().parameters.TestFolderInput",
+								"value": "@pipeline().parameters.FolderInput",
 								"type": "Expression"
 							}
 						}
@@ -350,7 +359,7 @@
 			}
 		],
 		"parameters": {
-			"TestFolderInput": {
+			"FolderInput": {
 				"type": "string"
 			}
 		},
