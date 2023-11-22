@@ -39,7 +39,7 @@
 							}
 						},
 						{
-							"name": "PathFileFullRaw",
+							"name": "PathFolderRaw",
 							"type": "SetVariable",
 							"dependsOn": [
 								{
@@ -55,7 +55,7 @@
 							},
 							"userProperties": [],
 							"typeProperties": {
-								"variableName": "PathFileFullRaw",
+								"variableName": "PathFolderRaw",
 								"value": {
 									"value": "@concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),1),4),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),5),2),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),7),2),'/',replace(string(pipeline().parameters.FolderInput),'send/',''))",
 									"type": "Expression"
@@ -67,7 +67,7 @@
 							"type": "Copy",
 							"dependsOn": [
 								{
-									"activity": "PathFileFullRaw",
+									"activity": "PathFolderRaw",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -138,7 +138,7 @@
 									"type": "DatasetReference",
 									"parameters": {
 										"PathFolderSink": {
-											"value": "@variables('PathFileFullRaw')",
+											"value": "@variables('PathFolderRaw')",
 											"type": "Expression"
 										}
 									}
@@ -188,7 +188,7 @@
 							}
 						},
 						{
-							"name": "PathFileFullStage",
+							"name": "PathFullStage",
 							"type": "SetVariable",
 							"dependsOn": [
 								{
@@ -204,7 +204,7 @@
 							},
 							"userProperties": [],
 							"typeProperties": {
-								"variableName": "PathFileFullStage",
+								"variableName": "PathFullStage",
 								"value": {
 									"value": "@concat(string(pipeline().parameters.FolderInput), '/',variables('FileName'))",
 									"type": "Expression"
@@ -216,7 +216,7 @@
 							"type": "Switch",
 							"dependsOn": [
 								{
-									"activity": "PathFileFullStage",
+									"activity": "PathFullStage",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -252,7 +252,7 @@
 													"parameters": {
 														"sourcefile": {
 															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFileFullRaw'),'/',variables('FileName'))",
+																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFolderRaw'),'/',variables('FileName'))",
 																"type": "Expression"
 															},
 															"type": "string"
@@ -300,7 +300,7 @@
 													"parameters": {
 														"sourcefile": {
 															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFileFullRaw'),'/',variables('FileName'))",
+																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFolderRaw'),'/',variables('FileName'))",
 																"type": "Expression"
 															},
 															"type": "string"
@@ -374,10 +374,10 @@
 			}
 		},
 		"variables": {
-			"PathFileFullRaw": {
+			"PathFolderRaw": {
 				"type": "String"
 			},
-			"PathFileFullStage": {
+			"PathFullStage": {
 				"type": "String"
 			},
 			"FileName": {
