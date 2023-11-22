@@ -22,134 +22,11 @@
 					"isSequential": true,
 					"activities": [
 						{
-							"name": "Transfer Files to raw",
-							"type": "Copy",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"source": {
-									"type": "ParquetSource",
-									"storeSettings": {
-										"type": "AzureBlobStorageReadSettings",
-										"recursive": true,
-										"wildcardFolderPath": {
-											"value": "@item().FolderInput",
-											"type": "Expression"
-										},
-										"wildcardFileName": "*.parquet",
-										"enablePartitionDiscovery": false
-									},
-									"formatSettings": {
-										"type": "ParquetReadSettings"
-									}
-								},
-								"sink": {
-									"type": "ParquetSink",
-									"storeSettings": {
-										"type": "AzureBlobFSWriteSettings"
-									},
-									"formatSettings": {
-										"type": "ParquetWriteSettings"
-									}
-								},
-								"enableStaging": false,
-								"translator": {
-									"type": "TabularTranslator",
-									"typeConversion": true,
-									"typeConversionSettings": {
-										"allowDataTruncation": true,
-										"treatBooleanAsNumber": false
-									}
-								}
-							},
-							"inputs": [
-								{
-									"referenceName": "fat_stage_parquet",
-									"type": "DatasetReference",
-									"parameters": {
-										"PathFolderFile": {
-											"value": "@item().FolderInput",
-											"type": "Expression"
-										}
-									}
-								}
-							],
-							"outputs": [
-								{
-									"referenceName": "fat_ddls_parquet",
-									"type": "DatasetReference",
-									"parameters": {
-										"PathFolderSink": {
-											"value": "@variables('PathFile')",
-											"type": "Expression"
-										}
-									}
-								}
-							]
-						},
-						{
-							"name": "Delete Files in stage",
-							"type": "Delete",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [
-								{
-									"activity": "IngestSelfCare_History",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"dataset": {
-									"referenceName": "fat_stage_parquet",
-									"type": "DatasetReference",
-									"parameters": {
-										"PathFolderFile": {
-											"value": "@item().FolderInput",
-											"type": "Expression"
-										}
-									}
-								},
-								"enableLogging": false,
-								"storeSettings": {
-									"type": "AzureBlobStorageReadSettings",
-									"recursive": true,
-									"wildcardFileName": "*.parquet",
-									"enablePartitionDiscovery": false
-								}
-							}
-						},
-						{
 							"name": "IngestSelfCare",
 							"type": "SynapseNotebook",
 							"state": "Inactive",
 							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [
-								{
-									"activity": "Transfer Files to raw",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
+							"dependsOn": [],
 							"policy": {
 								"timeout": "0.12:00:00",
 								"retry": 0,
@@ -281,7 +158,7 @@
 										}
 									},
 									{
-										"name": "Transfer Files to raw_copy1",
+										"name": "TransferFilesToRaw",
 										"type": "Copy",
 										"state": "Inactive",
 										"onInactiveMarkAs": "Succeeded",
@@ -363,7 +240,7 @@
 										]
 									},
 									{
-										"name": "Delete Files in stage_copy1",
+										"name": "DeleteFilesInStage",
 										"type": "Delete",
 										"state": "Inactive",
 										"onInactiveMarkAs": "Succeeded",
@@ -389,7 +266,7 @@
 												"type": "DatasetReference",
 												"parameters": {
 													"PathFolderFile": {
-														"value": "@pipeline().parameters.TestFolderInput",
+														"value": "@concat(string(pipeline().parameters.TestFolderInput), '/', variables('FileName'))",
 														"type": "Expression"
 													}
 												}
@@ -398,7 +275,6 @@
 											"storeSettings": {
 												"type": "AzureBlobStorageReadSettings",
 												"recursive": true,
-												"wildcardFileName": "*.parquet",
 												"enablePartitionDiscovery": false
 											}
 										}
@@ -408,7 +284,7 @@
 										"type": "SetVariable",
 										"dependsOn": [
 											{
-												"activity": "Transfer Files to raw_copy1",
+												"activity": "TransferFilesToRaw",
 												"dependencyConditions": [
 													"Succeeded"
 												]
