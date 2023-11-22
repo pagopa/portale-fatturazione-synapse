@@ -1,5 +1,5 @@
 {
-	"name": "TransferStageToRaw-SelfCareContractNew",
+	"name": "TransferStageToRaw-SelfCareContract",
 	"properties": {
 		"activities": [
 			{
@@ -259,7 +259,7 @@
 							"userProperties": [],
 							"typeProperties": {
 								"expression": {
-									"value": "@not(endswith(variables('PathFile'), '.txt'))",
+									"value": "@not(endswith(variables('FileName'), '.txt'))",
 									"type": "Expression"
 								},
 								"ifTrueActivities": [

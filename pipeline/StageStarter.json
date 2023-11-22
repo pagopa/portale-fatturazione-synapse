@@ -61,7 +61,7 @@
 							"userProperties": [],
 							"typeProperties": {
 								"pipeline": {
-									"referenceName": "TransferStageToRaw-SelfCareContractNew",
+									"referenceName": "TransferStageToRaw-SelfCareContract",
 									"type": "PipelineReference"
 								},
 								"waitOnCompletion": true,
