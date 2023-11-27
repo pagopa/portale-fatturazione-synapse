@@ -97,12 +97,6 @@
 		"variables": {
 			"SourcePath": {
 				"type": "String"
-			},
-			"FileName": {
-				"type": "String"
-			},
-			"PathFullStage": {
-				"type": "String"
 			}
 		},
 		"folder": {
