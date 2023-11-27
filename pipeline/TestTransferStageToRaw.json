@@ -99,7 +99,7 @@
 									"type": "DatasetReference",
 									"parameters": {
 										"PathFolderFile": {
-											"value": "@concat('send/selfcare_contracts_test','/',item().name)",
+											"value": "@concat(pipeline().parameters.FolderInput,'/',item().name)",
 											"type": "Expression"
 										}
 									}
