@@ -67,7 +67,7 @@
 								"waitOnCompletion": true,
 								"parameters": {
 									"FolderInput": {
-										"value": "@variables('SourcePath')",
+										"value": "@item().FolderInput",
 										"type": "Expression"
 									}
 								}
@@ -76,6 +76,8 @@
 						{
 							"name": "SourcePath",
 							"type": "SetVariable",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [],
 							"policy": {
 								"secureOutput": false,
