@@ -185,7 +185,7 @@
 							"typeProperties": {
 								"variableName": "TestPathFolderRaw",
 								"value": {
-									"value": "@concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',activity('Get Folders').output.value.name)",
+									"value": "@concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',activity('Get Folders').output.value[0].name)",
 									"type": "Expression"
 								}
 							}
