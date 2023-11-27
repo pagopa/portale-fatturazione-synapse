@@ -1,0 +1,113 @@
+{
+	"name": "TestStageStarter",
+	"properties": {
+		"activities": [
+			{
+				"name": "Read Source Path",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT [FolderInput]\nFROM [cfg].[RawParquet]\nwhere Pipeline = 'TransferStageToRaw' and FlagEnabled = 1",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Loop",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Read Source Path",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Read Source Path').output.value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "TransferStageToRaw",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "SourcePath",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "TransferStageToRaw",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"FolderInput": {
+										"value": "@variables('SourcePath')",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "SourcePath",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "SourcePath",
+								"value": {
+									"value": "@item().FolderInput",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"variables": {
+			"PathFileFullRaw": {
+				"type": "String"
+			},
+			"PathFileFullStage": {
+				"type": "String"
+			},
+			"FileName": {
+				"type": "String"
+			},
+			"SourcePath": {
+				"type": "String"
+			}
+		},
+		"annotations": []
+	}
+}
