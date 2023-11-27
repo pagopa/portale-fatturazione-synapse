@@ -159,7 +159,7 @@
 							},
 							"userProperties": [],
 							"typeProperties": {
-								"variableName": "FileName",
+								"variableName": "TestFileName",
 								"value": {
 									"value": "@activity('FilterParquetFile').output.pipelineReturnValue",
 									"type": "Expression"
@@ -176,7 +176,7 @@
 			}
 		},
 		"variables": {
-			"FileName": {
+			"TestFileName": {
 				"type": "String"
 			}
 		},
