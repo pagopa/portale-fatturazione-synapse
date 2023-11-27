@@ -194,6 +194,8 @@
 						{
 							"name": "TransferFileToRaw",
 							"type": "Copy",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
 									"activity": "Set TestPathFolderRaw",
@@ -273,6 +275,30 @@
 									}
 								}
 							]
+						},
+						{
+							"name": "Set TestPathFullStage",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "TransferFileToRaw",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "TestPathFullStage",
+								"value": {
+									"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName, '/', variables('TestFileName'))",
+									"type": "Expression"
+								}
+							}
 						}
 					]
 				}
@@ -288,6 +314,9 @@
 				"type": "String"
 			},
 			"TestPathFolderRaw": {
+				"type": "String"
+			},
+			"TestPathFullStage": {
 				"type": "String"
 			}
 		},
