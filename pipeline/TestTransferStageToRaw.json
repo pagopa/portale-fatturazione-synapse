@@ -1,5 +1,5 @@
 {
-	"name": "TestDaButtare",
+	"name": "TestTransferStageToRaw",
 	"properties": {
 		"activities": [
 			{
@@ -150,6 +150,9 @@
 			"FolderInput": {
 				"type": "string"
 			}
+		},
+		"folder": {
+			"name": "NewIngestion"
 		},
 		"annotations": []
 	}

@@ -61,7 +61,7 @@
 							"userProperties": [],
 							"typeProperties": {
 								"pipeline": {
-									"referenceName": "TestDaButtare",
+									"referenceName": "TestTransferStageToRaw",
 									"type": "PipelineReference"
 								},
 								"waitOnCompletion": true,
@@ -107,6 +107,9 @@
 			"SourcePath": {
 				"type": "String"
 			}
+		},
+		"folder": {
+			"name": "NewIngestion"
 		},
 		"annotations": []
 	}
