@@ -189,6 +189,90 @@
 									"type": "Expression"
 								}
 							}
+						},
+						{
+							"name": "TransferFileToRaw",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "Set TestPathFolderRaw",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "ParquetSource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": true,
+										"modifiedDatetimeStart": {
+											"value": "@pipeline().parameters.FolderInput",
+											"type": "Expression"
+										},
+										"modifiedDatetimeEnd": {
+											"value": "@variables('TestFileName')",
+											"type": "Expression"
+										},
+										"wildcardFileName": "*.parquet",
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "ParquetReadSettings"
+									}
+								},
+								"sink": {
+									"type": "ParquetSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings"
+									},
+									"formatSettings": {
+										"type": "ParquetWriteSettings"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "fat_stage_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"PathFolderFile": {
+											"value": "@pipeline().parameters.FolderInput",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "fat_ddls_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"PathFolderSink": {
+											"value": "@variables('TestPathFolderRaw')",
+											"type": "Expression"
+										}
+									}
+								}
+							]
 						}
 					]
 				}
