@@ -141,6 +141,30 @@
 									"type": "Expression"
 								}
 							}
+						},
+						{
+							"name": "Set FileName",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "FilterParquetFile",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "FileName",
+								"value": {
+									"value": "@activity('FilterParquetFile').output.pipelineReturnValue",
+									"type": "Expression"
+								}
+							}
 						}
 					]
 				}
@@ -149,6 +173,11 @@
 		"parameters": {
 			"FolderInput": {
 				"type": "string"
+			}
+		},
+		"variables": {
+			"FileName": {
+				"type": "String"
 			}
 		},
 		"folder": {
