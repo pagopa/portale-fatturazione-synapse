@@ -161,7 +161,7 @@
 							"typeProperties": {
 								"variableName": "TestFileName",
 								"value": {
-									"value": "@activity('FilterParquetFile').output.pipelineReturnValue",
+									"value": "@activity('FilterParquetFile').output.value",
 									"type": "Expression"
 								}
 							}
