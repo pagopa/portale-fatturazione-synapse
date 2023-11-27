@@ -489,7 +489,7 @@
 													"parameters": {
 														"sourcefile": {
 															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('TestPathFolderRaw'),'/',variables('TestFileName'))",
+																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFolderRaw'),'/',variables('FileName'))",
 																"type": "Expression"
 															},
 															"type": "string"
@@ -537,7 +537,7 @@
 													"parameters": {
 														"sourcefile": {
 															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('TestPathFolderRaw'),'/',variables('TestFileName'))",
+																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFolderRaw'),'/',variables('FileName'))",
 																"type": "Expression"
 															},
 															"type": "string"
