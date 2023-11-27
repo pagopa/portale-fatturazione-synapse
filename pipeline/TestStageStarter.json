@@ -95,19 +95,13 @@
 			}
 		],
 		"variables": {
-			"PathFileFullRaw": {
-				"type": "String"
-			},
-			"PathFileFullStage": {
+			"SourcePath": {
 				"type": "String"
 			},
 			"FileName": {
 				"type": "String"
 			},
-			"SourcePath": {
-				"type": "String"
-			},
-			"TestFileName": {
+			"PathFullStage": {
 				"type": "String"
 			}
 		},

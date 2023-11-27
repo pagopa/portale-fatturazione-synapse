@@ -490,9 +490,6 @@
 			},
 			"SourcePath": {
 				"type": "String"
-			},
-			"TestPathFullStage": {
-				"type": "String"
 			}
 		},
 		"annotations": [],
