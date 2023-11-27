@@ -144,63 +144,11 @@
 							}
 						},
 						{
-							"name": "Set FileName",
-							"type": "SetVariable",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [
-								{
-									"activity": "FilterParquetFile",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "FileName",
-								"value": {
-									"value": "@activity('FilterParquetFile').output.value[0].name",
-									"type": "Expression"
-								}
-							}
-						},
-						{
-							"name": "Set PathFolderRaw",
-							"type": "SetVariable",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [
-								{
-									"activity": "Set FileName",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "PathFolderRaw",
-								"value": {
-									"value": "@concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',replace(string(pipeline().parameters.FolderInput),'send/',''))",
-									"type": "Expression"
-								}
-							}
-						},
-						{
 							"name": "TransferFileToRaw",
 							"type": "Copy",
 							"dependsOn": [
 								{
-									"activity": "Set PathFolderRaw",
+									"activity": "FilterParquetFile",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -279,37 +227,11 @@
 							]
 						},
 						{
-							"name": "Set PathFullStage",
-							"type": "SetVariable",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [
-								{
-									"activity": "TransferFileToRaw",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "PathFullStage",
-								"value": {
-									"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName, '/', variables('FileName'))",
-									"type": "Expression"
-								}
-							}
-						},
-						{
 							"name": "SwitchNotebookIngest",
 							"type": "Switch",
 							"dependsOn": [
 								{
-									"activity": "Set PathFullStage",
+									"activity": "TransferFileToRaw",
 									"dependencyConditions": [
 										"Succeeded"
 									]
