@@ -1,0 +1,160 @@
+{
+	"name": "SendToSAP",
+	"properties": {
+		"activities": [
+			{
+				"name": "FromSqlToPfstage",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "spCreazioneFattureAnticipo_TEST",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT [IdFattura],[DataFattura],[FkProdotto],[IdentificativoFattura],[FkTipologiaFattura],[FkIdEnte],[CodiceContratto],[FkIdTipoDocumento],[Divisa]\n\t  ,[MetodoPagamento],[CausaleFattura],[SplitPayment],[Sollecito]\n\n\t  ,'datiGeneraliDocumento' = (\n\t\t\t\t\t\t\t\t\tSELECT NULL AS [tipologia?],[Progressivo],[IdDocumento],[DataDocumento],[NumItem],[CodCommessa],[Cup],[Cig]\n\t\t\t\t\t\t\t\t\tFROM [pfd].[FattureTestata] T1\n\t\t\t\t\t\t\t\t\tWHERE T1.IdFattura = T.IdFattura\n\t\t\t\t\t\t\t\t\tFOR JSON PATH\n\t\t\t\t\t\t\t\t)\n\n\t  ,'posizioni' = (\n\t\t\t\t\t\tSELECT [NumeroLinea],[Testo],[CodiceMateriale],[Quantita],[PrezzoUnitario],[Imponibile]\n\t\t\t\t\t\tFROM [pfd].[FattureRighe] R\n\t\t\t\t\t\tWHERE R.FkIdFattura = T.IdFattura\n\t\t\t\t\t\tFOR JSON PATH\n\t\t\t\t\t )\n\nFROM [pfd].[FattureTestata] T\n\nGROUP BY [IdFattura],[DataFattura],[FkProdotto],[IdentificativoFattura],[FkTipologiaFattura],[FkIdEnte],[CodiceContratto],[FkIdTipoDocumento],[Divisa]\n\t\t,[MetodoPagamento],[CausaleFattura],[SplitPayment],[Sollecito]\n\nFOR JSON PATH;",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "JsonSink",
+						"storeSettings": {
+							"type": "AzureBlobStorageWriteSettings"
+						},
+						"formatSettings": {
+							"type": "JsonWriteSettings",
+							"filePattern": "arrayOfObjects"
+						}
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "JsonToSAP",
+						"type": "DatasetReference",
+						"parameters": {
+							"NomeFileJson": {
+								"value": "@CONCAT('fattura_anticipo_',variables('AnnoRiferimento'),variables('MeseRiferimento'),'.json')",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "spCreazioneFattureAnticipo_TEST",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Set MeseRiferimento",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spCreazioneFattureAnticipo_TEST]",
+					"storedProcedureParameters": {
+						"AnnoRiferimento": {
+							"value": {
+								"value": "@variables('AnnoRiferimento')",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseRiferimento": {
+							"value": {
+								"value": "@variables('MeseRiferimento')",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Set AnnoRiferimento",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "AnnoRiferimento",
+					"value": {
+						"value": "@int(substring(utcnow(),0,4))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set MeseRiferimento",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set AnnoRiferimento",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "MeseRiferimento",
+					"value": {
+						"value": "@int(substring(utcnow(),5,2))",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"variables": {
+			"AnnoRiferimento": {
+				"type": "Integer"
+			},
+			"MeseRiferimento": {
+				"type": "Integer"
+			}
+		},
+		"folder": {
+			"name": "SendToSAP"
+		},
+		"annotations": []
+	}
+}

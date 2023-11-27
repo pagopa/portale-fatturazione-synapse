@@ -1,0 +1,28 @@
+{
+	"name": "JsonToSAP",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "fat_stage_sa",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"NomeFileJson": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": {
+					"value": "@dataset().NomeFileJson",
+					"type": "Expression"
+				},
+				"folderPath": "fatture_anticipo",
+				"container": "pfstage"
+			}
+		},
+		"schema": {}
+	}
+}
