@@ -19,7 +19,10 @@
 						"referenceName": "fat_stage_parquet",
 						"type": "DatasetReference",
 						"parameters": {
-							"PathFolderFile": "send/selfcare_contracts_test"
+							"PathFolderFile": {
+								"value": "@pipeline().parameters.FolderInput",
+								"type": "Expression"
+							}
 						}
 					},
 					"fieldList": [
