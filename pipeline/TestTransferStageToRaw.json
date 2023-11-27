@@ -80,6 +80,7 @@
 						"value": "@activity('Get Folders').output.Value",
 						"type": "Expression"
 					},
+					"isSequential": true,
 					"activities": [
 						{
 							"name": "Get FileName",
@@ -215,15 +216,14 @@
 									"storeSettings": {
 										"type": "AzureBlobStorageReadSettings",
 										"recursive": true,
-										"modifiedDatetimeStart": {
+										"wildcardFolderPath": {
 											"value": "@pipeline().parameters.FolderInput",
 											"type": "Expression"
 										},
-										"modifiedDatetimeEnd": {
+										"wildcardFileName": {
 											"value": "@variables('TestFileName')",
 											"type": "Expression"
 										},
-										"wildcardFileName": "*.parquet",
 										"enablePartitionDiscovery": false
 									},
 									"formatSettings": {
