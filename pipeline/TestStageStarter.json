@@ -64,7 +64,13 @@
 									"referenceName": "TestDaButtare",
 									"type": "PipelineReference"
 								},
-								"waitOnCompletion": true
+								"waitOnCompletion": true,
+								"parameters": {
+									"FolderInput": {
+										"value": "@variables('SourcePath')",
+										"type": "Expression"
+									}
+								}
 							}
 						},
 						{

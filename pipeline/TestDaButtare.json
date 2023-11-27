@@ -143,9 +143,9 @@
 				}
 			}
 		],
-		"variables": {
+		"parameters": {
 			"FolderInput": {
-				"type": "String"
+				"type": "string"
 			}
 		},
 		"annotations": []
