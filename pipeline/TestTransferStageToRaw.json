@@ -217,7 +217,7 @@
 										"type": "AzureBlobStorageReadSettings",
 										"recursive": true,
 										"wildcardFolderPath": {
-											"value": "@pipeline().parameters.FolderInput",
+											"value": "@concat(pipeline().parameters.FolderInput,'/',item().name)",
 											"type": "Expression"
 										},
 										"wildcardFileName": {
