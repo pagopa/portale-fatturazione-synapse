@@ -155,6 +155,8 @@
 		"folder": {
 			"name": "SendToSAP"
 		},
-		"annotations": []
-	}
+		"annotations": [],
+		"lastPublishTime": "2023-11-28T15:07:22Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
 }

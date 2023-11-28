@@ -38,6 +38,8 @@
 		"folder": {
 			"name": "Provisioning"
 		},
-		"annotations": []
-	}
+		"annotations": [],
+		"lastPublishTime": "2023-11-28T15:06:49Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
 }

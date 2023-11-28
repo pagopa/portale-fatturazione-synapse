@@ -41,13 +41,14 @@
 				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
 				"auth": {
 					"type": "AAD",
-					"authResource": "https://dev.azuresynapse.net"
+					"authResource": "https://dev.azuresynapse.net",
+					"authHeader": null
 				},
 				"sparkVersion": "3.3",
 				"nodeCount": 10,
 				"cores": 4,
 				"memory": 28,
-				"automaticScaleJobs": true
+				"extraHeader": null
 			},
 			"sessionKeepAliveTimeout": 30
 		},
@@ -358,8 +359,7 @@
 					"        (\"enti\",null)\r\n",
 					"    \"\"\"\r\n",
 					")"
-				],
-				"execution_count": null
+				]
 			},
 			{
 				"cell_type": "code",

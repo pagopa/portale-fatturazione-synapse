@@ -602,6 +602,8 @@
 		"folder": {
 			"name": "NewIngestion"
 		},
-		"annotations": []
-	}
+		"annotations": [],
+		"lastPublishTime": "2023-11-28T15:07:28Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
 }
