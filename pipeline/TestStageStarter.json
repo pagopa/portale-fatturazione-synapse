@@ -50,14 +50,7 @@
 						{
 							"name": "TransferStageToRaw",
 							"type": "ExecutePipeline",
-							"dependsOn": [
-								{
-									"activity": "SourcePath",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
+							"dependsOn": [],
 							"userProperties": [],
 							"typeProperties": {
 								"pipeline": {
@@ -70,25 +63,6 @@
 										"value": "@item().FolderInput",
 										"type": "Expression"
 									}
-								}
-							}
-						},
-						{
-							"name": "SourcePath",
-							"type": "SetVariable",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "SourcePath",
-								"value": {
-									"value": "@item().FolderInput",
-									"type": "Expression"
 								}
 							}
 						}
