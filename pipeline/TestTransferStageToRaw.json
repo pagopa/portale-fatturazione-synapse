@@ -250,8 +250,6 @@
 											{
 												"name": "IngestSelfCare",
 												"type": "SynapseNotebook",
-												"state": "Inactive",
-												"onInactiveMarkAs": "Succeeded",
 												"dependsOn": [],
 												"policy": {
 													"timeout": "0.12:00:00",
@@ -269,7 +267,7 @@
 													"parameters": {
 														"sourcefile": {
 															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFolderRaw'),'/',variables('FileName'))",
+																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',replace(string(pipeline().parameters.FolderInput),'send/','')),'/', activity('FilterParquetFile').output.value[0].name)",
 																"type": "Expression"
 															},
 															"type": "string"
@@ -319,7 +317,7 @@
 													"parameters": {
 														"sourcefile": {
 															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',variables('PathFolderRaw'),'/',variables('FileName'))",
+																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',replace(string(pipeline().parameters.FolderInput),'send/','')),'/', activity('FilterParquetFile').output.value[0].name)",
 																"type": "Expression"
 															},
 															"type": "string"
