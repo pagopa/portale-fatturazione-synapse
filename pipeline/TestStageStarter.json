@@ -62,6 +62,10 @@
 									"FolderInput": {
 										"value": "@item().FolderInput",
 										"type": "Expression"
+									},
+									"SwitchCase": {
+										"value": "@item().SwitchCase",
+										"type": "Expression"
 									}
 								}
 							}
