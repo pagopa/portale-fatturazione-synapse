@@ -240,12 +240,12 @@
 							"userProperties": [],
 							"typeProperties": {
 								"on": {
-									"value": "@replace(pipeline().parameters.FolderInput, 'send/', '')",
+									"value": "@pipeline().parameters.SwitchCase",
 									"type": "Expression"
 								},
 								"cases": [
 									{
-										"value": "selfcare_contract",
+										"value": "selfcare_contracts",
 										"activities": [
 											{
 												"name": "IngestSelfCare",
@@ -583,6 +583,9 @@
 		],
 		"parameters": {
 			"FolderInput": {
+				"type": "string"
+			},
+			"SwitchCase": {
 				"type": "string"
 			}
 		},

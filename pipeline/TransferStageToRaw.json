@@ -458,19 +458,6 @@
 						"type": "ParquetReadSettings"
 					}
 				}
-			},
-			{
-				"name": "TestStageStarter",
-				"type": "ExecutePipeline",
-				"dependsOn": [],
-				"userProperties": [],
-				"typeProperties": {
-					"pipeline": {
-						"referenceName": "TestStageStarter",
-						"type": "PipelineReference"
-					},
-					"waitOnCompletion": true
-				}
 			}
 		],
 		"parameters": {
