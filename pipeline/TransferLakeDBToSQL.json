@@ -17,7 +17,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [SchemaInput],[TableInput],\n[SchemaOutput],[TableOutput], [MergeProcedure]\nFROM [cfg].[RawParquet]\nwhere Pipeline = 'Provisioning' and FlagEnabled = 1",
+						"sqlReaderQuery": "SELECT [SchemaInput],[TableInput],\n[SchemaOutput],[TableOutput], [MergeProcedure]\nFROM [cfg].[RawParquet]\nwhere Pipeline = 'Ingestion' and FlagEnabled = 1",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -70,7 +70,7 @@
 								"source": {
 									"type": "SqlDWSource",
 									"sqlReaderQuery": {
-										"value": "@concat('SELECT * FROM ',string(item().SchemaInput),'.',string(item().TableInput),' WHERE [LastModified] = ''', activity('Read Watermark').output.value[0].LastModified,'''' )",
+										"value": "@concat('SELECT * FROM ',string(item().SchemaInput),'.',string(item().TableInput),' WHERE CAST([LastModified] AS DATE) = CAST(''', activity('Read Watermark').output.value[0].LastModified,''' AS DATE)' )",
 										"type": "Expression"
 									},
 									"queryTimeout": "02:00:00",
@@ -188,6 +188,33 @@
 							}
 						}
 					]
+				}
+			},
+			{
+				"name": "Update TipoContratto",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "ForEach1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spUpdateTipoContratto]"
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
 				}
 			}
 		],
