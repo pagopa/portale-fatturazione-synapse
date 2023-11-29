@@ -587,6 +587,9 @@
 			},
 			"SwitchCase": {
 				"type": "string"
+			},
+			"PathSink": {
+				"type": "string"
 			}
 		},
 		"variables": {
