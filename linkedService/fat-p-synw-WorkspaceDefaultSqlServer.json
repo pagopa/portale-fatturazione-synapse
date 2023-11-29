@@ -9,7 +9,7 @@
 		"annotations": [],
 		"type": "AzureSqlDW",
 		"typeProperties": {
-			"connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=\"tcp:fat-p-synw.sql.azuresynapse.net, 1433\";Initial Catalog=@{linkedService().DBName}"
+			"connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:fat-p-synw.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
 		},
 		"connectVia": {
 			"referenceName": "AutoResolveIntegrationRuntime",
