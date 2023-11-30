@@ -17,7 +17,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [FolderInput]\nFROM [cfg].[RawParquet]\nwhere Pipeline = 'TransferStageToRaw' and FlagEnabled = 1",
+						"sqlReaderQuery": "SELECT [FolderInput], SwitchCase, PathSink\nFROM [cfg].[RawParquet]\nwhere Pipeline = 'TransferStageToRaw' and FlagEnabled = 1",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -61,6 +61,14 @@
 								"parameters": {
 									"FolderInput": {
 										"value": "@item().FolderInput",
+										"type": "Expression"
+									},
+									"SwitchCase": {
+										"value": "@item().SwitchCase",
+										"type": "Expression"
+									},
+									"PathSink": {
+										"value": "@item().PathSink",
 										"type": "Expression"
 									}
 								}

@@ -21,7 +21,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "25c311b9-3ddd-4207-8675-9ea6b575bc3a"
+				"spark.autotune.trackingId": "54e137eb-8373-4e9b-bfd7-fb2942ba6980"
 			}
 		},
 		"metadata": {
@@ -41,14 +41,13 @@
 				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
 				"auth": {
 					"type": "AAD",
-					"authResource": "https://dev.azuresynapse.net",
-					"authHeader": null
+					"authResource": "https://dev.azuresynapse.net"
 				},
 				"sparkVersion": "3.3",
 				"nodeCount": 10,
 				"cores": 4,
 				"memory": 28,
-				"extraHeader": null
+				"automaticScaleJobs": true
 			},
 			"sessionKeepAliveTimeout": 30
 		},
@@ -284,7 +283,8 @@
 					"        , paymentServiceProvider string\r\n",
 					"        , vatnumber string\r\n",
 					"        , publicservices string\r\n",
-					"        , LastModified timestamp                        \r\n",
+					"        , LastModified timestamp    \r\n",
+					"        , Category string                    \r\n",
 					"    ) USING DELTA\r\n",
 					"    LOCATION 'enti'\r\n",
 					"    TBLPROPERTIES (\r\n",
@@ -293,7 +293,7 @@
 					"    \"\"\"\r\n",
 					")"
 				],
-				"execution_count": 8
+				"execution_count": 1
 			},
 			{
 				"cell_type": "code",
@@ -335,7 +335,7 @@
 					"    \"\"\"\r\n",
 					")"
 				],
-				"execution_count": 9
+				"execution_count": 2
 			},
 			{
 				"cell_type": "code",
@@ -359,7 +359,8 @@
 					"        (\"enti\",null)\r\n",
 					"    \"\"\"\r\n",
 					")"
-				]
+				],
+				"execution_count": null
 			},
 			{
 				"cell_type": "code",
@@ -398,7 +399,8 @@
 					"        , vatnumber string\r\n",
 					"        , publicservices string\r\n",
 					"        , InsertionTimestamp timestamp\r\n",
-					"        , SourceFile string               \r\n",
+					"        , SourceFile string    \r\n",
+					"        , Category string           \r\n",
 					"    ) USING DELTA\r\n",
 					"    LOCATION 'enti_history'\r\n",
 					"    TBLPROPERTIES (\r\n",
@@ -450,7 +452,7 @@
 					"    \"\"\"\r\n",
 					")"
 				],
-				"execution_count": 5
+				"execution_count": 4
 			}
 		]
 	}

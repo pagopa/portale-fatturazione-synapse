@@ -21,7 +21,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "e92a6de1-71b7-4471-960a-b0636b837df3"
+				"spark.autotune.trackingId": "d73093cf-e240-4c4d-b6b3-f13a2f4fabd1"
 			}
 		},
 		"metadata": {
@@ -41,14 +41,13 @@
 				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
 				"auth": {
 					"type": "AAD",
-					"authResource": "https://dev.azuresynapse.net",
-					"authHeader": null
+					"authResource": "https://dev.azuresynapse.net"
 				},
 				"sparkVersion": "3.3",
 				"nodeCount": 10,
 				"cores": 4,
 				"memory": 28,
-				"extraHeader": null
+				"automaticScaleJobs": true
 			},
 			"sessionKeepAliveTimeout": 30
 		},
@@ -78,9 +77,10 @@
 					"tableNameEnti = 'fat_delta.enti_history'\r\n",
 					"tableNameContratti = 'fat_delta.contratti_history'\r\n",
 					"linked_service_name = 'nomeLinkedService'\r\n",
-					"#sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/08/selfcare_contract/selfcare_contract_20231108.parquet'"
+					"#sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/08/selfcare_contract/selfcare_contract_20231108.parquet'\r\n",
+					"#sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/28/selfcare_contract/part-00000-bcf90cd7-1f19-49d4-a359-ae324146d736-c000.snappy.parquet'"
 				],
-				"execution_count": 8
+				"execution_count": 12
 			},
 			{
 				"cell_type": "markdown",
@@ -114,7 +114,7 @@
 					"from pyspark.sql.functions import max\r\n",
 					"from datetime import datetime"
 				],
-				"execution_count": 9
+				"execution_count": 13
 			},
 			{
 				"cell_type": "markdown",
@@ -143,10 +143,10 @@
 					}
 				},
 				"source": [
-					"tDeltaEnti = DeltaTable.forName(spark, tableNameEnti)\r\n",
-					"tDeltaContratti = DeltaTable.forName(spark, tableNameContratti)"
+					"#tDeltaEnti = DeltaTable.forName(spark, tableNameEnti)\r\n",
+					"#tDeltaContratti = DeltaTable.forName(spark, tableNameContratti)"
 				],
-				"execution_count": 10
+				"execution_count": 14
 			},
 			{
 				"cell_type": "markdown",
@@ -190,10 +190,10 @@
 					"#print(dtTmp.count())\r\n",
 					"\r\n",
 					"\r\n",
-					"dfEnti = dfTmp.select(\"internalistitutionid\",\"institution.institutionType\",\"institution.description\", \"institution.digitalAddress\", \"institution.address\", \"institution.originId\", \"institution.zipCode\", \"institution.istatCode\", \"institution.city\", \"institution.country\", \"institution.county\", \"institution.subUnitCode\", \"institution.subUnitType\", \"institution.paymentServiceProvider\", \"billing.vatnumber\", \"billing.publicservices\")\r\n",
+					"dfEnti = dfTmp.select(\"internalistitutionid\",\"institution.institutionType\",\"institution.description\", \"institution.digitalAddress\", \"institution.address\", \"institution.originId\", \"institution.zipCode\", \"institution.istatCode\", \"institution.city\", \"institution.country\", \"institution.county\", \"institution.subUnitCode\", \"institution.subUnitType\", \"institution.paymentServiceProvider\", \"billing.vatnumber\", \"billing.publicservices\", \"institution.Category\")\r\n",
 					"dfContratti = dfTmp.select(\"internalistitutionid\", \"product\", \"filename\", \"onboardingtokenid\", \"pricingplan\", \"updatedat\", \"createdat\", \"closedat\", \"year\", \"month\", \"daily\")"
 				],
-				"execution_count": 11
+				"execution_count": 15
 			},
 			{
 				"cell_type": "markdown",
@@ -234,7 +234,7 @@
 					"dfEnti = dfEnti.withColumn(\"SourceFile\",  F.lit(sourcefile))\r\n",
 					"dfContratti = dfContratti.withColumn(\"SourceFile\",  F.lit(sourcefile))"
 				],
-				"execution_count": 12
+				"execution_count": 16
 			},
 			{
 				"cell_type": "markdown",
@@ -263,12 +263,12 @@
 					}
 				},
 				"source": [
-					"# Creazione tabella Contratti_history\r\n",
+					"#Creazione tabella Contratti_history\r\n",
 					"#spark.sql('DROP TABLE IF EXISTS  fat_delta.contratti_history')\r\n",
 					"#spark.sql('DROP TABLE IF EXISTS  fat_delta.enti_history')\r\n",
 					"#spark.read.table(\"fat_delta.enti_history\")"
 				],
-				"execution_count": 19
+				"execution_count": 17
 			},
 			{
 				"cell_type": "code",
@@ -287,7 +287,7 @@
 					"dfEnti.write.format(\"delta\").mode(\"append\").saveAsTable(tableNameEnti)\r\n",
 					"dfContratti.write.format(\"delta\").mode(\"append\").saveAsTable(tableNameContratti)"
 				],
-				"execution_count": 16
+				"execution_count": 18
 			}
 		]
 	}
