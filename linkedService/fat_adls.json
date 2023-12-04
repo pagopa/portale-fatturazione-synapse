@@ -7,7 +7,7 @@
 			"url": "https://fatddls.dfs.core.windows.net/"
 		},
 		"connectVia": {
-			"referenceName": "fat-p-synw-integration-runtime",
+			"referenceName": "AutoResolveIntegrationRuntime",
 			"type": "IntegrationRuntimeReference"
 		}
 	},
