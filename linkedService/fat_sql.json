@@ -2,14 +2,14 @@
 	"name": "fat_sql",
 	"type": "Microsoft.Synapse/workspaces/linkedservices",
 	"properties": {
-		"annotations": [],
+		"connectVia": {
+			"referenceName": "fat-p-synw-integration-runtime",
+			"type": "IntegrationRuntimeReference"
+		},
 		"type": "AzureSqlDatabase",
 		"typeProperties": {
-			"connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=fat-d-sql.database.windows.net;Initial Catalog=fat-sqldb"
+			"connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=fat-p-sqls.database.windows.net;Initial Catalog=fat-p-db"
 		},
-		"connectVia": {
-			"referenceName": "AutoResolveIntegrationRuntime",
-			"type": "IntegrationRuntimeReference"
-		}
+		"annotations": []
 	}
 }

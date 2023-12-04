@@ -1,0 +1,10 @@
+{
+	"name": "fat-p-synw-sql-endpoint",
+	"properties": {
+		"privateLinkResourceId": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Sql/servers/fat-p-sqls",
+		"groupId": "sqlServer",
+		"fqdns": [
+			"fat-p-sqls.database.windows.net"
+		]
+	}
+}
