@@ -1,15 +1,15 @@
 {
 	"name": "fat_adls",
-	"type": "Microsoft.Synapse/workspaces/linkedservices",
 	"properties": {
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://fatpsa.dfs.core.windows.net/"
+		},
 		"connectVia": {
 			"referenceName": "fat-p-synw-integration-runtime",
 			"type": "IntegrationRuntimeReference"
-		},
-		"type": "AzureBlobFS",
-		"typeProperties": {
-			"url": "https://fatpdls.dfs.core.windows.net/"
-		},
-		"annotations": []
-	}
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/linkedservices"
 }
