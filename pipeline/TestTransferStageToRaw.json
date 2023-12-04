@@ -538,8 +538,6 @@
 						{
 							"name": "DeleteFilesInStage",
 							"type": "Delete",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
 									"activity": "SwitchNotebookIngest",
