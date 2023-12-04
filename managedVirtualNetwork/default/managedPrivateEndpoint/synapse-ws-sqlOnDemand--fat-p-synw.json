@@ -4,7 +4,7 @@
 		"privateLinkResourceId": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw",
 		"groupId": "sqlOnDemand",
 		"fqdns": [
-			"fat-p-synw-ondemand.5165dd2e-602a-47c1-8a77-829ede386f12.sql.azuresynapse.net"
+			"fat-p-synw-ondemand.4cbc3216-3d46-42c7-a42f-d02d2c7b7473.sql.azuresynapse.net"
 		]
 	}
 }

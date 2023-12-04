@@ -219,7 +219,7 @@
 									"type": "DatasetReference",
 									"parameters": {
 										"PathFolderSink": {
-											"value": "@concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',replace(string(pipeline().parameters.FolderInput),'send/',''))",
+											"value": "@concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink)",
 											"type": "Expression"
 										}
 									}
@@ -240,12 +240,12 @@
 							"userProperties": [],
 							"typeProperties": {
 								"on": {
-									"value": "@replace(pipeline().parameters.FolderInput, 'send/', '')",
+									"value": "@pipeline().parameters.SwitchCase",
 									"type": "Expression"
 								},
 								"cases": [
 									{
-										"value": "selfcare_contract",
+										"value": "selfcare_contracts",
 										"activities": [
 											{
 												"name": "IngestSelfCare",
@@ -267,7 +267,7 @@
 													"parameters": {
 														"sourcefile": {
 															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',replace(string(pipeline().parameters.FolderInput),'send/','')),'/', activity('FilterParquetFile').output.value[0].name)",
+																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
 																"type": "Expression"
 															},
 															"type": "string"
@@ -291,8 +291,6 @@
 											{
 												"name": "IngestSelfCare_History",
 												"type": "SynapseNotebook",
-												"state": "Inactive",
-												"onInactiveMarkAs": "Succeeded",
 												"dependsOn": [
 													{
 														"activity": "IngestSelfCare",
@@ -317,7 +315,7 @@
 													"parameters": {
 														"sourcefile": {
 															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',replace(string(pipeline().parameters.FolderInput),'send/','')),'/', activity('FilterParquetFile').output.value[0].name)",
+																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
 																"type": "Expression"
 															},
 															"type": "string"
@@ -365,7 +363,7 @@
 													"parameters": {
 														"sourcefile": {
 															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',replace(string(pipeline().parameters.FolderInput),'send/','')),'/', activity('FilterParquetFile').output.value[0].name)",
+																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
 																"type": "Expression"
 															},
 															"type": "string"
@@ -413,7 +411,7 @@
 													"parameters": {
 														"sourcefile": {
 															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',replace(string(pipeline().parameters.FolderInput),'send/','')),'/', activity('FilterParquetFile').output.value[0].name)",
+																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
 																"type": "Expression"
 															},
 															"type": "string"
@@ -442,6 +440,8 @@
 											{
 												"name": "IngestSelfCare_copy1",
 												"type": "SynapseNotebook",
+												"state": "Inactive",
+												"onInactiveMarkAs": "Succeeded",
 												"dependsOn": [],
 												"policy": {
 													"timeout": "0.12:00:00",
@@ -583,6 +583,12 @@
 		],
 		"parameters": {
 			"FolderInput": {
+				"type": "string"
+			},
+			"SwitchCase": {
+				"type": "string"
+			},
+			"PathSink": {
 				"type": "string"
 			}
 		},
