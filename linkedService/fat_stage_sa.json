@@ -1,16 +1,16 @@
 {
 	"name": "fat_stage_sa",
-	"type": "Microsoft.Synapse/workspaces/linkedservices",
 	"properties": {
 		"annotations": [],
 		"type": "AzureBlobStorage",
 		"typeProperties": {
-			"serviceEndpoint": "https://fatdstagesa.blob.core.windows.net/",
+			"serviceEndpoint": "https://fatpsa.blob.core.windows.net/",
 			"accountKind": "StorageV2"
 		},
 		"connectVia": {
 			"referenceName": "AutoResolveIntegrationRuntime",
 			"type": "IntegrationRuntimeReference"
 		}
-	}
+	},
+	"type": "Microsoft.Synapse/workspaces/linkedservices"
 }
