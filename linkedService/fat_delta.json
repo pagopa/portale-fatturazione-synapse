@@ -1,21 +1,20 @@
 {
 	"name": "fat_delta",
-	"type": "Microsoft.Synapse/workspaces/linkedservices",
 	"properties": {
+		"parameters": {
+			"DBName": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlDW",
+		"typeProperties": {
+			"connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:fat-d-synw-ondemand.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName};TrustServerCertificate=False"
+		},
 		"connectVia": {
 			"referenceName": "fat-p-synw-integration-runtime",
 			"type": "IntegrationRuntimeReference"
-		},
-		"parameters": {
-			"DBName": {
-				"type": "String",
-				"defaultValue": ""
-			}
-		},
-		"type": "AzureSqlDW",
-		"typeProperties": {
-			"connectionString": "Data Source=tcp:fat-p-synw-ondemand.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
-		},
-		"annotations": []
-	}
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/linkedservices"
 }
