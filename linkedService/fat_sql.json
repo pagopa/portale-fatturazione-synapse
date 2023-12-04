@@ -3,7 +3,7 @@
 	"type": "Microsoft.Synapse/workspaces/linkedservices",
 	"properties": {
 		"connectVia": {
-			"referenceName": "fat-p-synw-integration-runtime",
+			"referenceName": "AutoResolveIntegrationRuntime",
 			"type": "IntegrationRuntimeReference"
 		},
 		"type": "AzureSqlDatabase",
