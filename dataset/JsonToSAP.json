@@ -2,7 +2,7 @@
 	"name": "JsonToSAP",
 	"properties": {
 		"linkedServiceName": {
-			"referenceName": "fat_stage_sa",
+			"referenceName": "fat_sa",
 			"type": "LinkedServiceReference"
 		},
 		"parameters": {
