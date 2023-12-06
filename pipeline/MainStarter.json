@@ -1,9 +1,9 @@
 {
-	"name": "main_test",
+	"name": "MainStarter",
 	"properties": {
 		"activities": [
 			{
-				"name": "Execute Pipeline1",
+				"name": "Execute TestStageStarter",
 				"type": "ExecutePipeline",
 				"dependsOn": [],
 				"userProperties": [],
@@ -16,11 +16,11 @@
 				}
 			},
 			{
-				"name": "Execute Pipeline2",
+				"name": "Execute TransferLakeDBToSQL",
 				"type": "ExecutePipeline",
 				"dependsOn": [
 					{
-						"activity": "Execute Pipeline1",
+						"activity": "Execute TestStageStarter",
 						"dependencyConditions": [
 							"Succeeded"
 						]

@@ -560,7 +560,7 @@
 									"type": "DatasetReference",
 									"parameters": {
 										"PathFolderFile": {
-											"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName)",
+											"value": "@pipeline().parameters.FolderInput",
 											"type": "Expression"
 										}
 									}
@@ -568,9 +568,8 @@
 								"enableLogging": false,
 								"storeSettings": {
 									"type": "AzureBlobStorageReadSettings",
-									"recursive": true,
-									"wildcardFileName": {
-										"value": "@{activity('FilterParquetFile').output.value[0].name}",
+									"fileListPath": {
+										"value": "@pipeline().parameters.FolderInput",
 										"type": "Expression"
 									},
 									"enablePartitionDiscovery": false
