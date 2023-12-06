@@ -569,10 +569,7 @@
 								"storeSettings": {
 									"type": "AzureBlobStorageReadSettings",
 									"recursive": true,
-									"wildcardFileName": {
-										"value": "@{activity('FilterParquetFile').output.value[0].name}",
-										"type": "Expression"
-									},
+									"wildcardFileName": "*",
 									"enablePartitionDiscovery": false
 								}
 							}
