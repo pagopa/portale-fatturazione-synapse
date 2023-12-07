@@ -67,7 +67,15 @@
 								"waitOnCompletion": true,
 								"parameters": {
 									"FolderInput": {
-										"value": "@variables('SourcePath')",
+										"value": "@item().FolderInput",
+										"type": "Expression"
+									},
+									"SwitchCase": {
+										"value": "@item().SwitchCase",
+										"type": "Expression"
+									},
+									"PathSink": {
+										"value": "@item().PathSink",
 										"type": "Expression"
 									},
 									"StorageURL": {
