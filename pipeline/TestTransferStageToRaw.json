@@ -146,11 +146,20 @@
 						{
 							"name": "If Condition1",
 							"type": "IfCondition",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
-							"dependsOn": [],
+							"dependsOn": [
+								{
+									"activity": "FilterParquetFile",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
 							"userProperties": [],
 							"typeProperties": {
+								"expression": {
+									"value": "@equals(activity('FilterParquetFile').output.FilteredItemsCount,1)",
+									"type": "Expression"
+								},
 								"ifTrueActivities": [
 									{
 										"name": "TransferFileToRaw_copy1",
@@ -608,6 +617,9 @@
 				"type": "String"
 			},
 			"PathFullStage": {
+				"type": "String"
+			},
+			"ENV": {
 				"type": "String"
 			}
 		},
