@@ -41,7 +41,7 @@
 				}
 			},
 			{
-				"name": "Get Folders",
+				"name": "GetFolders",
 				"type": "Filter",
 				"dependsOn": [
 					{
@@ -64,11 +64,11 @@
 				}
 			},
 			{
-				"name": "ForEach1",
+				"name": "ForEachFolder",
 				"type": "ForEach",
 				"dependsOn": [
 					{
-						"activity": "Get Folders",
+						"activity": "GetFolders",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -77,13 +77,13 @@
 				"userProperties": [],
 				"typeProperties": {
 					"items": {
-						"value": "@activity('Get Folders').output.Value",
+						"value": "@activity('GetFolders').output.Value",
 						"type": "Expression"
 					},
 					"isSequential": true,
 					"activities": [
 						{
-							"name": "Get FileName",
+							"name": "GetFileName",
 							"type": "GetMetadata",
 							"dependsOn": [],
 							"policy": {
@@ -125,7 +125,7 @@
 							"type": "Filter",
 							"dependsOn": [
 								{
-									"activity": "Get FileName",
+									"activity": "GetFileName",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -134,7 +134,7 @@
 							"userProperties": [],
 							"typeProperties": {
 								"items": {
-									"value": "@activity('Get FileName').output.childItems",
+									"value": "@activity('GetFileName').output.childItems",
 									"type": "Expression"
 								},
 								"condition": {
@@ -144,7 +144,7 @@
 							}
 						},
 						{
-							"name": "If Condition1",
+							"name": "If File Parquet Exist",
 							"type": "IfCondition",
 							"dependsOn": [
 								{
@@ -162,7 +162,7 @@
 								},
 								"ifFalseActivities": [
 									{
-										"name": "DeleteFilesInStage_copy1_copy1",
+										"name": "DeleteFilesInStageNoParquet",
 										"type": "Delete",
 										"dependsOn": [],
 										"policy": {
@@ -179,7 +179,7 @@
 												"type": "DatasetReference",
 												"parameters": {
 													"PathFolderFile": {
-														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName)",
+														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('GetFileName').output.itemName)",
 														"type": "Expression"
 													}
 												}
@@ -196,7 +196,7 @@
 								],
 								"ifTrueActivities": [
 									{
-										"name": "TransferFileToRaw_copy1",
+										"name": "TransferFileToRaw",
 										"type": "Copy",
 										"dependsOn": [],
 										"policy": {
@@ -214,7 +214,7 @@
 													"type": "AzureBlobStorageReadSettings",
 													"recursive": true,
 													"wildcardFolderPath": {
-														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName)",
+														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('GetFileName').output.itemName)",
 														"type": "Expression"
 													},
 													"wildcardFileName": {
@@ -252,7 +252,7 @@
 												"type": "DatasetReference",
 												"parameters": {
 													"PathFolderFile": {
-														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName)",
+														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('GetFileName').output.itemName)",
 														"type": "Expression"
 													}
 												}
@@ -264,7 +264,7 @@
 												"type": "DatasetReference",
 												"parameters": {
 													"PathFolderSink": {
-														"value": "@concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink)",
+														"value": "@concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('GetFileName').output.itemName,0,4),\n'/',substring(activity('GetFileName').output.itemName,4,2),\n'/',substring(activity('GetFileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink)",
 														"type": "Expression"
 													}
 												}
@@ -272,11 +272,11 @@
 										]
 									},
 									{
-										"name": "SwitchNotebookIngest_copy1",
+										"name": "SwitchNotebookIngest",
 										"type": "Switch",
 										"dependsOn": [
 											{
-												"activity": "TransferFileToRaw_copy1",
+												"activity": "TransferFileToRaw",
 												"dependencyConditions": [
 													"Succeeded"
 												]
@@ -293,7 +293,7 @@
 													"value": "selfcare_contracts",
 													"activities": [
 														{
-															"name": "IngestSelfCare_copy2",
+															"name": "IngestSelfCare",
 															"type": "SynapseNotebook",
 															"dependsOn": [],
 															"policy": {
@@ -312,7 +312,7 @@
 																"parameters": {
 																	"sourcefile": {
 																		"value": {
-																			"value": "@concat(pipeline().parameters.StorageURL,concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
+																			"value": "@concat(pipeline().parameters.StorageURL,concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('GetFileName').output.itemName,0,4),\n'/',substring(activity('GetFileName').output.itemName,4,2),\n'/',substring(activity('GetFileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
 																			"type": "Expression"
 																		},
 																		"type": "string"
@@ -334,11 +334,11 @@
 															}
 														},
 														{
-															"name": "IngestSelfCare_History_copy2",
+															"name": "IngestSelfCare_History",
 															"type": "SynapseNotebook",
 															"dependsOn": [
 																{
-																	"activity": "IngestSelfCare_copy2",
+																	"activity": "IngestSelfCare",
 																	"dependencyConditions": [
 																		"Succeeded"
 																	]
@@ -360,7 +360,7 @@
 																"parameters": {
 																	"sourcefile": {
 																		"value": {
-																			"value": "@concat(pipeline().parameters.StorageURL,concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
+																			"value": "@concat(pipeline().parameters.StorageURL,concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('GetFileName').output.itemName,0,4),\n'/',substring(activity('GetFileName').output.itemName,4,2),\n'/',substring(activity('GetFileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
 																			"type": "Expression"
 																		},
 																		"type": "string"
@@ -387,7 +387,7 @@
 													"value": "notification",
 													"activities": [
 														{
-															"name": "IngestNotification_copy1",
+															"name": "IngestNotification",
 															"type": "SynapseNotebook",
 															"state": "Inactive",
 															"onInactiveMarkAs": "Succeeded",
@@ -435,7 +435,7 @@
 													"value": "invoicing_timeline",
 													"activities": [
 														{
-															"name": "IngestInvoicing_timeline_copy1",
+															"name": "IngestInvoicing_timeline",
 															"type": "SynapseNotebook",
 															"state": "Inactive",
 															"onInactiveMarkAs": "Succeeded",
@@ -478,114 +478,16 @@
 															}
 														}
 													]
-												},
-												{
-													"value": "selfcare_contracts_test",
-													"activities": [
-														{
-															"name": "IngestSelfCare_copy1_copy1",
-															"type": "SynapseNotebook",
-															"state": "Inactive",
-															"onInactiveMarkAs": "Succeeded",
-															"dependsOn": [],
-															"policy": {
-																"timeout": "0.12:00:00",
-																"retry": 0,
-																"retryIntervalInSeconds": 30,
-																"secureOutput": false,
-																"secureInput": false
-															},
-															"userProperties": [],
-															"typeProperties": {
-																"notebook": {
-																	"referenceName": "IngestSelfCare",
-																	"type": "NotebookReference"
-																},
-																"parameters": {
-																	"sourcefile": {
-																		"value": {
-																			"value": "@concat(pipeline().parameters.StorageURL,concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',replace(string(pipeline().parameters.FolderInput),'send/','')),'/', activity('FilterParquetFile').output.value[0].name)",
-																			"type": "Expression"
-																		},
-																		"type": "string"
-																	}
-																},
-																"snapshot": true,
-																"sparkPool": {
-																	"referenceName": "sparkcls01",
-																	"type": "BigDataPoolReference"
-																},
-																"executorSize": "Small",
-																"conf": {
-																	"spark.dynamicAllocation.enabled": null,
-																	"spark.dynamicAllocation.minExecutors": null,
-																	"spark.dynamicAllocation.maxExecutors": null
-																},
-																"driverSize": "Small",
-																"numExecutors": null
-															}
-														},
-														{
-															"name": "IngestSelfCare_History_copy1_copy1",
-															"type": "SynapseNotebook",
-															"state": "Inactive",
-															"onInactiveMarkAs": "Succeeded",
-															"dependsOn": [
-																{
-																	"activity": "IngestSelfCare_copy1_copy1",
-																	"dependencyConditions": [
-																		"Succeeded"
-																	]
-																}
-															],
-															"policy": {
-																"timeout": "0.12:00:00",
-																"retry": 0,
-																"retryIntervalInSeconds": 30,
-																"secureOutput": false,
-																"secureInput": false
-															},
-															"userProperties": [],
-															"typeProperties": {
-																"notebook": {
-																	"referenceName": "IngestSelfCare_History",
-																	"type": "NotebookReference"
-																},
-																"parameters": {
-																	"sourcefile": {
-																		"value": {
-																			"value": "@concat(pipeline().parameters.StorageURL,concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',replace(string(pipeline().parameters.FolderInput),'send/','')),'/', activity('FilterParquetFile').output.value[0].name)",
-																			"type": "Expression"
-																		},
-																		"type": "string"
-																	}
-																},
-																"snapshot": true,
-																"sparkPool": {
-																	"referenceName": "sparkcls01",
-																	"type": "BigDataPoolReference"
-																},
-																"executorSize": "Small",
-																"conf": {
-																	"spark.dynamicAllocation.enabled": null,
-																	"spark.dynamicAllocation.minExecutors": null,
-																	"spark.dynamicAllocation.maxExecutors": null
-																},
-																"driverSize": "Small",
-																"numExecutors": null
-															}
-														}
-													]
 												}
 											]
 										}
 									},
 									{
-										"name": "DeleteFilesInStage_copy1",
+										"name": "DeleteFilesInStage",
 										"type": "Delete",
 										"dependsOn": [
 											{
-												"activity": "SwitchNotebookIngest_copy1",
+												"activity": "SwitchNotebookIngest",
 												"dependencyConditions": [
 													"Succeeded"
 												]
@@ -605,7 +507,7 @@
 												"type": "DatasetReference",
 												"parameters": {
 													"PathFolderFile": {
-														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName)",
+														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('GetFileName').output.itemName)",
 														"type": "Expression"
 													}
 												}
