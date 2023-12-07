@@ -9,7 +9,7 @@
 				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
-						"activity": "Set ENV",
+						"activity": "Set StorageURL",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -26,7 +26,6 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [FolderInput], SwitchCase, PathSink\nFROM [cfg].[RawParquet]\nwhere Pipeline = 'TransferStageToRaw' and FlagEnabled = 1",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -40,6 +39,8 @@
 			{
 				"name": "Loop",
 				"type": "ForEach",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Read Source Path",
@@ -66,25 +67,66 @@
 									"referenceName": "TestTransferStageToRaw",
 									"type": "PipelineReference"
 								},
-								"waitOnCompletion": true
+								"waitOnCompletion": true,
+								"parameters": {
+									"StorageURL": {
+										"value": "@variables('StorageURL')",
+										"type": "Expression"
+									}
+								}
 							}
 						}
 					]
 				}
 			},
 			{
-				"name": "Set ENV",
-				"type": "SetVariable",
+				"name": "LookupStorageURL",
+				"type": "Lookup",
 				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT ValueVariable\nFROM [cfg].[RawParquet]\nwhere Pipeline = ''TestStageStart'' and DimensionVariable = ''StorageURL'' and Environment = ''', pipeline().DataFactory,'''')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Set StorageURL",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "LookupStorageURL",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
 				"policy": {
 					"secureOutput": false,
 					"secureInput": false
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"variableName": "ENV",
+					"variableName": "StorageURL",
 					"value": {
-						"value": "@pipeline().DataFactory",
+						"value": "@activity('LookupStorageURL').output.firstRow.ValueVariable",
 						"type": "Expression"
 					}
 				}
@@ -94,7 +136,7 @@
 			"SourcePath": {
 				"type": "String"
 			},
-			"ENV": {
+			"StorageURL": {
 				"type": "String"
 			}
 		},
