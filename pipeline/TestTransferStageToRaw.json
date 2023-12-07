@@ -160,6 +160,40 @@
 									"value": "@equals(activity('FilterParquetFile').output.FilteredItemsCount,1)",
 									"type": "Expression"
 								},
+								"ifFalseActivities": [
+									{
+										"name": "DeleteFilesInStage_copy1_copy1",
+										"type": "Delete",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"dataset": {
+												"referenceName": "fat_stage_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"PathFolderFile": {
+														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName)",
+														"type": "Expression"
+													}
+												}
+											},
+											"enableLogging": false,
+											"storeSettings": {
+												"type": "AzureBlobStorageReadSettings",
+												"recursive": true,
+												"wildcardFileName": "*",
+												"enablePartitionDiscovery": false
+											}
+										}
+									}
+								],
 								"ifTrueActivities": [
 									{
 										"name": "TransferFileToRaw_copy1",
