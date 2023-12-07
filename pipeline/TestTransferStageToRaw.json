@@ -164,8 +164,6 @@
 									{
 										"name": "TransferFileToRaw_copy1",
 										"type": "Copy",
-										"state": "Inactive",
-										"onInactiveMarkAs": "Succeeded",
 										"dependsOn": [],
 										"policy": {
 											"timeout": "0.12:00:00",
@@ -242,8 +240,6 @@
 									{
 										"name": "SwitchNotebookIngest_copy1",
 										"type": "Switch",
-										"state": "Inactive",
-										"onInactiveMarkAs": "Succeeded",
 										"dependsOn": [
 											{
 												"activity": "TransferFileToRaw_copy1",
@@ -549,49 +545,47 @@
 												}
 											]
 										}
-									},
-									{
-										"name": "DeleteFilesInStage_copy1",
-										"type": "Delete",
-										"state": "Inactive",
-										"onInactiveMarkAs": "Succeeded",
-										"dependsOn": [
-											{
-												"activity": "SwitchNotebookIngest_copy1",
-												"dependencyConditions": [
-													"Succeeded"
-												]
-											}
-										],
-										"policy": {
-											"timeout": "0.12:00:00",
-											"retry": 0,
-											"retryIntervalInSeconds": 30,
-											"secureOutput": false,
-											"secureInput": false
-										},
-										"userProperties": [],
-										"typeProperties": {
-											"dataset": {
-												"referenceName": "fat_stage_parquet",
-												"type": "DatasetReference",
-												"parameters": {
-													"PathFolderFile": {
-														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName)",
-														"type": "Expression"
-													}
-												}
-											},
-											"enableLogging": false,
-											"storeSettings": {
-												"type": "AzureBlobStorageReadSettings",
-												"recursive": true,
-												"wildcardFileName": "*",
-												"enablePartitionDiscovery": false
-											}
-										}
 									}
 								]
+							}
+						},
+						{
+							"name": "DeleteFilesInStage_copy1",
+							"type": "Delete",
+							"dependsOn": [
+								{
+									"activity": "If Condition1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "fat_stage_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"PathFolderFile": {
+											"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName)",
+											"type": "Expression"
+										}
+									}
+								},
+								"enableLogging": false,
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"wildcardFileName": "*",
+									"enablePartitionDiscovery": false
+								}
 							}
 						}
 					]
