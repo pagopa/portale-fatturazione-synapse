@@ -607,6 +607,9 @@
 			},
 			"PathSink": {
 				"type": "string"
+			},
+			"StorageURL": {
+				"type": "string"
 			}
 		},
 		"variables": {
@@ -617,9 +620,6 @@
 				"type": "String"
 			},
 			"PathFullStage": {
-				"type": "String"
-			},
-			"ENV": {
 				"type": "String"
 			}
 		},
