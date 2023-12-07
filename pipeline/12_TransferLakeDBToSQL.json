@@ -1,5 +1,5 @@
 {
-	"name": "TransferLakeDBToSQL",
+	"name": "12_TransferLakeDBToSQL",
 	"properties": {
 		"activities": [
 			{
@@ -218,6 +218,9 @@
 				}
 			}
 		],
+		"folder": {
+			"name": "Ingestion"
+		},
 		"annotations": [],
 		"lastPublishTime": "2023-11-28T15:07:32Z"
 	},

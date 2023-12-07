@@ -1,5 +1,5 @@
 {
-	"name": "StageStarter",
+	"name": "10_StageStarter",
 	"properties": {
 		"activities": [
 			{
@@ -61,7 +61,7 @@
 							"userProperties": [],
 							"typeProperties": {
 								"pipeline": {
-									"referenceName": "TransferStageToRaw",
+									"referenceName": "11_TransferStageToRaw",
 									"type": "PipelineReference"
 								},
 								"waitOnCompletion": true,

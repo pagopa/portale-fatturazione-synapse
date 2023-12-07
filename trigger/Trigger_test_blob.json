@@ -6,7 +6,7 @@
 		"pipelines": [
 			{
 				"pipelineReference": {
-					"referenceName": "MainStarter",
+					"referenceName": "00_MainStarter",
 					"type": "PipelineReference"
 				}
 			}
