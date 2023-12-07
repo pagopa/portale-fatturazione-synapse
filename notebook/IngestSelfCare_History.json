@@ -21,7 +21,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "b298dcf3-5758-4455-acbf-77a35306b09a"
+				"spark.autotune.trackingId": "4b088efd-577f-4cb5-9bae-88bcd8d6e224"
 			}
 		},
 		"metadata": {
@@ -78,7 +78,7 @@
 					"tableNameContratti = 'fat_delta.contratti_history'\r\n",
 					"linked_service_name = 'nomeLinkedService'\r\n",
 					"#sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/08/selfcare_contract/selfcare_contract_20231108.parquet'\r\n",
-					"sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/12/05/selfcare_contract/part-00000-aafb0b82-5c53-4b19-b719-49f1be9fc620-c000.snappy.parquet'"
+					"#sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/12/05/selfcare_contract/part-00000-aafb0b82-5c53-4b19-b719-49f1be9fc620-c000.snappy.parquet'"
 				],
 				"execution_count": 66
 			},
@@ -178,7 +178,7 @@
 					"dfNewFile = spark.read.format(\"parquet\").load(sourcefile)\r\n",
 					"#nel file sono presenti duplicati per internalistitutionid con stato diverso e diversa data di creazione\r\n",
 					"#applico un filtro per prendere solo l'attivo più recente\r\n",
-					"dfNewFile.printSchema()\r\n",
+					"\r\n",
 					"#print(dtTmp.count())\r\n",
 					"dfTmp = dfNewFile.filter(\"state = 'ACTIVE'\")\r\n",
 					"\r\n",
@@ -319,27 +319,8 @@
 					}
 				},
 				"source": [
-					"dfContratti.printSchema()"
-				],
-				"execution_count": 73
-			},
-			{
-				"cell_type": "code",
-				"metadata": {
-					"jupyter": {
-						"source_hidden": false,
-						"outputs_hidden": false
-					},
-					"nteract": {
-						"transient": {
-							"deleting": false
-						}
-					}
-				},
-				"source": [
 					"dfEnti.write.format(\"delta\").mode(\"append\").saveAsTable(tableNameEnti)\r\n",
-					"dfContratti.write.format(\"delta\").mode(\"append\").saveAsTable(tableNameContratti)\r\n",
-					"dfContratti.printSchema()"
+					"dfContratti.write.format(\"delta\").mode(\"append\").saveAsTable(tableNameContratti)"
 				],
 				"execution_count": 74
 			}
