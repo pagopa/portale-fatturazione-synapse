@@ -144,434 +144,445 @@
 							}
 						},
 						{
-							"name": "TransferFileToRaw",
-							"type": "Copy",
-							"dependsOn": [
-								{
-									"activity": "FilterParquetFile",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
+							"name": "If Condition1",
+							"type": "IfCondition",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
+							"dependsOn": [],
 							"userProperties": [],
 							"typeProperties": {
-								"source": {
-									"type": "ParquetSource",
-									"storeSettings": {
-										"type": "AzureBlobStorageReadSettings",
-										"recursive": true,
-										"wildcardFolderPath": {
-											"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName)",
-											"type": "Expression"
-										},
-										"wildcardFileName": {
-											"value": "@activity('FilterParquetFile').output.value[0].name",
-											"type": "Expression"
-										},
-										"enablePartitionDiscovery": false
-									},
-									"formatSettings": {
-										"type": "ParquetReadSettings"
-									}
-								},
-								"sink": {
-									"type": "ParquetSink",
-									"storeSettings": {
-										"type": "AzureBlobFSWriteSettings"
-									},
-									"formatSettings": {
-										"type": "ParquetWriteSettings"
-									}
-								},
-								"enableStaging": false,
-								"translator": {
-									"type": "TabularTranslator",
-									"typeConversion": true,
-									"typeConversionSettings": {
-										"allowDataTruncation": true,
-										"treatBooleanAsNumber": false
-									}
-								}
-							},
-							"inputs": [
-								{
-									"referenceName": "fat_stage_parquet",
-									"type": "DatasetReference",
-									"parameters": {
-										"PathFolderFile": {
-											"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName)",
-											"type": "Expression"
-										}
-									}
-								}
-							],
-							"outputs": [
-								{
-									"referenceName": "fat_ddls_parquet",
-									"type": "DatasetReference",
-									"parameters": {
-										"PathFolderSink": {
-											"value": "@concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink)",
-											"type": "Expression"
-										}
-									}
-								}
-							]
-						},
-						{
-							"name": "SwitchNotebookIngest",
-							"type": "Switch",
-							"dependsOn": [
-								{
-									"activity": "TransferFileToRaw",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"userProperties": [],
-							"typeProperties": {
-								"on": {
-									"value": "@pipeline().parameters.SwitchCase",
-									"type": "Expression"
-								},
-								"cases": [
+								"ifTrueActivities": [
 									{
-										"value": "selfcare_contracts",
-										"activities": [
-											{
-												"name": "IngestSelfCare",
-												"type": "SynapseNotebook",
-												"dependsOn": [],
-												"policy": {
-													"timeout": "0.12:00:00",
-													"retry": 0,
-													"retryIntervalInSeconds": 30,
-													"secureOutput": false,
-													"secureInput": false
+										"name": "TransferFileToRaw_copy1",
+										"type": "Copy",
+										"state": "Inactive",
+										"onInactiveMarkAs": "Succeeded",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "ParquetSource",
+												"storeSettings": {
+													"type": "AzureBlobStorageReadSettings",
+													"recursive": true,
+													"wildcardFolderPath": {
+														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName)",
+														"type": "Expression"
+													},
+													"wildcardFileName": {
+														"value": "@activity('FilterParquetFile').output.value[0].name",
+														"type": "Expression"
+													},
+													"enablePartitionDiscovery": false
 												},
-												"userProperties": [],
-												"typeProperties": {
-													"notebook": {
-														"referenceName": "IngestSelfCare",
-														"type": "NotebookReference"
-													},
-													"parameters": {
-														"sourcefile": {
-															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
-																"type": "Expression"
-															},
-															"type": "string"
-														}
-													},
-													"snapshot": true,
-													"sparkPool": {
-														"referenceName": "sparkcls01",
-														"type": "BigDataPoolReference"
-													},
-													"executorSize": "Small",
-													"conf": {
-														"spark.dynamicAllocation.enabled": null,
-														"spark.dynamicAllocation.minExecutors": null,
-														"spark.dynamicAllocation.maxExecutors": null
-													},
-													"driverSize": "Small",
-													"numExecutors": null
+												"formatSettings": {
+													"type": "ParquetReadSettings"
 												}
 											},
-											{
-												"name": "IngestSelfCare_History",
-												"type": "SynapseNotebook",
-												"dependsOn": [
-													{
-														"activity": "IngestSelfCare",
-														"dependencyConditions": [
-															"Succeeded"
-														]
-													}
-												],
-												"policy": {
-													"timeout": "0.12:00:00",
-													"retry": 0,
-													"retryIntervalInSeconds": 30,
-													"secureOutput": false,
-													"secureInput": false
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
 												},
-												"userProperties": [],
-												"typeProperties": {
-													"notebook": {
-														"referenceName": "IngestSelfCare_History",
-														"type": "NotebookReference"
-													},
-													"parameters": {
-														"sourcefile": {
-															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
-																"type": "Expression"
-															},
-															"type": "string"
-														}
-													},
-													"snapshot": true,
-													"sparkPool": {
-														"referenceName": "sparkcls01",
-														"type": "BigDataPoolReference"
-													},
-													"executorSize": "Small",
-													"conf": {
-														"spark.dynamicAllocation.enabled": null,
-														"spark.dynamicAllocation.minExecutors": null,
-														"spark.dynamicAllocation.maxExecutors": null
-													},
-													"driverSize": "Small",
-													"numExecutors": null
-												}
-											}
-										]
-									},
-									{
-										"value": "notification",
-										"activities": [
-											{
-												"name": "IngestNotification",
-												"type": "SynapseNotebook",
-												"state": "Inactive",
-												"onInactiveMarkAs": "Succeeded",
-												"dependsOn": [],
-												"policy": {
-													"timeout": "0.12:00:00",
-													"retry": 0,
-													"retryIntervalInSeconds": 30,
-													"secureOutput": false,
-													"secureInput": false
-												},
-												"userProperties": [],
-												"typeProperties": {
-													"notebook": {
-														"referenceName": "IngestNotification",
-														"type": "NotebookReference"
-													},
-													"parameters": {
-														"sourcefile": {
-															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
-																"type": "Expression"
-															},
-															"type": "string"
-														}
-													},
-													"snapshot": true,
-													"sparkPool": {
-														"referenceName": "sparkcls01",
-														"type": "BigDataPoolReference"
-													},
-													"executorSize": "Small",
-													"conf": {
-														"spark.dynamicAllocation.enabled": true,
-														"spark.dynamicAllocation.minExecutors": null,
-														"spark.dynamicAllocation.maxExecutors": null
-													},
-													"driverSize": "Small",
-													"numExecutors": null
-												}
-											}
-										]
-									},
-									{
-										"value": "invoicing_timeline",
-										"activities": [
-											{
-												"name": "IngestInvoicing_timeline",
-												"type": "SynapseNotebook",
-												"state": "Inactive",
-												"onInactiveMarkAs": "Succeeded",
-												"dependsOn": [],
-												"policy": {
-													"timeout": "0.12:00:00",
-													"retry": 0,
-													"retryIntervalInSeconds": 30,
-													"secureOutput": false,
-													"secureInput": false
-												},
-												"userProperties": [],
-												"typeProperties": {
-													"notebook": {
-														"referenceName": "IngestInvoicing_timeline",
-														"type": "NotebookReference"
-													},
-													"parameters": {
-														"sourcefile": {
-															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
-																"type": "Expression"
-															},
-															"type": "string"
-														}
-													},
-													"snapshot": true,
-													"sparkPool": {
-														"referenceName": "sparkcls01",
-														"type": "BigDataPoolReference"
-													},
-													"executorSize": "Small",
-													"conf": {
-														"spark.dynamicAllocation.enabled": true,
-														"spark.dynamicAllocation.minExecutors": null,
-														"spark.dynamicAllocation.maxExecutors": null
-													},
-													"driverSize": "Small",
-													"numExecutors": null
-												}
-											}
-										]
-									},
-									{
-										"value": "selfcare_contracts_test",
-										"activities": [
-											{
-												"name": "IngestSelfCare_copy1",
-												"type": "SynapseNotebook",
-												"state": "Inactive",
-												"onInactiveMarkAs": "Succeeded",
-												"dependsOn": [],
-												"policy": {
-													"timeout": "0.12:00:00",
-													"retry": 0,
-													"retryIntervalInSeconds": 30,
-													"secureOutput": false,
-													"secureInput": false
-												},
-												"userProperties": [],
-												"typeProperties": {
-													"notebook": {
-														"referenceName": "IngestSelfCare",
-														"type": "NotebookReference"
-													},
-													"parameters": {
-														"sourcefile": {
-															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',replace(string(pipeline().parameters.FolderInput),'send/','')),'/', activity('FilterParquetFile').output.value[0].name)",
-																"type": "Expression"
-															},
-															"type": "string"
-														}
-													},
-													"snapshot": true,
-													"sparkPool": {
-														"referenceName": "sparkcls01",
-														"type": "BigDataPoolReference"
-													},
-													"executorSize": "Small",
-													"conf": {
-														"spark.dynamicAllocation.enabled": null,
-														"spark.dynamicAllocation.minExecutors": null,
-														"spark.dynamicAllocation.maxExecutors": null
-													},
-													"driverSize": "Small",
-													"numExecutors": null
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
 												}
 											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
 											{
-												"name": "IngestSelfCare_History_copy1",
-												"type": "SynapseNotebook",
-												"state": "Inactive",
-												"onInactiveMarkAs": "Succeeded",
-												"dependsOn": [
-													{
-														"activity": "IngestSelfCare_copy1",
-														"dependencyConditions": [
-															"Succeeded"
-														]
+												"referenceName": "fat_stage_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"PathFolderFile": {
+														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName)",
+														"type": "Expression"
 													}
-												],
-												"policy": {
-													"timeout": "0.12:00:00",
-													"retry": 0,
-													"retryIntervalInSeconds": 30,
-													"secureOutput": false,
-													"secureInput": false
-												},
-												"userProperties": [],
-												"typeProperties": {
-													"notebook": {
-														"referenceName": "IngestSelfCare_History",
-														"type": "NotebookReference"
-													},
-													"parameters": {
-														"sourcefile": {
-															"value": {
-																"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',replace(string(pipeline().parameters.FolderInput),'send/','')),'/', activity('FilterParquetFile').output.value[0].name)",
-																"type": "Expression"
-															},
-															"type": "string"
-														}
-													},
-													"snapshot": true,
-													"sparkPool": {
-														"referenceName": "sparkcls01",
-														"type": "BigDataPoolReference"
-													},
-													"executorSize": "Small",
-													"conf": {
-														"spark.dynamicAllocation.enabled": null,
-														"spark.dynamicAllocation.minExecutors": null,
-														"spark.dynamicAllocation.maxExecutors": null
-													},
-													"driverSize": "Small",
-													"numExecutors": null
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "fat_ddls_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"PathFolderSink": {
+														"value": "@concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink)",
+														"type": "Expression"
+													}
 												}
 											}
 										]
+									},
+									{
+										"name": "SwitchNotebookIngest_copy1",
+										"type": "Switch",
+										"state": "Inactive",
+										"onInactiveMarkAs": "Succeeded",
+										"dependsOn": [
+											{
+												"activity": "TransferFileToRaw_copy1",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"userProperties": [],
+										"typeProperties": {
+											"on": {
+												"value": "@pipeline().parameters.SwitchCase",
+												"type": "Expression"
+											},
+											"cases": [
+												{
+													"value": "selfcare_contracts",
+													"activities": [
+														{
+															"name": "IngestSelfCare_copy2",
+															"type": "SynapseNotebook",
+															"dependsOn": [],
+															"policy": {
+																"timeout": "0.12:00:00",
+																"retry": 0,
+																"retryIntervalInSeconds": 30,
+																"secureOutput": false,
+																"secureInput": false
+															},
+															"userProperties": [],
+															"typeProperties": {
+																"notebook": {
+																	"referenceName": "IngestSelfCare",
+																	"type": "NotebookReference"
+																},
+																"parameters": {
+																	"sourcefile": {
+																		"value": {
+																			"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
+																			"type": "Expression"
+																		},
+																		"type": "string"
+																	}
+																},
+																"snapshot": true,
+																"sparkPool": {
+																	"referenceName": "sparkcls01",
+																	"type": "BigDataPoolReference"
+																},
+																"executorSize": "Small",
+																"conf": {
+																	"spark.dynamicAllocation.enabled": null,
+																	"spark.dynamicAllocation.minExecutors": null,
+																	"spark.dynamicAllocation.maxExecutors": null
+																},
+																"driverSize": "Small",
+																"numExecutors": null
+															}
+														},
+														{
+															"name": "IngestSelfCare_History_copy2",
+															"type": "SynapseNotebook",
+															"dependsOn": [
+																{
+																	"activity": "IngestSelfCare_copy2",
+																	"dependencyConditions": [
+																		"Succeeded"
+																	]
+																}
+															],
+															"policy": {
+																"timeout": "0.12:00:00",
+																"retry": 0,
+																"retryIntervalInSeconds": 30,
+																"secureOutput": false,
+																"secureInput": false
+															},
+															"userProperties": [],
+															"typeProperties": {
+																"notebook": {
+																	"referenceName": "IngestSelfCare_History",
+																	"type": "NotebookReference"
+																},
+																"parameters": {
+																	"sourcefile": {
+																		"value": {
+																			"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
+																			"type": "Expression"
+																		},
+																		"type": "string"
+																	}
+																},
+																"snapshot": true,
+																"sparkPool": {
+																	"referenceName": "sparkcls01",
+																	"type": "BigDataPoolReference"
+																},
+																"executorSize": "Small",
+																"conf": {
+																	"spark.dynamicAllocation.enabled": null,
+																	"spark.dynamicAllocation.minExecutors": null,
+																	"spark.dynamicAllocation.maxExecutors": null
+																},
+																"driverSize": "Small",
+																"numExecutors": null
+															}
+														}
+													]
+												},
+												{
+													"value": "notification",
+													"activities": [
+														{
+															"name": "IngestNotification_copy1",
+															"type": "SynapseNotebook",
+															"state": "Inactive",
+															"onInactiveMarkAs": "Succeeded",
+															"dependsOn": [],
+															"policy": {
+																"timeout": "0.12:00:00",
+																"retry": 0,
+																"retryIntervalInSeconds": 30,
+																"secureOutput": false,
+																"secureInput": false
+															},
+															"userProperties": [],
+															"typeProperties": {
+																"notebook": {
+																	"referenceName": "IngestNotification",
+																	"type": "NotebookReference"
+																},
+																"parameters": {
+																	"sourcefile": {
+																		"value": {
+																			"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
+																			"type": "Expression"
+																		},
+																		"type": "string"
+																	}
+																},
+																"snapshot": true,
+																"sparkPool": {
+																	"referenceName": "sparkcls01",
+																	"type": "BigDataPoolReference"
+																},
+																"executorSize": "Small",
+																"conf": {
+																	"spark.dynamicAllocation.enabled": true,
+																	"spark.dynamicAllocation.minExecutors": null,
+																	"spark.dynamicAllocation.maxExecutors": null
+																},
+																"driverSize": "Small",
+																"numExecutors": null
+															}
+														}
+													]
+												},
+												{
+													"value": "invoicing_timeline",
+													"activities": [
+														{
+															"name": "IngestInvoicing_timeline_copy1",
+															"type": "SynapseNotebook",
+															"state": "Inactive",
+															"onInactiveMarkAs": "Succeeded",
+															"dependsOn": [],
+															"policy": {
+																"timeout": "0.12:00:00",
+																"retry": 0,
+																"retryIntervalInSeconds": 30,
+																"secureOutput": false,
+																"secureInput": false
+															},
+															"userProperties": [],
+															"typeProperties": {
+																"notebook": {
+																	"referenceName": "IngestInvoicing_timeline",
+																	"type": "NotebookReference"
+																},
+																"parameters": {
+																	"sourcefile": {
+																		"value": {
+																			"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
+																			"type": "Expression"
+																		},
+																		"type": "string"
+																	}
+																},
+																"snapshot": true,
+																"sparkPool": {
+																	"referenceName": "sparkcls01",
+																	"type": "BigDataPoolReference"
+																},
+																"executorSize": "Small",
+																"conf": {
+																	"spark.dynamicAllocation.enabled": true,
+																	"spark.dynamicAllocation.minExecutors": null,
+																	"spark.dynamicAllocation.maxExecutors": null
+																},
+																"driverSize": "Small",
+																"numExecutors": null
+															}
+														}
+													]
+												},
+												{
+													"value": "selfcare_contracts_test",
+													"activities": [
+														{
+															"name": "IngestSelfCare_copy1_copy1",
+															"type": "SynapseNotebook",
+															"state": "Inactive",
+															"onInactiveMarkAs": "Succeeded",
+															"dependsOn": [],
+															"policy": {
+																"timeout": "0.12:00:00",
+																"retry": 0,
+																"retryIntervalInSeconds": 30,
+																"secureOutput": false,
+																"secureInput": false
+															},
+															"userProperties": [],
+															"typeProperties": {
+																"notebook": {
+																	"referenceName": "IngestSelfCare",
+																	"type": "NotebookReference"
+																},
+																"parameters": {
+																	"sourcefile": {
+																		"value": {
+																			"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',replace(string(pipeline().parameters.FolderInput),'send/','')),'/', activity('FilterParquetFile').output.value[0].name)",
+																			"type": "Expression"
+																		},
+																		"type": "string"
+																	}
+																},
+																"snapshot": true,
+																"sparkPool": {
+																	"referenceName": "sparkcls01",
+																	"type": "BigDataPoolReference"
+																},
+																"executorSize": "Small",
+																"conf": {
+																	"spark.dynamicAllocation.enabled": null,
+																	"spark.dynamicAllocation.minExecutors": null,
+																	"spark.dynamicAllocation.maxExecutors": null
+																},
+																"driverSize": "Small",
+																"numExecutors": null
+															}
+														},
+														{
+															"name": "IngestSelfCare_History_copy1_copy1",
+															"type": "SynapseNotebook",
+															"state": "Inactive",
+															"onInactiveMarkAs": "Succeeded",
+															"dependsOn": [
+																{
+																	"activity": "IngestSelfCare_copy1_copy1",
+																	"dependencyConditions": [
+																		"Succeeded"
+																	]
+																}
+															],
+															"policy": {
+																"timeout": "0.12:00:00",
+																"retry": 0,
+																"retryIntervalInSeconds": 30,
+																"secureOutput": false,
+																"secureInput": false
+															},
+															"userProperties": [],
+															"typeProperties": {
+																"notebook": {
+																	"referenceName": "IngestSelfCare_History",
+																	"type": "NotebookReference"
+																},
+																"parameters": {
+																	"sourcefile": {
+																		"value": {
+																			"value": "@concat('abfss://raw@fatddls.dfs.core.windows.net/',concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('Get FileName').output.itemName,0,4),\n'/',substring(activity('Get FileName').output.itemName,4,2),\n'/',substring(activity('Get FileName').output.itemName,6,2),\n'/',replace(string(pipeline().parameters.FolderInput),'send/','')),'/', activity('FilterParquetFile').output.value[0].name)",
+																			"type": "Expression"
+																		},
+																		"type": "string"
+																	}
+																},
+																"snapshot": true,
+																"sparkPool": {
+																	"referenceName": "sparkcls01",
+																	"type": "BigDataPoolReference"
+																},
+																"executorSize": "Small",
+																"conf": {
+																	"spark.dynamicAllocation.enabled": null,
+																	"spark.dynamicAllocation.minExecutors": null,
+																	"spark.dynamicAllocation.maxExecutors": null
+																},
+																"driverSize": "Small",
+																"numExecutors": null
+															}
+														}
+													]
+												}
+											]
+										}
+									},
+									{
+										"name": "DeleteFilesInStage_copy1",
+										"type": "Delete",
+										"state": "Inactive",
+										"onInactiveMarkAs": "Succeeded",
+										"dependsOn": [
+											{
+												"activity": "SwitchNotebookIngest_copy1",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"dataset": {
+												"referenceName": "fat_stage_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"PathFolderFile": {
+														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName)",
+														"type": "Expression"
+													}
+												}
+											},
+											"enableLogging": false,
+											"storeSettings": {
+												"type": "AzureBlobStorageReadSettings",
+												"recursive": true,
+												"wildcardFileName": "*",
+												"enablePartitionDiscovery": false
+											}
+										}
 									}
 								]
-							}
-						},
-						{
-							"name": "DeleteFilesInStage",
-							"type": "Delete",
-							"dependsOn": [
-								{
-									"activity": "SwitchNotebookIngest",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"dataset": {
-									"referenceName": "fat_stage_parquet",
-									"type": "DatasetReference",
-									"parameters": {
-										"PathFolderFile": {
-											"value": "@concat(pipeline().parameters.FolderInput,'/',activity('Get FileName').output.itemName)",
-											"type": "Expression"
-										}
-									}
-								},
-								"enableLogging": false,
-								"storeSettings": {
-									"type": "AzureBlobStorageReadSettings",
-									"recursive": true,
-									"wildcardFileName": "*",
-									"enablePartitionDiscovery": false
-								}
 							}
 						}
 					]
