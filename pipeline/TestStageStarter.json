@@ -66,6 +66,10 @@
 								},
 								"waitOnCompletion": true,
 								"parameters": {
+									"FolderInput": {
+										"value": "@variables('SourcePath')",
+										"type": "Expression"
+									},
 									"StorageURL": {
 										"value": "@variables('StorageURL')",
 										"type": "Expression"
