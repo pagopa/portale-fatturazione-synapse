@@ -21,7 +21,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "54e137eb-8373-4e9b-bfd7-fb2942ba6980"
+				"spark.autotune.trackingId": "891d8803-acb2-4b07-96d1-2b21f3975b35"
 			}
 		},
 		"metadata": {
@@ -291,9 +291,12 @@
 					"            'delta.logRetentionDuration'='interval 7 days', \r\n",
 					"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
 					"    \"\"\"\r\n",
-					")"
+					")\r\n",
+					"\r\n",
+					"\r\n",
+					""
 				],
-				"execution_count": 1
+				"execution_count": 8
 			},
 			{
 				"cell_type": "code",
@@ -335,7 +338,7 @@
 					"    \"\"\"\r\n",
 					")"
 				],
-				"execution_count": 2
+				"execution_count": 9
 			},
 			{
 				"cell_type": "code",
@@ -360,7 +363,7 @@
 					"    \"\"\"\r\n",
 					")"
 				],
-				"execution_count": null
+				"execution_count": 10
 			},
 			{
 				"cell_type": "code",
@@ -396,8 +399,13 @@
 					"        , subUnitCode string\r\n",
 					"        , subUnitType string\r\n",
 					"        , paymentServiceProvider string\r\n",
+					"        , abiCode string \r\n",
+					"        , vatNumberGroup boolean \r\n",
+					"        , businessRegisterNumber string \r\n",
+					"        , legalRegisterName string \r\n",
+					"        , legalRegisterNumber string     \r\n",
 					"        , vatnumber string\r\n",
-					"        , publicservices string\r\n",
+					"        , publicservices boolean\r\n",
 					"        , InsertionTimestamp timestamp\r\n",
 					"        , SourceFile string    \r\n",
 					"        , Category string           \r\n",
@@ -407,9 +415,35 @@
 					"            'delta.logRetentionDuration'='interval 7 days', \r\n",
 					"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
 					"    \"\"\"\r\n",
-					")"
+					")\r\n",
+					"\r\n",
+					"\r\n",
+					"# root\r\n",
+					"#  |-- internalistitutionid: string (nullable = true)\r\n",
+					"#  |-- institutionType: string (nullable = true)\r\n",
+					"#  |-- description: string (nullable = true)\r\n",
+					"#  |-- digitalAddress: string (nullable = true)\r\n",
+					"#  |-- address: string (nullable = true)\r\n",
+					"#  |-- originId: string (nullable = true)\r\n",
+					"#  |-- zipCode: string (nullable = true)\r\n",
+					"#  |-- istatCode: string (nullable = true)\r\n",
+					"#  |-- city: string (nullable = true)\r\n",
+					"#  |-- country: string (nullable = true)\r\n",
+					"#  |-- county: string (nullable = true)\r\n",
+					"#  |-- subUnitCode: string (nullable = true)\r\n",
+					"#  |-- subUnitType: string (nullable = true)\r\n",
+					"                        #  |-- abiCode: string (nullable = true)\r\n",
+					"                        #  |-- vatNumberGroup: boolean (nullable = true)\r\n",
+					"                        #  |-- businessRegisterNumber: string (nullable = true)\r\n",
+					"                        #  |-- legalRegisterName: string (nullable = true)\r\n",
+					"                        #  |-- legalRegisterNumber: string (nullable = true)\r\n",
+					"#  |-- vatnumber: string (nullable = true)\r\n",
+					"#  |-- publicservices: boolean (nullable = true)\r\n",
+					"#  |-- Category: string (nullable = true)\r\n",
+					"\r\n",
+					""
 				],
-				"execution_count": 3
+				"execution_count": 19
 			},
 			{
 				"cell_type": "code",
@@ -437,10 +471,10 @@
 					"        , onboardingtokenid string\r\n",
 					"        , pricingplan string\r\n",
 					"        , updatedat string\r\n",
-					"        , createdat timestamp\r\n",
-					"        , closedat timestamp\r\n",
-					"        , year int\r\n",
-					"        , month int\r\n",
+					"        , createdat string\r\n",
+					"        , closedat string \r\n",
+					"        , year string\r\n",
+					"        , month string\r\n",
 					"        , daily string\r\n",
 					"        , InsertionTimestamp timestamp \r\n",
 					"        , SourceFile string                        \r\n",
@@ -452,7 +486,7 @@
 					"    \"\"\"\r\n",
 					")"
 				],
-				"execution_count": 4
+				"execution_count": 22
 			}
 		]
 	}
