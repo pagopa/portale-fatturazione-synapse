@@ -67,13 +67,7 @@
 									"referenceName": "TestTransferStageToRaw",
 									"type": "PipelineReference"
 								},
-								"waitOnCompletion": true,
-								"parameters": {
-									"StorageURL": {
-										"value": "@variables('StorageURL')",
-										"type": "Expression"
-									}
-								}
+								"waitOnCompletion": true
 							}
 						}
 					]
