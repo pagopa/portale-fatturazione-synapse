@@ -1,5 +1,5 @@
 {
-	"name": "TestStageStarter",
+	"name": "StageStarter",
 	"properties": {
 		"activities": [
 			{
@@ -61,7 +61,7 @@
 							"userProperties": [],
 							"typeProperties": {
 								"pipeline": {
-									"referenceName": "TestTransferStageToRaw",
+									"referenceName": "TransferStageToRaw",
 									"type": "PipelineReference"
 								},
 								"waitOnCompletion": true,
@@ -150,7 +150,7 @@
 			}
 		},
 		"folder": {
-			"name": "NewIngestion"
+			"name": "Ingestion"
 		},
 		"annotations": [],
 		"lastPublishTime": "2023-11-28T15:07:36Z"

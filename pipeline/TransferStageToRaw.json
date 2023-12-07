@@ -1,5 +1,5 @@
 {
-	"name": "TestTransferStageToRaw",
+	"name": "TransferStageToRaw",
 	"properties": {
 		"activities": [
 			{
@@ -554,7 +554,7 @@
 			}
 		},
 		"folder": {
-			"name": "NewIngestion"
+			"name": "Ingestion"
 		},
 		"annotations": []
 	}

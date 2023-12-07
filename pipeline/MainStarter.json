@@ -3,13 +3,13 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "Execute TestStageStarter",
+				"name": "Execute StageStarter",
 				"type": "ExecutePipeline",
 				"dependsOn": [],
 				"userProperties": [],
 				"typeProperties": {
 					"pipeline": {
-						"referenceName": "TestStageStarter",
+						"referenceName": "StageStarter",
 						"type": "PipelineReference"
 					},
 					"waitOnCompletion": true
@@ -20,7 +20,7 @@
 				"type": "ExecutePipeline",
 				"dependsOn": [
 					{
-						"activity": "Execute TestStageStarter",
+						"activity": "Execute StageStarter",
 						"dependencyConditions": [
 							"Succeeded"
 						]
