@@ -5,8 +5,6 @@
 			{
 				"name": "Read Source Path",
 				"type": "Lookup",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Set StorageURL",
@@ -39,8 +37,6 @@
 			{
 				"name": "Loop",
 				"type": "ForEach",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Read Source Path",
