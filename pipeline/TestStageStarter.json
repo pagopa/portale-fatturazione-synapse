@@ -5,7 +5,16 @@
 			{
 				"name": "Read Source Path",
 				"type": "Lookup",
-				"dependsOn": [],
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [
+					{
+						"activity": "Set ENV",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
 				"policy": {
 					"timeout": "0.12:00:00",
 					"retry": 0,
@@ -57,29 +66,35 @@
 									"referenceName": "TestTransferStageToRaw",
 									"type": "PipelineReference"
 								},
-								"waitOnCompletion": true,
-								"parameters": {
-									"FolderInput": {
-										"value": "@item().FolderInput",
-										"type": "Expression"
-									},
-									"SwitchCase": {
-										"value": "@item().SwitchCase",
-										"type": "Expression"
-									},
-									"PathSink": {
-										"value": "@item().PathSink",
-										"type": "Expression"
-									}
-								}
+								"waitOnCompletion": true
 							}
 						}
 					]
+				}
+			},
+			{
+				"name": "Set ENV",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "ENV",
+					"value": {
+						"value": "@pipeline().DataFactory",
+						"type": "Expression"
+					}
 				}
 			}
 		],
 		"variables": {
 			"SourcePath": {
+				"type": "String"
+			},
+			"ENV": {
 				"type": "String"
 			}
 		},
