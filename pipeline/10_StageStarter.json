@@ -24,7 +24,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [FolderInput], SwitchCase, PathSink\n\nFROM [cfg].[RawParquet]\n\nwhere Pipeline = 'TransferStageToRaw' and FlagEnabled = 1",
+						"sqlReaderQuery": "SELECT [FolderInput], SwitchCase, PathSink\nFROM [cfg].[RawParquet]\nwhere Pipeline = '11_TransferStageToRaw' and FlagEnabled = 1",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -55,7 +55,7 @@
 					"isSequential": true,
 					"activities": [
 						{
-							"name": "TransferStageToRaw",
+							"name": "11_TransferStageToRaw",
 							"type": "ExecutePipeline",
 							"dependsOn": [],
 							"userProperties": [],
@@ -104,7 +104,7 @@
 					"source": {
 						"type": "AzureSqlSource",
 						"sqlReaderQuery": {
-							"value": "@concat('SELECT ValueVariable\nFROM [cfg].[RawParquet]\nwhere Pipeline = ''TestStageStart'' and DimensionVariable = ''StorageURL'' and Environment = ''', pipeline().DataFactory,'''')",
+							"value": "@concat('SELECT ValueVariable\nFROM [cfg].[RawParquet]\nwhere Pipeline = ''10_StageStart'' and DimensionVariable = ''StorageURL'' and Environment = ''', pipeline().DataFactory,'''')",
 							"type": "Expression"
 						},
 						"queryTimeout": "02:00:00",
