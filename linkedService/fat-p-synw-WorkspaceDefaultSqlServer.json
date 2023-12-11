@@ -1,5 +1,5 @@
 {
-	"name": "fat_delta",
+	"name": "fat-p-synw-WorkspaceDefaultSqlServer",
 	"type": "Microsoft.Synapse/workspaces/linkedservices",
 	"properties": {
 		"parameters": {
@@ -10,7 +10,7 @@
 		"annotations": [],
 		"type": "AzureSqlDW",
 		"typeProperties": {
-			"connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:fat-d-synw-ondemand.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName};TrustServerCertificate=False"
+			"connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:fat-p-synw.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
 		},
 		"connectVia": {
 			"referenceName": "AutoResolveIntegrationRuntime",

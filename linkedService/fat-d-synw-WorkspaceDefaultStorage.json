@@ -1,16 +1,15 @@
 {
-	"name": "fat_sa",
+	"name": "fat-d-synw-WorkspaceDefaultStorage",
 	"type": "Microsoft.Synapse/workspaces/linkedservices",
 	"properties": {
-		"annotations": [],
-		"type": "AzureBlobStorage",
 		"typeProperties": {
-			"serviceEndpoint": "https://fatdstagesa.blob.core.windows.net/",
-			"accountKind": "StorageV2"
+			"url": "https://fatddls.dfs.core.windows.net"
 		},
+		"type": "AzureBlobFS",
 		"connectVia": {
 			"referenceName": "AutoResolveIntegrationRuntime",
 			"type": "IntegrationRuntimeReference"
-		}
+		},
+		"annotations": []
 	}
 }

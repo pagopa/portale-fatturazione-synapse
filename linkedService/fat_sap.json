@@ -1,5 +1,6 @@
 {
 	"name": "fat_sap",
+	"type": "Microsoft.Synapse/workspaces/linkedservices",
 	"properties": {
 		"annotations": [],
 		"type": "AzureBlobStorage",

@@ -41,13 +41,14 @@
 				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
 				"auth": {
 					"type": "AAD",
-					"authResource": "https://dev.azuresynapse.net"
+					"authResource": "https://dev.azuresynapse.net",
+					"authHeader": null
 				},
 				"sparkVersion": "3.3",
 				"nodeCount": 10,
 				"cores": 4,
 				"memory": 28,
-				"automaticScaleJobs": true
+				"extraHeader": null
 			},
 			"sessionKeepAliveTimeout": 30
 		},
@@ -113,8 +114,7 @@
 					"from delta.tables import *\r\n",
 					"from pyspark.sql.functions import max\r\n",
 					"from datetime import datetime"
-				],
-				"execution_count": null
+				]
 			},
 			{
 				"cell_type": "markdown",
@@ -145,8 +145,7 @@
 				"source": [
 					"tDeltaEnti = DeltaTable.forName(spark, tableNameEnti)\r\n",
 					"tDeltaContratti = DeltaTable.forName(spark, tableNameContratti)"
-				],
-				"execution_count": null
+				]
 			},
 			{
 				"cell_type": "markdown",
@@ -192,8 +191,7 @@
 					"\r\n",
 					"dfEnti = dfTmp.select(\"internalistitutionid\",\"institution.institutionType\",\"institution.description\", \"institution.digitalAddress\", \"institution.address\", \"institution.originId\", \"institution.zipCode\", \"institution.istatCode\", \"institution.city\", \"institution.country\", \"institution.county\", \"institution.subUnitCode\", \"institution.subUnitType\", \"institution.paymentServiceProvider\", \"billing.vatnumber\", \"billing.publicservices\", \"institution.Category\")\r\n",
 					"dfContratti = dfTmp.select(\"internalistitutionid\", \"product\", \"filename\", \"onboardingtokenid\", \"pricingplan\", \"updatedat\", \"createdat\", \"closedat\", \"year\", \"month\", \"daily\")"
-				],
-				"execution_count": null
+				]
 			},
 			{
 				"cell_type": "markdown",
@@ -228,8 +226,7 @@
 					"actualTimeStamp = datetime.now()\r\n",
 					"dfEnti = dfEnti.withColumn(\"LastModified\",  F.lit(actualTimeStamp))\r\n",
 					"dfContratti = dfContratti.withColumn(\"LastModified\",  F.lit(actualTimeStamp))"
-				],
-				"execution_count": null
+				]
 			},
 			{
 				"cell_type": "markdown",
@@ -267,8 +264,7 @@
 					"    dfContratti.alias(\"source\"),\r\n",
 					"    \"target.internalistitutionid = source.internalistitutionid AND target.product = source.product\"\r\n",
 					").whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()"
-				],
-				"execution_count": null
+				]
 			},
 			{
 				"cell_type": "markdown",
@@ -304,8 +300,7 @@
 					"\r\n",
 					"watermarkTable.update(\"TableName = 'enti'\", {\"LastModified\": F.lit(actualTimeStamp)})\r\n",
 					"watermarkTable.update(\"TableName = 'contratti'\", {\"LastModified\": F.lit(actualTimeStamp)})"
-				],
-				"execution_count": null
+				]
 			}
 		]
 	}
