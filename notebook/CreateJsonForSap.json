@@ -16,11 +16,12 @@
 			"executorMemory": "28g",
 			"executorCores": 4,
 			"numExecutors": 1,
+			"runAsWorkspaceSystemIdentity": true,
 			"conf": {
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "5e7906a7-44d8-4eaf-84c7-119b6fc8d495"
+				"spark.autotune.trackingId": "89e5689c-d5fa-42f6-8eb3-9e2844d6bab5"
 			}
 		},
 		"metadata": {
@@ -74,7 +75,7 @@
 				"source": [
 					"annoRiferimento = 2024\r\n",
 					"meseRiferimento = 1\r\n",
-					"storageAccountUrl = \"https://fatdstagesa.blob.core.windows.net\"\r\n",
+					"storageAccountUrl = \"https://fatddls.blob.core.windows.net\"\r\n",
 					"linkedServiceName = \"fat_sa\"\r\n",
 					"container_name = \"pfstage\"\r\n",
 					""
@@ -110,10 +111,11 @@
 				"source": [
 					"import pandas as pd\r\n",
 					"from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient\r\n",
-					"from azure.identity import ManagedIdentityCredential\r\n",
-					""
+					"from azure.identity import DefaultAzureCredential\r\n",
+					"\r\n",
+					"#from mssparkutils.credential import Credential"
 				],
-				"execution_count": 18
+				"execution_count": 14
 			},
 			{
 				"cell_type": "code",
@@ -157,10 +159,11 @@
 					}
 				},
 				"source": [
-					"blob_service_client = BlobServiceClient(account_url=storageAccountUrl,credential=adls_sas_token)\r\n",
-					"# for container in blob_service_client.list_containers():\r\n",
-					"#     print(container.name)\r\n",
-					"blob_service_client.create_container(name=\"test\")"
+					"credential = DefaultAzureCredential()\r\n",
+					"blob_service_client = BlobServiceClient(account_url=storageAccountUrl,credential=credential)\r\n",
+					"for container in blob_service_client.list_containers():\r\n",
+					"    print(container.name)\r\n",
+					""
 				],
 				"execution_count": null
 			},
@@ -178,9 +181,28 @@
 					}
 				},
 				"source": [
-					""
+					"# Creazione dell'oggetto Credential\r\n",
+					"credential = mssparkutils.credentials()\r\n",
+					"\r\n",
+					"# Configurazione dell'accesso allo storage account\r\n",
+					"configs = {\r\n",
+					"  \"fs.azure.account.auth.type\": \"OAuth\",\r\n",
+					"  \"fs.azure.account.oauth.provider.type\": \"org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider\",\r\n",
+					"  \"fs.azure.account.oauth2.client.id\": credential.client_id,\r\n",
+					"  \"fs.azure.account.oauth2.client.secret\": credential.client_secret,\r\n",
+					"  \"fs.azure.account.oauth2.client.endpoint\": \"https://login.microsoftonline.com/{}/oauth2/token\".format(credential.tenant_id)\r\n",
+					"}\r\n",
+					"\r\n",
+					"# Creazione del BlobServiceClient\r\n",
+					"from azure.storage.blob import BlobServiceClient\r\n",
+					"blob_service_client = BlobServiceClient(account_url=\"https://fatdstagesa.blob.core.windows.net\", credential=None, **configs)\r\n",
+					"\r\n",
+					"# Lettura dei dati dallo storage account\r\n",
+					"container_client = blob_service_client.get_container_client(container_name)\r\n",
+					"for container in blob_service_client.list_containers():\r\n",
+					"    print(container.name)"
 				],
-				"execution_count": null
+				"execution_count": 15
 			}
 		]
 	}
