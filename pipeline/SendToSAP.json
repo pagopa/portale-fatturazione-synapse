@@ -24,7 +24,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [IdFattura],[DataFattura],[FkProdotto],[IdentificativoFattura],[FkTipologiaFattura],[FkIdEnte],[CodiceContratto],[FkIdTipoDocumento],[Divisa]\n\t  ,[MetodoPagamento],[CausaleFattura],[SplitPayment],[Sollecito]\n\n\t  ,'datiGeneraliDocumento' = (\n\t\t\t\t\t\t\t\t\tSELECT NULL AS [tipologia?],[Progressivo],[IdDocumento],[DataDocumento],[NumItem],[CodCommessa],[Cup],[Cig]\n\t\t\t\t\t\t\t\t\tFROM [pfd].[FattureTestata] T1\n\t\t\t\t\t\t\t\t\tWHERE T1.IdFattura = T.IdFattura\n\t\t\t\t\t\t\t\t\tFOR JSON PATH\n\t\t\t\t\t\t\t\t)\n\n\t  ,'posizioni' = (\n\t\t\t\t\t\tSELECT [NumeroLinea],[Testo],[CodiceMateriale],[Quantita],[PrezzoUnitario],[Imponibile]\n\t\t\t\t\t\tFROM [pfd].[FattureRighe] R\n\t\t\t\t\t\tWHERE R.FkIdFattura = T.IdFattura\n\t\t\t\t\t\tFOR JSON PATH\n\t\t\t\t\t )\n\nFROM [pfd].[FattureTestata] T\n\nGROUP BY [IdFattura],[DataFattura],[FkProdotto],[IdentificativoFattura],[FkTipologiaFattura],[FkIdEnte],[CodiceContratto],[FkIdTipoDocumento],[Divisa]\n\t\t,[MetodoPagamento],[CausaleFattura],[SplitPayment],[Sollecito]\n\nFOR JSON PATH;",
+						"sqlReaderQuery": "SELECT [IdFattura],[DataFattura],[FkProdotto],[IdentificativoFattura],[FkTipologiaFattura],[FkIdEnte],[CodiceContratto],[FkIdTipoDocumento],[Divisa]\n\t  ,[MetodoPagamento],[CausaleFattura],[SplitPayment],[Sollecito]\n\n\t  ,'datiGeneraliDocumento' = (\n\t\t\t\t\t\t\t\t\tSELECT NULL AS [tipologia?],[Progressivo],[IdDocumento],[DataDocumento],[NumItem],[CodCommessa],[Cup],[Cig]\n\t\t\t\t\t\t\t\t\tFROM [pfd].[FattureTestata] T1\n\t\t\t\t\t\t\t\t\tWHERE T1.IdFattura = T.IdFattura\n\t\t\t\t\t\t\t\t\tFOR JSON PATH\n\t\t\t\t\t\t\t\t)\n\n\t  ,'posizioni' = (\n\t\t\t\t\t\tSELECT [NumeroLinea],[Testo],[CodiceMateriale],[Quantita],[PrezzoUnitario],[Imponibile]\n\t\t\t\t\t\tFROM [pfd].[FattureRighe] R\n\t\t\t\t\t\tWHERE R.FkIdFattura = T.IdFattura\n\t\t\t\t\t\tFOR JSON PATH\n\t\t\t\t\t )\n\nFROM [pfd].[FattureTestata] T\n\nGROUP BY [IdFattura],[DataFattura],[FkProdotto],[IdentificativoFattura],[FkTipologiaFattura],[FkIdEnte],[CodiceContratto],[FkIdTipoDocumento],[Divisa]\n\t\t,[MetodoPagamento],[CausaleFattura],[SplitPayment],[Sollecito]\n\nFOR JSON PATH, WITHOUT_ARRAY_WRAPPER",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -62,6 +62,8 @@
 			{
 				"name": "spCreazioneFattureAnticipo_TEST",
 				"type": "SqlServerStoredProcedure",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Set MeseRiferimento",
@@ -105,6 +107,8 @@
 			{
 				"name": "Set AnnoRiferimento",
 				"type": "SetVariable",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [],
 				"policy": {
 					"secureOutput": false,
@@ -122,6 +126,8 @@
 			{
 				"name": "Set MeseRiferimento",
 				"type": "SetVariable",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Set AnnoRiferimento",
