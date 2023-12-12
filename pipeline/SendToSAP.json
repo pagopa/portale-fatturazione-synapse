@@ -48,10 +48,10 @@
 				],
 				"outputs": [
 					{
-						"referenceName": "JsonToSAP",
+						"referenceName": "JsonToSapStorage",
 						"type": "DatasetReference",
 						"parameters": {
-							"NomeFileJson": {
+							"NomeFile": {
 								"value": "@CONCAT('fattura_anticipo_',variables('AnnoRiferimento'),variables('MeseRiferimento'),'.json')",
 								"type": "Expression"
 							}
