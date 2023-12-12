@@ -20,7 +20,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "7565c523-7fb4-46a2-87d9-6427f41bc230"
+				"spark.autotune.trackingId": "5e7906a7-44d8-4eaf-84c7-119b6fc8d495"
 			}
 		},
 		"metadata": {
@@ -75,9 +75,11 @@
 					"annoRiferimento = 2024\r\n",
 					"meseRiferimento = 1\r\n",
 					"storageAccountUrl = \"https://fatdstagesa.blob.core.windows.net\"\r\n",
+					"linkedServiceName = \"fat_sa\"\r\n",
+					"container_name = \"pfstage\"\r\n",
 					""
 				],
-				"execution_count": 8
+				"execution_count": 10
 			},
 			{
 				"cell_type": "markdown",
@@ -107,10 +109,11 @@
 				},
 				"source": [
 					"import pandas as pd\r\n",
-					"from azure.storage.blob import BlobServiceClient\r\n",
-					"from azure.identity import ManagedIdentityCredential"
+					"from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient\r\n",
+					"from azure.identity import ManagedIdentityCredential\r\n",
+					""
 				],
-				"execution_count": 12
+				"execution_count": 18
 			},
 			{
 				"cell_type": "code",
@@ -126,14 +129,58 @@
 					}
 				},
 				"source": [
-					"credential = ManagedIdentityCredential()\r\n",
+					"# Get adls account name\r\n",
+					"raw_adls_container_name = mssparkutils.credentials.getFullConnectionString(linkedServiceName)\r\n",
+					"#print(raw_adls_container_name)\r\n",
 					"\r\n",
-					"blob_service_client = BlobServiceClient(account_url= storageAccountUrl,credential=credential)\r\n",
-					"for container in blob_service_client.list_containers():\r\n",
-					"    print(container.name)\r\n",
+					"adls_account_name = raw_adls_container_name.split('url=https://')[1].split('/;token')[0]\r\n",
+					"#print(adls_account_name)\r\n",
+					"\r\n",
+					"# Set configuration (SAS Token)\r\n",
+					"adls_sas_token = mssparkutils.credentials.getConnectionStringOrCreds(linkedServiceName)\r\n",
+					"spark.conf.set('fs.azure.sas.%s.%s' % (container_name, adls_account_name), adls_sas_token)\r\n",
+					"#print(adls_sas_token)"
+				],
+				"execution_count": 21
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"blob_service_client = BlobServiceClient(account_url=storageAccountUrl,credential=adls_sas_token)\r\n",
+					"# for container in blob_service_client.list_containers():\r\n",
+					"#     print(container.name)\r\n",
+					"blob_service_client.create_container(name=\"test\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
 					""
 				],
-				"execution_count": 13
+				"execution_count": null
 			}
 		]
 	}
