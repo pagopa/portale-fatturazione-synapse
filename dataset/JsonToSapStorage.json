@@ -26,112 +26,93 @@
 		"schema": {
 			"type": "object",
 			"properties": {
-				"listaFatture": {
+				"IdFattura": {
+					"type": "integer"
+				},
+				"DataFattura": {
+					"type": "string"
+				},
+				"FkProdotto": {
+					"type": "string"
+				},
+				"IdentificativoFattura": {
+					"type": "string"
+				},
+				"FkTipologiaFattura": {
+					"type": "string"
+				},
+				"FkIdEnte": {
+					"type": "string"
+				},
+				"CodiceContratto": {
+					"type": "string"
+				},
+				"FkIdTipoDocumento": {
+					"type": "string"
+				},
+				"Divisa": {
+					"type": "string"
+				},
+				"MetodoPagamento": {
+					"type": "string"
+				},
+				"CausaleFattura": {
+					"type": "string"
+				},
+				"SplitPayment": {
+					"type": "boolean"
+				},
+				"datiGeneraliDocumento": {
 					"type": "array",
 					"items": {
 						"type": "object",
 						"properties": {
-							"fattura": {
-								"type": "object",
-								"properties": {
-									"numero": {
-										"type": "string"
-									},
-									"dataFattura": {
-										"type": "string"
-									},
-									"prodotto": {
-										"type": "string"
-									},
-									"identificativo": {
-										"type": "string"
-									},
-									"tipologiaFattura": {
-										"type": "string"
-									},
-									"istitutioID": {
-										"type": "string"
-									},
-									"onboardingTokenID": {
-										"type": "string"
-									},
-									"tipoDocumento": {
-										"type": "string"
-									},
-									"divisa": {
-										"type": "string"
-									},
-									"metodoPagamento": {
-										"type": "string"
-									},
-									"causale": {
-										"type": "string"
-									},
-									"split": {
-										"type": "boolean"
-									},
-									"sollecito": {
-										"type": "string"
-									},
-									"datiGeneraliDocumento": {
-										"type": "array",
-										"items": {
-											"type": "object",
-											"properties": {
-												"tipologia": {
-													"type": "string"
-												},
-												"riferimentoNumeroLinea": {
-													"type": "string"
-												},
-												"idDocumento": {
-													"type": "string"
-												},
-												"data": {
-													"type": "string"
-												},
-												"numItem": {
-													"type": "string"
-												},
-												"codiceCommessaConvenzione": {
-													"type": "string"
-												},
-												"CUP": {
-													"type": "string"
-												},
-												"CIG": {
-													"type": "string"
-												}
-											}
-										}
-									},
-									"posizioni": {
-										"type": "array",
-										"items": {
-											"type": "object",
-											"properties": {
-												"numerolinea": {
-													"type": "string"
-												},
-												"testo": {
-													"type": "string"
-												},
-												"codiceMateriale": {
-													"type": "string"
-												},
-												"quantita": {
-													"type": "string"
-												},
-												"prezzoUnitario": {
-													"type": "string"
-												},
-												"imponibile": {
-													"type": "string"
-												}
-											}
-										}
-									}
-								}
+							"Progressivo": {
+								"type": "integer"
+							},
+							"IdDocumento": {
+								"type": "string"
+							},
+							"DataDocumento": {
+								"type": "string"
+							},
+							"NumItem": {
+								"type": "string"
+							},
+							"CodCommessa": {
+								"type": "string"
+							},
+							"Cup": {
+								"type": "string"
+							},
+							"Cig": {
+								"type": "string"
+							}
+						}
+					}
+				},
+				"posizioni": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"NumeroLinea": {
+								"type": "integer"
+							},
+							"Testo": {
+								"type": "string"
+							},
+							"CodiceMateriale": {
+								"type": "string"
+							},
+							"Quantita": {
+								"type": "integer"
+							},
+							"PrezzoUnitario": {
+								"type": "number"
+							},
+							"Imponibile": {
+								"type": "number"
 							}
 						}
 					}

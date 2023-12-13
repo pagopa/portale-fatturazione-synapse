@@ -38,7 +38,147 @@
 							"filePattern": "arrayOfObjects"
 						}
 					},
-					"enableStaging": false
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['numero']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['dataFattura']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['prodotto']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['identificativo']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['tipologiaFattura']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['istitutioID']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['onboardingTokenID']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['tipoDocumento']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['divisa']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['metodoPagamento']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['causale']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['split']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['sollecito']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['datiGeneraliDocumento'][0]['tipologia']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['datiGeneraliDocumento'][0]['riferimentoNumeroLinea']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['datiGeneraliDocumento'][0]['idDocumento']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['datiGeneraliDocumento'][0]['data']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['datiGeneraliDocumento'][0]['numItem']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['datiGeneraliDocumento'][0]['codiceCommessaConvenzione']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['datiGeneraliDocumento'][0]['CUP']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['datiGeneraliDocumento'][0]['CIG']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['posizioni'][0]['numerolinea']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['posizioni'][0]['testo']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['posizioni'][0]['codiceMateriale']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['posizioni'][0]['quantita']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['posizioni'][0]['prezzoUnitario']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['listaFatture'][0]['fattura']['posizioni'][0]['imponibile']"
+								}
+							}
+						]
+					}
 				},
 				"inputs": [
 					{
