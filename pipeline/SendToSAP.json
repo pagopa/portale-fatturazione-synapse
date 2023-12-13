@@ -3,29 +3,6 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "FromSqlToPfstage",
-				"type": "Copy",
-				"dependsOn": [
-					{
-						"activity": "spCreazioneFattureAnticipo_TEST",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"enableStaging": false
-				}
-			},
-			{
 				"name": "spCreazioneFattureAnticipo_TEST",
 				"type": "SqlServerStoredProcedure",
 				"state": "Inactive",
@@ -114,6 +91,74 @@
 						"type": "Expression"
 					}
 				}
+			},
+			{
+				"name": "Copy data1",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "spCreazioneFattureAnticipo_TEST",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[pfd].[GenerateJsonSAP]",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "JsonSink",
+						"storeSettings": {
+							"type": "AzureBlobStorageWriteSettings",
+							"copyBehavior": "FlattenHierarchy"
+						},
+						"formatSettings": {
+							"type": "JsonWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "JSON_F52E2B61-18A1-11d1-B105-00805F49916B",
+									"type": "String"
+								},
+								"sink": {
+									"path": "$['JSON_F52E2B61-18A1-11d1-B105-00805F49916B']"
+								}
+							}
+						]
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "JsonToSAP",
+						"type": "DatasetReference",
+						"parameters": {
+							"NomeFileJson": "TestGruao.json"
+						}
+					}
+				]
 			}
 		],
 		"variables": {

@@ -23,7 +23,121 @@
 				"container": "pfstage"
 			}
 		},
-		"schema": {}
+		"schema": {
+			"type": "object",
+			"properties": {
+				"listaFatture": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"fattura": {
+								"type": "object",
+								"properties": {
+									"numero": {
+										"type": "integer"
+									},
+									"dataFattura": {
+										"type": "string"
+									},
+									"prodotto": {
+										"type": "string"
+									},
+									"identificativo": {
+										"type": "string"
+									},
+									"tipologiaFattura": {
+										"type": "string"
+									},
+									"istitutioID": {
+										"type": "string"
+									},
+									"onboardingTokenID": {
+										"type": "string"
+									},
+									"tipoDocumento": {
+										"type": "string"
+									},
+									"divisa": {
+										"type": "string"
+									},
+									"metodoPagamento": {
+										"type": "string"
+									},
+									"causale": {
+										"type": "string"
+									},
+									"split": {
+										"type": "boolean"
+									},
+									"sollecito": {
+										"type": "null"
+									},
+									"datiGeneraliDocumento": {
+										"type": "array",
+										"items": {
+											"type": "object",
+											"properties": {
+												"tipologia": {
+													"type": "string"
+												},
+												"riferimentoNumeroLinea": {
+													"type": "integer"
+												},
+												"idDocumento": {
+													"type": "string"
+												},
+												"data": {
+													"type": "string"
+												},
+												"numItem": {
+													"type": "string"
+												},
+												"codiceCommessaConvenzione": {
+													"type": "string"
+												},
+												"CUP": {
+													"type": "string"
+												},
+												"CIG": {
+													"type": "string"
+												}
+											}
+										}
+									},
+									"posizioni": {
+										"type": "array",
+										"items": {
+											"type": "object",
+											"properties": {
+												"numerolinea": {
+													"type": "integer"
+												},
+												"testo": {
+													"type": "string"
+												},
+												"codiceMateriale": {
+													"type": "string"
+												},
+												"quantita": {
+													"type": "integer"
+												},
+												"prezzoUnitario": {
+													"type": "number"
+												},
+												"imponibile": {
+													"type": "number"
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 	},
 	"type": "Microsoft.Synapse/workspaces/datasets"
 }
