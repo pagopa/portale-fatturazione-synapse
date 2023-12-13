@@ -24,14 +24,15 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [IdFattura],[DataFattura],[FkProdotto],[IdentificativoFattura],[FkTipologiaFattura],[FkIdEnte],[CodiceContratto],[FkIdTipoDocumento],[Divisa]\n\t  ,[MetodoPagamento],[CausaleFattura],[SplitPayment],[Sollecito]\n\n\t  ,'datiGeneraliDocumento' = (\n\t\t\t\t\t\t\t\t\tSELECT NULL AS [tipologia?],[Progressivo],[IdDocumento],[DataDocumento],[NumItem],[CodCommessa],[Cup],[Cig]\n\t\t\t\t\t\t\t\t\tFROM [pfd].[FattureTestata] T1\n\t\t\t\t\t\t\t\t\tWHERE T1.IdFattura = T.IdFattura\n\t\t\t\t\t\t\t\t\tFOR JSON PATH\n\t\t\t\t\t\t\t\t)\n\n\t  ,'posizioni' = (\n\t\t\t\t\t\tSELECT [NumeroLinea],[Testo],[CodiceMateriale],[Quantita],[PrezzoUnitario],[Imponibile]\n\t\t\t\t\t\tFROM [pfd].[FattureRighe] R\n\t\t\t\t\t\tWHERE R.FkIdFattura = T.IdFattura\n\t\t\t\t\t\tFOR JSON PATH\n\t\t\t\t\t )\n\nFROM [pfd].[FattureTestata] T\n\nGROUP BY [IdFattura],[DataFattura],[FkProdotto],[IdentificativoFattura],[FkTipologiaFattura],[FkIdEnte],[CodiceContratto],[FkIdTipoDocumento],[Divisa]\n\t\t,[MetodoPagamento],[CausaleFattura],[SplitPayment],[Sollecito]\n\n",
+						"sqlReaderQuery": "SELECT\n\t[IdFattura],\n\t[DataFattura],\n\t[FkProdotto],\n\t[IdentificativoFattura],\n\t[FkTipologiaFattura],\n\t[FkIdEnte],\n\t[CodiceContratto],\n\t[FkIdTipoDocumento],\n\t[Divisa],\n\t[MetodoPagamento],\n\t[CausaleFattura],\n\t[SplitPayment],\n\t[Sollecito],\n\tNULL AS 'datiGeneraliDocumento.tipologia?',\n\t[Progressivo] AS 'datiGeneraliDocumento.Progressivo',\n\t[IdDocumento] as 'datiGeneraliDocumento.IdDocumento',\n\t[DataDocumento] as 'datiGeneraliDocumento.DataDocumento',\n\t[NumItem] as 'datiGeneraliDocumento.NumItem',\n\t[CodCommessa] as 'datiGeneraliDocumento.CodCommessa',\n\t[Cup] as 'datiGeneraliDocumento.Cup',\n\t[Cig] as 'datiGeneraliDocumento.Cig',\n\t[NumeroLinea] as 'posizioni.NumeroLinea',\n\t[Testo] as 'posizioni.Testo',\n\t[CodiceMateriale] as 'posizioni.CodiceMateriale',\n\t[Quantita] as 'posizioni.Quantita',\n\t[PrezzoUnitario] as 'posizioni.PrezzoUnitario',\n\t[Imponibile] as 'posizioni.Imponibile'\nFROM\n\t[pfd].[FattureTestata] T\n\tleft outer join [pfd].FattureRighe R on R.FkIdFattura = T.IdFattura ",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
 					"sink": {
 						"type": "JsonSink",
 						"storeSettings": {
-							"type": "AzureBlobStorageWriteSettings"
+							"type": "AzureBlobStorageWriteSettings",
+							"copyBehavior": "PreserveHierarchy"
 						},
 						"formatSettings": {
 							"type": "JsonWriteSettings",
@@ -152,20 +153,56 @@
 							},
 							{
 								"source": {
-									"name": "datiGeneraliDocumento",
-									"type": "String"
+									"name": "posizioni.NumeroLinea",
+									"type": "Int32"
 								},
 								"sink": {
-									"path": "$['datiGeneraliDocumento']"
+									"path": "$['posizioni']['NumeroLinea']"
 								}
 							},
 							{
 								"source": {
-									"name": "posizioni",
+									"name": "posizioni.Testo",
 									"type": "String"
 								},
 								"sink": {
-									"path": "$['posizioni']"
+									"path": "$['posizioni']['Testo']"
+								}
+							},
+							{
+								"source": {
+									"name": "posizioni.CodiceMateriale",
+									"type": "String"
+								},
+								"sink": {
+									"path": "$['posizioni']['CodiceMateriale']"
+								}
+							},
+							{
+								"source": {
+									"name": "posizioni.Quantita",
+									"type": "Int32"
+								},
+								"sink": {
+									"path": "$['posizioni']['Quantita']"
+								}
+							},
+							{
+								"source": {
+									"name": "posizioni.PrezzoUnitario",
+									"type": "Double"
+								},
+								"sink": {
+									"path": "$['posizioni']['PrezzoUnitario']"
+								}
+							},
+							{
+								"source": {
+									"name": "posizioni.Imponibile",
+									"type": "Double"
+								},
+								"sink": {
+									"path": "$['posizioni']['Imponibile']"
 								}
 							}
 						]
