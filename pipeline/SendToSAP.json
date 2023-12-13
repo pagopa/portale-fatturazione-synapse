@@ -24,7 +24,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT\n\t[IdFattura],\n\t[DataFattura],\n\t[FkProdotto],\n\t[IdentificativoFattura],\n\t[FkTipologiaFattura],\n\t[FkIdEnte],\n\t[CodiceContratto],\n\t[FkIdTipoDocumento],\n\t[Divisa],\n\t[MetodoPagamento],\n\t[CausaleFattura],\n\t[SplitPayment],\n\t[Sollecito],\n\tNULL AS 'datiGeneraliDocumento.tipologia?',\n\t[Progressivo] AS 'datiGeneraliDocumento.Progressivo',\n\t[IdDocumento] as 'datiGeneraliDocumento.IdDocumento',\n\t[DataDocumento] as 'datiGeneraliDocumento.DataDocumento',\n\t[NumItem] as 'datiGeneraliDocumento.NumItem',\n\t[CodCommessa] as 'datiGeneraliDocumento.CodCommessa',\n\t[Cup] as 'datiGeneraliDocumento.Cup',\n\t[Cig] as 'datiGeneraliDocumento.Cig',\n\t[NumeroLinea] as 'posizioni.NumeroLinea',\n\t[Testo] as 'posizioni.Testo',\n\t[CodiceMateriale] as 'posizioni.CodiceMateriale',\n\t[Quantita] as 'posizioni.Quantita',\n\t[PrezzoUnitario] as 'posizioni.PrezzoUnitario',\n\t[Imponibile] as 'posizioni.Imponibile'\nFROM\n\t[pfd].[FattureTestata] T\n\tleft outer join [pfd].FattureRighe R on R.FkIdFattura = T.IdFattura ",
+						"sqlReaderQuery": "SELECT [dbo].[GenerateJsonSAP_TEST_GONCALO] ()",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -44,165 +44,138 @@
 						"type": "TabularTranslator",
 						"mappings": [
 							{
-								"source": {
-									"name": "IdFattura",
-									"type": "Int64"
-								},
 								"sink": {
 									"path": "$['IdFattura']"
 								}
 							},
 							{
-								"source": {
-									"name": "DataFattura",
-									"type": "DateTime"
-								},
+								"sink": {
+									"path": "$['datiGeneraliDocumento']"
+								}
+							},
+							{
 								"sink": {
 									"path": "$['DataFattura']"
 								}
 							},
 							{
-								"source": {
-									"name": "FkProdotto",
-									"type": "String"
-								},
 								"sink": {
 									"path": "$['FkProdotto']"
 								}
 							},
 							{
-								"source": {
-									"name": "IdentificativoFattura",
-									"type": "String"
-								},
 								"sink": {
 									"path": "$['IdentificativoFattura']"
 								}
 							},
 							{
-								"source": {
-									"name": "FkTipologiaFattura",
-									"type": "String"
-								},
 								"sink": {
 									"path": "$['FkTipologiaFattura']"
 								}
 							},
 							{
-								"source": {
-									"name": "FkIdEnte",
-									"type": "String"
-								},
 								"sink": {
 									"path": "$['FkIdEnte']"
 								}
 							},
 							{
-								"source": {
-									"name": "CodiceContratto",
-									"type": "String"
-								},
 								"sink": {
 									"path": "$['CodiceContratto']"
 								}
 							},
 							{
-								"source": {
-									"name": "FkIdTipoDocumento",
-									"type": "String"
-								},
 								"sink": {
 									"path": "$['FkIdTipoDocumento']"
 								}
 							},
 							{
-								"source": {
-									"name": "Divisa",
-									"type": "String"
-								},
 								"sink": {
 									"path": "$['Divisa']"
 								}
 							},
 							{
-								"source": {
-									"name": "MetodoPagamento",
-									"type": "String"
-								},
 								"sink": {
 									"path": "$['MetodoPagamento']"
 								}
 							},
 							{
-								"source": {
-									"name": "CausaleFattura",
-									"type": "String"
-								},
 								"sink": {
 									"path": "$['CausaleFattura']"
 								}
 							},
 							{
-								"source": {
-									"name": "SplitPayment",
-									"type": "Boolean"
-								},
 								"sink": {
 									"path": "$['SplitPayment']"
 								}
 							},
 							{
-								"source": {
-									"name": "posizioni.NumeroLinea",
-									"type": "Int32"
-								},
 								"sink": {
-									"path": "$['posizioni']['NumeroLinea']"
+									"path": "$['datiGeneraliDocumento'][0]['Progressivo']"
 								}
 							},
 							{
-								"source": {
-									"name": "posizioni.Testo",
-									"type": "String"
-								},
 								"sink": {
-									"path": "$['posizioni']['Testo']"
+									"path": "$['datiGeneraliDocumento'][0]['IdDocumento']"
 								}
 							},
 							{
-								"source": {
-									"name": "posizioni.CodiceMateriale",
-									"type": "String"
-								},
 								"sink": {
-									"path": "$['posizioni']['CodiceMateriale']"
+									"path": "$['datiGeneraliDocumento'][0]['DataDocumento']"
 								}
 							},
 							{
-								"source": {
-									"name": "posizioni.Quantita",
-									"type": "Int32"
-								},
 								"sink": {
-									"path": "$['posizioni']['Quantita']"
+									"path": "$['datiGeneraliDocumento'][0]['NumItem']"
 								}
 							},
 							{
-								"source": {
-									"name": "posizioni.PrezzoUnitario",
-									"type": "Double"
-								},
 								"sink": {
-									"path": "$['posizioni']['PrezzoUnitario']"
+									"path": "$['datiGeneraliDocumento'][0]['CodCommessa']"
 								}
 							},
 							{
-								"source": {
-									"name": "posizioni.Imponibile",
-									"type": "Double"
-								},
 								"sink": {
-									"path": "$['posizioni']['Imponibile']"
+									"path": "$['datiGeneraliDocumento'][0]['Cup']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['datiGeneraliDocumento'][0]['Cig']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['posizioni'][0]['NumeroLinea']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['posizioni'][0]['Testo']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['posizioni'][0]['CodiceMateriale']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['posizioni'][0]['Quantita']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['posizioni'][0]['PrezzoUnitario']"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['datiGeneraliDocumento'][0]"
+								}
+							},
+							{
+								"sink": {
+									"path": "$['posizioni'][0]['Imponibile']"
 								}
 							}
 						]
