@@ -28,9 +28,6 @@
 				}
 			],
 			"scriptLines": [
-				"parameters{",
-				"     NomeFileJson as string (concat('fattura_anticipo_','testGonc','.json'))",
-				"}",
 				"source(output(",
 				"          FolderInput as string,",
 				"          FolderOutput as string",
