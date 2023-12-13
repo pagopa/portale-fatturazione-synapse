@@ -55,7 +55,7 @@
 				"          Sollecito = toString(byName('Sollecito')),",
 				"          datiGeneraliDocumento = toString(byName('datiGeneraliDocumento')),",
 				"          posizioni = toString(byName('posizioni'))) ~> MapDrifted1",
-				"MapDrifted1 sink(allowSchemaDrift: false,",
+				"MapDrifted1 sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     skipDuplicateMapInputs: true,",
 				"     skipDuplicateMapOutputs: true,",
