@@ -14,9 +14,9 @@
 			],
 			"sinks": [
 				{
-					"linkedService": {
-						"referenceName": "fat_sa",
-						"type": "LinkedServiceReference"
+					"dataset": {
+						"referenceName": "JsonToSAP",
+						"type": "DatasetReference"
 					},
 					"name": "sink1"
 				}
@@ -54,9 +54,6 @@
 				"          posizioni = toString(byName('posizioni'))) ~> MapDrifted1",
 				"MapDrifted1 sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
-				"     format: 'json',",
-				"     fileSystem: 'pfstage',",
-				"     folderPath: 'fatture_anticipo',",
 				"     skipDuplicateMapInputs: true,",
 				"     skipDuplicateMapOutputs: true) ~> sink1"
 			]
