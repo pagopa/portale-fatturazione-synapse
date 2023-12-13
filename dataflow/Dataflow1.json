@@ -28,6 +28,9 @@
 				}
 			],
 			"scriptLines": [
+				"parameters{",
+				"     NomeFileJson as string (concat('fattura_anticipo_','testGonc','.json'))",
+				"}",
 				"source(output(",
 				"          FolderInput as string,",
 				"          FolderOutput as string",
@@ -52,10 +55,11 @@
 				"          Sollecito = toString(byName('Sollecito')),",
 				"          datiGeneraliDocumento = toString(byName('datiGeneraliDocumento')),",
 				"          posizioni = toString(byName('posizioni'))) ~> MapDrifted1",
-				"MapDrifted1 sink(allowSchemaDrift: true,",
+				"MapDrifted1 sink(allowSchemaDrift: false,",
 				"     validateSchema: false,",
 				"     skipDuplicateMapInputs: true,",
-				"     skipDuplicateMapOutputs: true) ~> sink1"
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 1) ~> sink1"
 			]
 		}
 	}
