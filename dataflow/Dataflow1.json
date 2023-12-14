@@ -84,7 +84,8 @@
 				"     saveOrder: 1,",
 				"     mapColumn(",
 				"          JSON",
-				"     )) ~> sink1"
+				"     ),",
+				"     partitionBy('hash', 1)) ~> sink1"
 			]
 		}
 	}
