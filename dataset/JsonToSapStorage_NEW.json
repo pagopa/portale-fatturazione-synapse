@@ -1,12 +1,12 @@
 {
-	"name": "JsonToSAP",
+	"name": "JsonToSapStorage_NEW",
 	"properties": {
 		"linkedServiceName": {
 			"referenceName": "fat_sa",
 			"type": "LinkedServiceReference"
 		},
 		"parameters": {
-			"NomeFileJson": {
+			"NomeFile": {
 				"type": "string",
 				"defaultValue": "test.json"
 			}
@@ -17,7 +17,7 @@
 			"location": {
 				"type": "AzureBlobStorageLocation",
 				"fileName": {
-					"value": "@dataset().NomeFileJson",
+					"value": "@dataset().NomeFile",
 					"type": "Expression"
 				},
 				"folderPath": "fatture_anticipo",
@@ -71,9 +71,6 @@
 									"split": {
 										"type": "boolean"
 									},
-									"sollecito": {
-										"type": "null"
-									},
 									"datiGeneraliDocumento": {
 										"type": "array",
 										"items": {
@@ -112,7 +109,7 @@
 											"type": "object",
 											"properties": {
 												"numerolinea": {
-													"type": "integer"
+													"type": "string"
 												},
 												"testo": {
 													"type": "string"
@@ -139,6 +136,5 @@
 				}
 			}
 		}
-	},
-	"type": "Microsoft.Synapse/workspaces/datasets"
+	}
 }

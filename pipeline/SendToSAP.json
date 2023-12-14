@@ -183,12 +183,7 @@
 				"typeProperties": {
 					"dataflow": {
 						"referenceName": "Dataflow1",
-						"type": "DataFlowReference",
-						"datasetParameters": {
-							"sink1": {
-								"NomeFileJson": "testGruaoLAST.JSON"
-							}
-						}
+						"type": "DataFlowReference"
 					},
 					"compute": {
 						"coreCount": 8,
