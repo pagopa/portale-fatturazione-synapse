@@ -28,9 +28,6 @@
 				},
 				{
 					"name": "parse1"
-				},
-				{
-					"name": "flatten1"
 				}
 			],
 			"scriptLines": [
@@ -69,19 +66,16 @@
 				"     posizioni as string))[],",
 				"     format: 'json',",
 				"     documentForm: 'singleDocument') ~> parse1",
-				"parse1 foldDown(unroll(listaFatture),",
-				"     mapColumn(",
-				"          listaFatture",
-				"     ),",
-				"     skipDuplicateMapInputs: false,",
-				"     skipDuplicateMapOutputs: false) ~> flatten1",
-				"flatten1 sink(allowSchemaDrift: true,",
+				"parse1 sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     input(",
 				"          listaFatture as (fattura as (numero as integer, dataFattura as string, prodotto as string, identificativo as string, tipologiaFattura as string, istitutioID as string, onboardingTokenID as string, tipoDocumento as string, divisa as string, metodoPagamento as string, causale as string, split as boolean, sollecito as string, datiGeneraliDocumento as (tipologia as string, riferimentoNumeroLinea as integer, idDocumento as string, data as string, numItem as string, codiceCommessaConvenzione as string, CUP as string, CIG as string)[], posizioni as (numerolinea as integer, testo as string, codiceMateriale as string, quantita as integer, prezzoUnitario as double, imponibile as double)[]))[]",
 				"     ),",
 				"     skipDuplicateMapInputs: true,",
-				"     skipDuplicateMapOutputs: true) ~> sink1"
+				"     skipDuplicateMapOutputs: true,",
+				"     mapColumn(",
+				"          fattura = listaFatture",
+				"     )) ~> sink1"
 			]
 		}
 	}
