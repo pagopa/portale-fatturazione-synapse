@@ -73,7 +73,10 @@
 				"     ),",
 				"     skipDuplicateMapInputs: true,",
 				"     skipDuplicateMapOutputs: true,",
-				"     saveOrder: 1) ~> sink1"
+				"     saveOrder: 1,",
+				"     mapColumn(",
+				"          listaFatture = JsonResult.listaFatture",
+				"     )) ~> sink1"
 			]
 		}
 	}
