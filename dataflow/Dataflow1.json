@@ -74,7 +74,7 @@
 				"     skipDuplicateMapInputs: true,",
 				"     skipDuplicateMapOutputs: true,",
 				"     mapColumn(",
-				"          fattura = listaFatture",
+				"          listaFatture = listaFatture",
 				"     )) ~> sink1"
 			]
 		}
