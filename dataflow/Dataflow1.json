@@ -31,9 +31,6 @@
 				}
 			],
 			"scriptLines": [
-				"parameters{",
-				"     parameter1 as string",
-				"}",
 				"source(output(",
 				"          {JSON_F52E2B61-18A1-11d1-B105-00805F49916B} as string",
 				"     ),",
