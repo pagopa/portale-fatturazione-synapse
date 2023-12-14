@@ -114,7 +114,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderStoredProcedureName": "[pfd].[GenerateJsonSAP]",
+						"sqlReaderQuery": "DECLARE\t@return_value int,\n\t\t@JsonResult nvarchar(max)\n\nEXEC\t@return_value = [pfd].[GenerateJsonSAP]\n\t\t@JsonResult = @JsonResult OUTPUT\n\nSELECT\t@JsonResult as N'@JsonResult'",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -134,11 +134,10 @@
 						"mappings": [
 							{
 								"source": {
-									"name": "JSON_F52E2B61-18A1-11d1-B105-00805F49916B",
-									"type": "String"
+									"name": "@JsonResult[0]"
 								},
 								"sink": {
-									"path": "$['JSON_F52E2B61-18A1-11d1-B105-00805F49916B']"
+									"path": "$['listaFatture']"
 								}
 							}
 						]
