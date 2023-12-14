@@ -93,9 +93,16 @@
 				}
 			},
 			{
-				"name": "Data flow1",
+				"name": "Generate Json",
 				"type": "ExecuteDataFlow",
-				"dependsOn": [],
+				"dependsOn": [
+					{
+						"activity": "spCreazioneFattureAnticipo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
 				"policy": {
 					"timeout": "0.12:00:00",
 					"retry": 0,
@@ -109,7 +116,7 @@
 						"referenceName": "Dataflow1",
 						"type": "DataFlowReference",
 						"datasetParameters": {
-							"sink1": {
+							"ExportJsonToBlobStorage": {
 								"NomeFile": "test.json"
 							}
 						}
