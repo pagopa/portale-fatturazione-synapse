@@ -195,12 +195,11 @@
 						"computeType": "General"
 					},
 					"traceLevel": "None",
-					"continueOnError": false,
 					"cacheSinks": {
 						"firstRowOnly": true
 					},
 					"continuationSettings": {
-						"customizedCheckpointKey": "31dffda3-0747-4621-af01-0ea51d107d9a"
+						"customizedCheckpointKey": "6ebab633-c29e-406b-b403-a55a69ed4502"
 					}
 				}
 			}
