@@ -3,7 +3,7 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "spCreazioneFattureAnticipo_TEST",
+				"name": "spCreazioneFattureAnticipo",
 				"type": "SqlServerStoredProcedure",
 				"state": "Inactive",
 				"onInactiveMarkAs": "Succeeded",
@@ -24,7 +24,7 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"storedProcedureName": "[pfd].[spCreazioneFattureAnticipo_TEST]",
+					"storedProcedureName": "[pfd].[spCreazioneFattureAnticipo]",
 					"storedProcedureParameters": {
 						"AnnoRiferimento": {
 							"value": {
@@ -93,85 +93,9 @@
 				}
 			},
 			{
-				"name": "Copy data1",
-				"type": "Copy",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
-				"dependsOn": [
-					{
-						"activity": "spCreazioneFattureAnticipo_TEST",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"source": {
-						"type": "AzureSqlSource",
-						"sqlReaderQuery": "DECLARE\t@return_value int,\n\t\t@JsonResult nvarchar(max)\n\nEXEC\t@return_value = [pfd].[GenerateJsonSAP]\n\t\t@JsonResult = @JsonResult OUTPUT\n\nSELECT\t@JsonResult as N'@JsonResult'",
-						"queryTimeout": "02:00:00",
-						"partitionOption": "None"
-					},
-					"sink": {
-						"type": "JsonSink",
-						"storeSettings": {
-							"type": "AzureBlobStorageWriteSettings",
-							"copyBehavior": "FlattenHierarchy"
-						},
-						"formatSettings": {
-							"type": "JsonWriteSettings"
-						}
-					},
-					"enableStaging": false,
-					"translator": {
-						"type": "TabularTranslator",
-						"mappings": [
-							{
-								"source": {
-									"name": "@JsonResult[0]"
-								},
-								"sink": {
-									"path": "$['listaFatture']"
-								}
-							}
-						]
-					}
-				},
-				"inputs": [
-					{
-						"referenceName": "fat_d_sql",
-						"type": "DatasetReference"
-					}
-				],
-				"outputs": [
-					{
-						"referenceName": "JsonToSAP",
-						"type": "DatasetReference",
-						"parameters": {
-							"NomeFileJson": "TestGruao.json"
-						}
-					}
-				]
-			},
-			{
 				"name": "Data flow1",
 				"type": "ExecuteDataFlow",
-				"dependsOn": [
-					{
-						"activity": "Copy data1",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
+				"dependsOn": [],
 				"policy": {
 					"timeout": "0.12:00:00",
 					"retry": 0,
