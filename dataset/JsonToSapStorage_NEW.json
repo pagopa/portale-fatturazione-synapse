@@ -64,7 +64,7 @@
 					"type": "boolean"
 				},
 				"sollecito": {
-					"type": "null"
+					"type": "string"
 				},
 				"datiGeneraliDocumento": {
 					"type": "array",
