@@ -73,10 +73,7 @@
 				"     ),",
 				"     skipDuplicateMapInputs: true,",
 				"     skipDuplicateMapOutputs: true,",
-				"     saveOrder: 1,",
-				"     mapColumn(",
-				"          JSON = JsonResult",
-				"     )) ~> sink1"
+				"     saveOrder: 1) ~> sink1"
 			]
 		}
 	}
