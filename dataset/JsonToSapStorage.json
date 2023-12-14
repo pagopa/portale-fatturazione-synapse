@@ -1,5 +1,5 @@
 {
-	"name": "JsonToSapStorage_NEW",
+	"name": "JsonToSapStorage",
 	"properties": {
 		"linkedServiceName": {
 			"referenceName": "fat_sa",

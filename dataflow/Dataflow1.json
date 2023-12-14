@@ -15,7 +15,7 @@
 			"sinks": [
 				{
 					"dataset": {
-						"referenceName": "JsonToSapStorage_NEW",
+						"referenceName": "JsonToSapStorage",
 						"type": "DatasetReference"
 					},
 					"name": "ExportJsonToBlobStorage"
