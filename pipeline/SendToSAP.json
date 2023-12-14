@@ -197,9 +197,6 @@
 					"traceLevel": "None",
 					"cacheSinks": {
 						"firstRowOnly": true
-					},
-					"continuationSettings": {
-						"customizedCheckpointKey": "6ebab633-c29e-406b-b403-a55a69ed4502"
 					}
 				}
 			}
