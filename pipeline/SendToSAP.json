@@ -50,8 +50,6 @@
 			{
 				"name": "Set AnnoRiferimento",
 				"type": "SetVariable",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [],
 				"policy": {
 					"secureOutput": false,
@@ -61,7 +59,7 @@
 				"typeProperties": {
 					"variableName": "AnnoRiferimento",
 					"value": {
-						"value": "@int(substring(utcnow(),0,4))",
+						"value": "@if(equals(int(substring(utcnow(),5,2)) ,12), add(int(substring(utcnow(),0,4)) , 1), int(substring(utcnow(),0,4)))",
 						"type": "Expression"
 					}
 				}
@@ -69,8 +67,6 @@
 			{
 				"name": "Set MeseRiferimento",
 				"type": "SetVariable",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Set AnnoRiferimento",
@@ -87,7 +83,7 @@
 				"typeProperties": {
 					"variableName": "MeseRiferimento",
 					"value": {
-						"value": "@int(substring(utcnow(),5,2))",
+						"value": "@if(equals(int(substring(utcnow(),5,2)),12), 1 , int(substring(utcnow(),5,2)))",
 						"type": "Expression"
 					}
 				}
@@ -95,6 +91,8 @@
 			{
 				"name": "Generate Json",
 				"type": "ExecuteDataFlow",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "spCreazioneFattureAnticipo",
