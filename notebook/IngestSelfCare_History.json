@@ -21,7 +21,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "d73093cf-e240-4c4d-b6b3-f13a2f4fabd1"
+				"spark.autotune.trackingId": "4b088efd-577f-4cb5-9bae-88bcd8d6e224"
 			}
 		},
 		"metadata": {
@@ -79,9 +79,9 @@
 					"tableNameContratti = 'fat_delta.contratti_history'\r\n",
 					"linked_service_name = 'nomeLinkedService'\r\n",
 					"#sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/08/selfcare_contract/selfcare_contract_20231108.parquet'\r\n",
-					"#sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/28/selfcare_contract/part-00000-bcf90cd7-1f19-49d4-a359-ae324146d736-c000.snappy.parquet'"
+					"#sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/12/05/selfcare_contract/part-00000-aafb0b82-5c53-4b19-b719-49f1be9fc620-c000.snappy.parquet'"
 				],
-				"execution_count": 12
+				"execution_count": 66
 			},
 			{
 				"cell_type": "markdown",
@@ -115,7 +115,7 @@
 					"from pyspark.sql.functions import max\r\n",
 					"from datetime import datetime"
 				],
-				"execution_count": 13
+				"execution_count": 67
 			},
 			{
 				"cell_type": "markdown",
@@ -147,7 +147,7 @@
 					"#tDeltaEnti = DeltaTable.forName(spark, tableNameEnti)\r\n",
 					"#tDeltaContratti = DeltaTable.forName(spark, tableNameContratti)"
 				],
-				"execution_count": 14
+				"execution_count": 68
 			},
 			{
 				"cell_type": "markdown",
@@ -191,10 +191,45 @@
 					"#print(dtTmp.count())\r\n",
 					"\r\n",
 					"\r\n",
-					"dfEnti = dfTmp.select(\"internalistitutionid\",\"institution.institutionType\",\"institution.description\", \"institution.digitalAddress\", \"institution.address\", \"institution.originId\", \"institution.zipCode\", \"institution.istatCode\", \"institution.city\", \"institution.country\", \"institution.county\", \"institution.subUnitCode\", \"institution.subUnitType\", \"institution.paymentServiceProvider\", \"billing.vatnumber\", \"billing.publicservices\", \"institution.Category\")\r\n",
+					"dfEnti = dfTmp.select(\"internalistitutionid\",\"institution.institutionType\",\"institution.description\", \"institution.digitalAddress\", \"institution.address\", \"institution.originId\", \"institution.zipCode\", \"institution.istatCode\", \"institution.city\", \"institution.country\", \"institution.county\", \"institution.subUnitCode\", \"institution.subUnitType\", \"institution.paymentServiceProvider.*\", \"billing.vatnumber\", \"billing.publicservices\", \"institution.Category\")\r\n",
 					"dfContratti = dfTmp.select(\"internalistitutionid\", \"product\", \"filename\", \"onboardingtokenid\", \"pricingplan\", \"updatedat\", \"createdat\", \"closedat\", \"year\", \"month\", \"daily\")"
 				],
-				"execution_count": 15
+				"execution_count": 69
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#DEBUG\r\n",
+					"\r\n",
+					"# dfEnti.printSchema()\r\n",
+					"# dfContratti.printSchema()\r\n",
+					"# dfEnti2 = dfEnti.select(\"internalistitutionid\",\"institutionType\")\r\n",
+					"# dfEnti2.printSchema()\r\n",
+					"# dfEnti3 = dfEnti.select(\"internalistitutionid\",\"institutionType\",\"paymentServiceProvider.*\")\r\n",
+					"# dfEnti3.printSchema()\r\n",
+					"\r\n",
+					"\r\n",
+					"#dfEnti4 = dfTmp.select(\"internalistitutionid\",\"institution.institutionType\",\"institution.description\", \"institution.digitalAddress\", \"institution.address\", \"institution.originId\", \"institution.zipCode\", \"institution.istatCode\", \"institution.city\", \"institution.country\", \"institution.county\", \"institution.subUnitCode\", \"institution.subUnitType\", \"institution.paymentServiceProvider.*\", \"billing.vatnumber\", \"billing.publicservices\", \"institution.Category\")\r\n",
+					"#dfEnti4.printSchema()\r\n",
+					"\r\n",
+					"#my_schema = dfEnti.schema()\r\n",
+					"#columns = Arrays.stream(my_schema.fields()).map(field -> field.name()+\" \"+field.dataType().typeName()).collect(Collectors.joining(\",\"))\r\n",
+					"\r\n",
+					"#print(dfEnti.schema())\r\n",
+					"#print(columns)"
+				],
+				"execution_count": 70
 			},
 			{
 				"cell_type": "markdown",
@@ -235,7 +270,7 @@
 					"dfEnti = dfEnti.withColumn(\"SourceFile\",  F.lit(sourcefile))\r\n",
 					"dfContratti = dfContratti.withColumn(\"SourceFile\",  F.lit(sourcefile))"
 				],
-				"execution_count": 16
+				"execution_count": 71
 			},
 			{
 				"cell_type": "markdown",
@@ -269,7 +304,7 @@
 					"#spark.sql('DROP TABLE IF EXISTS  fat_delta.enti_history')\r\n",
 					"#spark.read.table(\"fat_delta.enti_history\")"
 				],
-				"execution_count": 17
+				"execution_count": 72
 			},
 			{
 				"cell_type": "code",
@@ -288,7 +323,7 @@
 					"dfEnti.write.format(\"delta\").mode(\"append\").saveAsTable(tableNameEnti)\r\n",
 					"dfContratti.write.format(\"delta\").mode(\"append\").saveAsTable(tableNameContratti)"
 				],
-				"execution_count": 18
+				"execution_count": 74
 			}
 		]
 	}

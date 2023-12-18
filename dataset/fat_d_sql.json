@@ -9,11 +9,60 @@
 		"type": "AzureSqlTable",
 		"schema": [
 			{
+				"name": "Environment",
+				"type": "varchar"
+			},
+			{
+				"name": "Pipeline",
+				"type": "varchar"
+			},
+			{
+				"name": "PathSink",
+				"type": "varchar"
+			},
+			{
 				"name": "FolderInput",
 				"type": "varchar"
 			},
 			{
 				"name": "FolderOutput",
+				"type": "varchar"
+			},
+			{
+				"name": "SchemaInput",
+				"type": "varchar"
+			},
+			{
+				"name": "TableInput",
+				"type": "varchar"
+			},
+			{
+				"name": "SchemaOutput",
+				"type": "varchar"
+			},
+			{
+				"name": "TableOutput",
+				"type": "varchar"
+			},
+			{
+				"name": "MergeProcedure",
+				"type": "varchar"
+			},
+			{
+				"name": "FlagEnabled",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "SwitchCase",
+				"type": "varchar"
+			},
+			{
+				"name": "DimensionVariable",
+				"type": "varchar"
+			},
+			{
+				"name": "ValueVariable",
 				"type": "varchar"
 			}
 		],
