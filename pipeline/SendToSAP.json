@@ -3,64 +3,7 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "FromSqlToPfstage",
-				"type": "Copy",
-				"dependsOn": [
-					{
-						"activity": "spCreazioneFattureAnticipo_TEST",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"source": {
-						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [IdFattura],[DataFattura],[FkProdotto],[IdentificativoFattura],[FkTipologiaFattura],[FkIdEnte],[CodiceContratto],[FkIdTipoDocumento],[Divisa]\n\t  ,[MetodoPagamento],[CausaleFattura],[SplitPayment],[Sollecito]\n\n\t  ,'datiGeneraliDocumento' = (\n\t\t\t\t\t\t\t\t\tSELECT NULL AS [tipologia?],[Progressivo],[IdDocumento],[DataDocumento],[NumItem],[CodCommessa],[Cup],[Cig]\n\t\t\t\t\t\t\t\t\tFROM [pfd].[FattureTestata] T1\n\t\t\t\t\t\t\t\t\tWHERE T1.IdFattura = T.IdFattura\n\t\t\t\t\t\t\t\t\tFOR JSON PATH\n\t\t\t\t\t\t\t\t)\n\n\t  ,'posizioni' = (\n\t\t\t\t\t\tSELECT [NumeroLinea],[Testo],[CodiceMateriale],[Quantita],[PrezzoUnitario],[Imponibile]\n\t\t\t\t\t\tFROM [pfd].[FattureRighe] R\n\t\t\t\t\t\tWHERE R.FkIdFattura = T.IdFattura\n\t\t\t\t\t\tFOR JSON PATH\n\t\t\t\t\t )\n\nFROM [pfd].[FattureTestata] T\n\nGROUP BY [IdFattura],[DataFattura],[FkProdotto],[IdentificativoFattura],[FkTipologiaFattura],[FkIdEnte],[CodiceContratto],[FkIdTipoDocumento],[Divisa]\n\t\t,[MetodoPagamento],[CausaleFattura],[SplitPayment],[Sollecito]\n",
-						"queryTimeout": "02:00:00",
-						"partitionOption": "None"
-					},
-					"sink": {
-						"type": "JsonSink",
-						"storeSettings": {
-							"type": "AzureBlobStorageWriteSettings"
-						},
-						"formatSettings": {
-							"type": "JsonWriteSettings",
-							"filePattern": "arrayOfObjects"
-						}
-					},
-					"enableStaging": false
-				},
-				"inputs": [
-					{
-						"referenceName": "fat_d_sql",
-						"type": "DatasetReference"
-					}
-				],
-				"outputs": [
-					{
-						"referenceName": "JsonToSAP",
-						"type": "DatasetReference",
-						"parameters": {
-							"NomeFileJson": {
-								"value": "@CONCAT('fattura_anticipo_',variables('AnnoRiferimento'),variables('MeseRiferimento'),'.json')",
-								"type": "Expression"
-							}
-						}
-					}
-				]
-			},
-			{
-				"name": "spCreazioneFattureAnticipo_TEST",
+				"name": "spCreazioneFattureAnticipo",
 				"type": "SqlServerStoredProcedure",
 				"dependsOn": [
 					{
@@ -79,7 +22,7 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"storedProcedureName": "[pfd].[spCreazioneFattureAnticipo_TEST]",
+					"storedProcedureName": "[pfd].[spCreazioneFattureAnticipo]",
 					"storedProcedureParameters": {
 						"AnnoRiferimento": {
 							"value": {
@@ -114,7 +57,7 @@
 				"typeProperties": {
 					"variableName": "AnnoRiferimento",
 					"value": {
-						"value": "@int(substring(utcnow(),0,4))",
+						"value": "@if(equals(int(substring(utcnow(),5,2)) ,12), add(int(substring(utcnow(),0,4)) , 1), int(substring(utcnow(),0,4)))",
 						"type": "Expression"
 					}
 				}
@@ -138,8 +81,47 @@
 				"typeProperties": {
 					"variableName": "MeseRiferimento",
 					"value": {
-						"value": "@int(substring(utcnow(),5,2))",
+						"value": "@if(equals(int(substring(utcnow(),5,2)),12), 1 , add(int(substring(utcnow(),5,2)),1)\n)",
 						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Generate Json",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [
+					{
+						"activity": "spCreazioneFattureAnticipo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "JsonToSAP",
+						"type": "DataFlowReference",
+						"datasetParameters": {
+							"ExportJsonToBlobStorage": {
+								"NomeFile": "FatturePagoPa.json"
+							}
+						}
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "None",
+					"cacheSinks": {
+						"firstRowOnly": true
 					}
 				}
 			}
@@ -156,7 +138,7 @@
 			"name": "SendToSAP"
 		},
 		"annotations": [],
-		"lastPublishTime": "2023-11-29T09:18:03Z"
+		"lastPublishTime": "2023-11-28T15:07:22Z"
 	},
 	"type": "Microsoft.Synapse/workspaces/pipelines"
 }
