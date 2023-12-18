@@ -1,5 +1,5 @@
 {
-	"name": "12_TransferLakeDBToSQL",
+	"name": "TransferLakeDBToSQL",
 	"properties": {
 		"activities": [
 			{
@@ -17,7 +17,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [SchemaInput],[TableInput],\n[SchemaOutput],[TableOutput], [MergeProcedure]\nFROM [cfg].[RawParquet]\nwhere Pipeline = '12_TransferLakeDBToSQL' and FlagEnabled = 1",
+						"sqlReaderQuery": "SELECT [SchemaInput],[TableInput],\n[SchemaOutput],[TableOutput], [MergeProcedure]\nFROM [cfg].[RawParquet]\nwhere Pipeline = 'Ingestion' and FlagEnabled = 1",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -218,11 +218,8 @@
 				}
 			}
 		],
-		"folder": {
-			"name": "Ingestion"
-		},
 		"annotations": [],
-		"lastPublishTime": "2023-12-18T11:26:04Z"
+		"lastPublishTime": "2023-12-04T10:28:54Z"
 	},
 	"type": "Microsoft.Synapse/workspaces/pipelines"
 }

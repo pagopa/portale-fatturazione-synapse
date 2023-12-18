@@ -1,0 +1,16 @@
+{
+	"name": "fat_sap_sa",
+	"type": "Microsoft.Synapse/workspaces/linkedservices",
+	"properties": {
+		"connectVia": {
+			"referenceName": "fat-p-synw-integration-runtime",
+			"type": "IntegrationRuntimeReference"
+		},
+		"type": "AzureBlobStorage",
+		"typeProperties": {
+			"serviceEndpoint": "https://fatpsap.blob.core.windows.net/",
+			"accountKind": "StorageV2"
+		},
+		"annotations": []
+	}
+}

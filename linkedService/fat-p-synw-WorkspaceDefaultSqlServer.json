@@ -2,19 +2,19 @@
 	"name": "fat-p-synw-WorkspaceDefaultSqlServer",
 	"type": "Microsoft.Synapse/workspaces/linkedservices",
 	"properties": {
+		"typeProperties": {
+			"connectionString": "Data Source=tcp:fat-p-synw.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
+		},
 		"parameters": {
 			"DBName": {
 				"type": "String"
 			}
 		},
-		"annotations": [],
 		"type": "AzureSqlDW",
-		"typeProperties": {
-			"connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:fat-p-synw.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
-		},
 		"connectVia": {
 			"referenceName": "AutoResolveIntegrationRuntime",
 			"type": "IntegrationRuntimeReference"
-		}
+		},
+		"annotations": []
 	}
 }

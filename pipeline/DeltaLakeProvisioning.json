@@ -39,7 +39,7 @@
 			"name": "Provisioning"
 		},
 		"annotations": [],
-		"lastPublishTime": "2023-11-29T09:18:01Z"
+		"lastPublishTime": "2023-12-18T11:25:34Z"
 	},
 	"type": "Microsoft.Synapse/workspaces/pipelines"
 }
