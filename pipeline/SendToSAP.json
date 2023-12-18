@@ -89,8 +89,6 @@
 			{
 				"name": "Generate Json",
 				"type": "ExecuteDataFlow",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "spCreazioneFattureAnticipo",
@@ -113,7 +111,7 @@
 						"type": "DataFlowReference",
 						"datasetParameters": {
 							"ExportJsonToBlobStorage": {
-								"NomeFile": "test.json"
+								"NomeFile": "FatturePagoPa.json"
 							}
 						}
 					},
