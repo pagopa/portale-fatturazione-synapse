@@ -2,7 +2,7 @@
 	"name": "JsonToSapStorage",
 	"properties": {
 		"linkedServiceName": {
-			"referenceName": "fat_sa",
+			"referenceName": "fat_sap",
 			"type": "LinkedServiceReference"
 		},
 		"parameters": {
@@ -20,8 +20,7 @@
 					"value": "@dataset().NomeFile",
 					"type": "Expression"
 				},
-				"folderPath": "fatture_anticipo",
-				"container": "pfstage"
+				"container": "sap"
 			}
 		},
 		"schema": {
