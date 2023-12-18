@@ -74,7 +74,7 @@
 								"type": "string"
 							},
 							"riferimentoNumeroLinea": {
-								"type": "integer"
+								"type": "string"
 							},
 							"idDocumento": {
 								"type": "string"

@@ -109,6 +109,17 @@
 					"dataflow": {
 						"referenceName": "JsonToSAP",
 						"type": "DataFlowReference",
+						"parameters": {
+							"AnnoRiferimento": {
+								"value": "@variables('AnnoRiferimento')",
+								"type": "Expression"
+							},
+							"MeseRiferimento": {
+								"value": "@variables('MeseRiferimento')",
+								"type": "Expression"
+							},
+							"TipologiaFattura": "'ANTICIPO'"
+						},
 						"datasetParameters": {
 							"ExportJsonToBlobStorage": {
 								"NomeFile": "FatturePagoPa.json"
@@ -123,6 +134,53 @@
 					"cacheSinks": {
 						"firstRowOnly": true
 					}
+				}
+			},
+			{
+				"name": "spAggionaFattureStatus",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Generate Json",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spAggiornaStatusFattureAnticipo]",
+					"storedProcedureParameters": {
+						"AnnoRiferimento": {
+							"value": {
+								"value": "@variables('AnnoRiferimento')",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseRiferimento": {
+							"value": {
+								"value": "@variables('MeseRiferimento')",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TipologiaFattura": {
+							"value": "ANTICIPO",
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
 				}
 			}
 		],

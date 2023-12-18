@@ -21,7 +21,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "891d8803-acb2-4b07-96d1-2b21f3975b35"
+				"spark.autotune.trackingId": "a5068052-0413-4ca1-a2ab-0a0feee59b68"
 			}
 		},
 		"metadata": {
@@ -401,12 +401,12 @@
 					"        , subUnitType string\r\n",
 					"        , paymentServiceProvider string\r\n",
 					"        , abiCode string \r\n",
-					"        , vatNumberGroup boolean \r\n",
+					"        , vatNumberGroup string \r\n",
 					"        , businessRegisterNumber string \r\n",
 					"        , legalRegisterName string \r\n",
 					"        , legalRegisterNumber string     \r\n",
 					"        , vatnumber string\r\n",
-					"        , publicservices boolean\r\n",
+					"        , publicservices string\r\n",
 					"        , InsertionTimestamp timestamp\r\n",
 					"        , SourceFile string    \r\n",
 					"        , Category string           \r\n",
