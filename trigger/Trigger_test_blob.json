@@ -6,7 +6,7 @@
 		"pipelines": [
 			{
 				"pipelineReference": {
-					"referenceName": "TestStageStarter",
+					"referenceName": "00_MainStarter",
 					"type": "PipelineReference"
 				}
 			}
