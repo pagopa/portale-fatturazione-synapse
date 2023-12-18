@@ -259,6 +259,10 @@
 														}
 													},
 													"snapshot": true,
+													"sparkPool": {
+														"referenceName": "sparkcls01",
+														"type": "BigDataPoolReference"
+													},
 													"executorSize": "Small",
 													"conf": {
 														"spark.dynamicAllocation.enabled": null,
@@ -303,6 +307,10 @@
 														}
 													},
 													"snapshot": true,
+													"sparkPool": {
+														"referenceName": "sparkcls01",
+														"type": "BigDataPoolReference"
+													},
 													"executorSize": "Small",
 													"conf": {
 														"spark.dynamicAllocation.enabled": null,
@@ -345,6 +353,10 @@
 														}
 													},
 													"snapshot": true,
+													"sparkPool": {
+														"referenceName": "sparkcls01",
+														"type": "BigDataPoolReference"
+													},
 													"executorSize": "Small",
 													"conf": {
 														"spark.dynamicAllocation.enabled": null,
@@ -387,6 +399,10 @@
 														}
 													},
 													"snapshot": true,
+													"sparkPool": {
+														"referenceName": "sparkcls01",
+														"type": "BigDataPoolReference"
+													},
 													"executorSize": "Small",
 													"conf": {
 														"spark.dynamicAllocation.enabled": null,
@@ -464,7 +480,7 @@
 			}
 		},
 		"annotations": [],
-		"lastPublishTime": "2023-12-04T10:28:56Z"
+		"lastPublishTime": "2023-12-04T09:32:51Z"
 	},
 	"type": "Microsoft.Synapse/workspaces/pipelines"
 }

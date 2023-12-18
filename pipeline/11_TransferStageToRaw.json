@@ -557,7 +557,7 @@
 			"name": "Ingestion"
 		},
 		"annotations": [],
-		"lastPublishTime": "2023-12-18T11:26:02Z"
+		"lastPublishTime": "2023-12-18T11:39:33Z"
 	},
 	"type": "Microsoft.Synapse/workspaces/pipelines"
 }
