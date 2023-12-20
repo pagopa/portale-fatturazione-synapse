@@ -1,0 +1,95 @@
+{
+	"name": "JsonToSAP_Inline",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "fat_sql",
+						"type": "LinkedServiceReference"
+					},
+					"name": "ReadSqlJson"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "fat_sap",
+						"type": "LinkedServiceReference"
+					},
+					"name": "ExportJsonToBlobStorage"
+				}
+			],
+			"transformations": [
+				{
+					"name": "JsonToString",
+					"description": "Creates an explicit mapping for each drifted column"
+				},
+				{
+					"name": "ParseToJson"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     AnnoRiferimento as integer (2024),",
+				"     MeseRiferimento as integer (1),",
+				"     TipologiaFattura as string ('ANTICIPO'),",
+				"     NomeFile as string ('TestExportFatture.json')",
+				"}",
+				"source(output(",
+				"          listaFatture as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     waterMarkColumn: 'Test1',",
+				"     format: 'procedure',",
+				"     store: 'sqlserver',",
+				"     procedureName: 'GenerateJsonSAP',",
+				"     schemaName: 'pfd',",
+				"     resultSet: true,",
+				"     isolationLevel: 'READ_COMMITTED',",
+				"     inputs:['@AnnoRiferimento' -> ($AnnoRiferimento),'@MeseRiferimento' -> ($MeseRiferimento),'@TipologiaFattura' -> ($TipologiaFattura)],",
+				"     mode: 'read') ~> ReadSqlJson",
+				"ReadSqlJson derive(listaFatture = toString(listaFatture)) ~> JsonToString",
+				"JsonToString parse(listaFatture = listaFatture ? (fattura as (numero as integer,",
+				"     dataFattura as string,",
+				"     prodotto as string,",
+				"     identificativo as string,",
+				"     tipologiaFattura as string,",
+				"     istitutioID as string,",
+				"     onboardingTokenID as string,",
+				"     tipoDocumento as string,",
+				"     divisa as string,",
+				"     metodoPagamento as string,",
+				"     causale as string,",
+				"     split as boolean,",
+				"     sollecito as string,",
+				"     datiGeneraliDocumento as (tipologia as string,",
+				"     riferimentoNumeroLinea as string,",
+				"     idDocumento as string,",
+				"     data as string,",
+				"     numItem as string,",
+				"     codiceCommessaConvenzione as string,",
+				"     CUP as string,",
+				"     CIG as string)[],",
+				"     posizioni as (numerolinea as string,",
+				"     testo as string,",
+				"     codiceMateriale as string,",
+				"     quantita as integer,",
+				"     prezzoUnitario as double,",
+				"     imponibile as double)[]))[],",
+				"     format: 'json',",
+				"     documentForm: 'singleDocument') ~> ParseToJson",
+				"ParseToJson sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'json',",
+				"     fileSystem: 'sap',",
+				"     partitionFileNames:[($NomeFile)],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> ExportJsonToBlobStorage"
+			]
+		}
+	}
+}
