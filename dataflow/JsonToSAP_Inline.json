@@ -34,7 +34,8 @@
 				"parameters{",
 				"     AnnoRiferimento as integer (2024),",
 				"     MeseRiferimento as integer (1),",
-				"     TipologiaFattura as string ('ANTICIPO')",
+				"     TipologiaFattura as string ('ANTICIPO'),",
+				"     NomeFile as string ('TestExportFatture.json')",
 				"}",
 				"source(output(",
 				"          listaFatture as string",
@@ -84,7 +85,7 @@
 				"     validateSchema: false,",
 				"     format: 'json',",
 				"     fileSystem: 'sap',",
-				"     partitionFileNames:['FatturePagoPa.json'],",
+				"     partitionFileNames:[($NomeFile)],",
 				"     skipDuplicateMapInputs: true,",
 				"     skipDuplicateMapOutputs: true,",
 				"     partitionBy('hash', 1)) ~> ExportJsonToBlobStorage"
