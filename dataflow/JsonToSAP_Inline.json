@@ -49,7 +49,7 @@
 				"     schemaName: 'pfd',",
 				"     resultSet: true,",
 				"     isolationLevel: 'READ_COMMITTED',",
-				"     inputs:['@AnnoRiferimento' -> '$AnnoRiferimento','@MeseRiferimento' -> '$MeseRiferimento','@TipologiaFattura' -> '$TipologiaFattura'],",
+				"     inputs:['@AnnoRiferimento' -> ($AnnoRiferimento),'@MeseRiferimento' -> ($MeseRiferimento),'@TipologiaFattura' -> ($TipologiaFattura)],",
 				"     mode: 'read') ~> ReadSqlJson",
 				"ReadSqlJson derive(listaFatture = toString(listaFatture)) ~> JsonToString",
 				"JsonToString parse(listaFatture = listaFatture ? (fattura as (numero as integer,",
