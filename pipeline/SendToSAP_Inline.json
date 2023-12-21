@@ -5,8 +5,6 @@
 			{
 				"name": "spCreazioneFattureAnticipo",
 				"type": "SqlServerStoredProcedure",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Set MeseRiferimento",
@@ -131,8 +129,6 @@
 			{
 				"name": "spAggionaFattureStatus",
 				"type": "SqlServerStoredProcedure",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Generate Json",
