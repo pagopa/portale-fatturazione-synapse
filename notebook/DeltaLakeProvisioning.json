@@ -21,7 +21,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "a5068052-0413-4ca1-a2ab-0a0feee59b68"
+				"spark.autotune.trackingId": "058bbade-4488-449a-a4c4-a141a414bc9c"
 			}
 		},
 		"metadata": {
@@ -41,14 +41,13 @@
 				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
 				"auth": {
 					"type": "AAD",
-					"authResource": "https://dev.azuresynapse.net",
-					"authHeader": null
+					"authResource": "https://dev.azuresynapse.net"
 				},
 				"sparkVersion": "3.3",
 				"nodeCount": 10,
 				"cores": 4,
 				"memory": 28,
-				"extraHeader": null
+				"automaticScaleJobs": true
 			},
 			"sessionKeepAliveTimeout": 30
 		},
@@ -488,6 +487,113 @@
 					")"
 				],
 				"execution_count": 22
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\"\"\"\r\n",
+					"  ALTER TABLE fat_delta.contratti_history\r\n",
+					"  SET TBLPROPERTIES (\r\n",
+					"    'delta.columnMapping.mode' = 'name',\r\n",
+					"    'delta.minReaderVersion' = '2',\r\n",
+					"    'delta.minWriterVersion' = '5'\r\n",
+					"  )\r\n",
+					"\"\"\")\r\n",
+					"\r\n",
+					"\r\n",
+					"\r\n",
+					"spark.sql('ALTER TABLE fat_delta.contratti_history RENAME COLUMN InsertionTimestamp TO LastModified')"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\"\"\"\r\n",
+					"  ALTER TABLE fat_delta.notification\r\n",
+					"  SET TBLPROPERTIES (\r\n",
+					"    'delta.columnMapping.mode' = 'name',\r\n",
+					"    'delta.minReaderVersion' = '2',\r\n",
+					"    'delta.minWriterVersion' = '5'\r\n",
+					"  )\r\n",
+					"\"\"\")\r\n",
+					"\r\n",
+					"spark.sql(\"\"\"\r\n",
+					"  ALTER TABLE fat_delta.invoicing_timeline\r\n",
+					"  SET TBLPROPERTIES (\r\n",
+					"    'delta.columnMapping.mode' = 'name',\r\n",
+					"    'delta.minReaderVersion' = '2',\r\n",
+					"    'delta.minWriterVersion' = '5'\r\n",
+					"  )\r\n",
+					"\"\"\")\r\n",
+					"\r\n",
+					"\r\n",
+					"spark.sql(\"\"\"\r\n",
+					"  ALTER TABLE fat_delta.enti_history\r\n",
+					"  SET TBLPROPERTIES (\r\n",
+					"    'delta.columnMapping.mode' = 'name',\r\n",
+					"    'delta.minReaderVersion' = '2',\r\n",
+					"    'delta.minWriterVersion' = '5'\r\n",
+					"  )\r\n",
+					"\"\"\")\r\n",
+					"\r\n",
+					"\r\n",
+					"\r\n",
+					"\r\n",
+					"\r\n",
+					"\r\n",
+					"spark.sql('ALTER TABLE fat_delta.notification RENAME COLUMN InsertionTimestamp TO LastModified')\r\n",
+					"spark.sql('ALTER TABLE fat_delta.invoicing_timeline RENAME COLUMN InsertionTimestamp TO LastModified')\r\n",
+					"spark.sql('ALTER TABLE fat_delta.enti_history RENAME COLUMN InsertionTimestamp TO LastModified')"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"        INSERT INTO fat_delta.watermark (TableName, LastModified) \r\n",
+					"        VALUES \r\n",
+					"        (\"notification\",null),\r\n",
+					"        (\"invoicing_timeline\",null)\r\n",
+					"    \"\"\"\r\n",
+					")"
+				],
+				"execution_count": null
 			}
 		]
 	}

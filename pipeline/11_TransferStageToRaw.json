@@ -164,6 +164,8 @@
 									{
 										"name": "DeleteFilesInStageNoParquet",
 										"type": "Delete",
+										"state": "Inactive",
+										"onInactiveMarkAs": "Succeeded",
 										"dependsOn": [],
 										"policy": {
 											"timeout": "0.12:00:00",
@@ -483,6 +485,8 @@
 									{
 										"name": "DeleteFilesInStage",
 										"type": "Delete",
+										"state": "Inactive",
+										"onInactiveMarkAs": "Succeeded",
 										"dependsOn": [
 											{
 												"activity": "SwitchNotebookIngest",

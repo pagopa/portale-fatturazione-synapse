@@ -21,7 +21,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "a068187c-c956-400f-8e7a-678aed46af1e"
+				"spark.autotune.trackingId": "b9210406-d73e-4193-a39d-552a3c3484e3"
 			}
 		},
 		"metadata": {
@@ -41,14 +41,13 @@
 				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
 				"auth": {
 					"type": "AAD",
-					"authResource": "https://dev.azuresynapse.net",
-					"authHeader": null
+					"authResource": "https://dev.azuresynapse.net"
 				},
 				"sparkVersion": "3.3",
 				"nodeCount": 10,
 				"cores": 4,
 				"memory": 28,
-				"extraHeader": null
+				"automaticScaleJobs": true
 			},
 			"sessionKeepAliveTimeout": 30
 		},
@@ -78,7 +77,7 @@
 					"tableNameinvoicing_timeline = 'fat_delta.invoicing_timeline'\r\n",
 					"\r\n",
 					"linked_service_name = 'nomeLinkedService'\r\n",
-					"sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/22/invoicing_timeline/invoicing_timeline_20231122.parquet'\r\n",
+					"#sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/22/invoicing_timeline/invoicing_timeline_20231122.parquet'\r\n",
 					""
 				],
 				"execution_count": 1
@@ -146,7 +145,7 @@
 				"source": [
 					"dfNewFile = spark.read.format(\"parquet\").load(sourcefile)\r\n",
 					"actualTimeStamp = datetime.now()\r\n",
-					"dfNewFile = dfNewFile.withColumn(\"insertionTimestamp\",  F.lit(actualTimeStamp))\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"LastModified\",  F.lit(actualTimeStamp))\r\n",
 					"dfNewFile = dfNewFile.withColumn(\"SourceFile\",  F.lit(sourcefile))\r\n",
 					"\r\n",
 					""
@@ -195,7 +194,25 @@
 					}
 				},
 				"source": [
-					"#spark.sql('DROP TABLE IF EXISTS fat_delta.notification')\r\n",
+					"#spark.sql('DROP TABLE IF EXISTS fat_delta.invoicing_timeline')"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#spark.sql('DROP TABLE IF EXISTS fat_delta.invoicing_timeline')\r\n",
 					"\r\n",
 					"dfNewFile.write.format(\"delta\").mode(\"append\").saveAsTable(tableNameinvoicing_timeline)"
 				],
@@ -232,6 +249,24 @@
 					"\r\n",
 					"\r\n",
 					"watermarkTable.update(\"TableName = 'invoicing_timeline'\", {\"LastModified\": F.lit(actualTimeStamp)})\r\n",
+					"\r\n",
+					"\r\n",
+					"# Assuming you have the actualTimeStamp variable defined\r\n",
+					"#actualTimeStamp = \"2022-01-01T12:00:00\"  # Replace with your actual timestamp\r\n",
+					"\r\n",
+					"# Load the Delta table\r\n",
+					"#watermarkTable = DeltaTable.forName(spark, \"fat_delta.watermark\")\r\n",
+					"\r\n",
+					"# Define the data to be merged\r\n",
+					"#data_to_merge = {\"TableName\": \"invoicing_timeline\", \"LastModified\": actualTimeStamp}\r\n",
+					"\r\n",
+					"# Perform the merge operation\r\n",
+					"#watermarkTable.alias(\"target\").merge(\r\n",
+					"#    source=spark.createDataFrame([data_to_merge]),\r\n",
+					"#    condition=\"target.TableName = 'invoicing_timeline'\",\r\n",
+					"#).whenMatchedUpdate(\r\n",
+					"#    set={\"LastModified\": F.lit(actualTimeStamp)}\r\n",
+					"#).whenNotMatchedInsertAll().execute()\r\n",
 					""
 				],
 				"execution_count": 5
