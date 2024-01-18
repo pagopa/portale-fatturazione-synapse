@@ -17,7 +17,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [SchemaInput],[TableInput],\n[SchemaOutput],[TableOutput], [MergeProcedure]\nFROM [cfg].[RawParquet]\nwhere Pipeline = '13_ExecProcedureInSQL' and FlagEnabled = 1",
+						"sqlReaderQuery": "SELECT [SchemaInput],[TableInput],\n[SchemaOutput],[TableOutput], [MergeProcedure]\nFROM [cfg].[RawParquet]\nwhere Pipeline = '13_ExecProcedureInSQL' and FlagEnabled = 1\norder by [JobOrder]",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
