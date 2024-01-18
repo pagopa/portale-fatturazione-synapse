@@ -24,7 +24,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [FolderInput], SwitchCase, PathSink\nFROM [cfg].[RawParquet]\nwhere Pipeline = '11_TransferStageToRaw' and FlagEnabled = 1",
+						"sqlReaderQuery": "SELECT [FolderInput], SwitchCase, PathSink\nFROM [cfg].[RawParquet]\nwhere Pipeline = '11_TransferStageToRaw' and FlagEnabled = 1 order by [JobOrder]",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
