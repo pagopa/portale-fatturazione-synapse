@@ -70,7 +70,7 @@
 								"source": {
 									"type": "SqlDWSource",
 									"sqlReaderQuery": {
-										"value": "@concat('SELECT * FROM ',string(item().SchemaInput),'.',string(item().TableInput),' WHERE [LastModified]  = ''', activity('Read Watermark').output.value[0].LastModified,'''' )",
+										"value": "@concat('SELECT * FROM ',string(item().SchemaInput),'.',string(item().TableInput),' WHERE LEFT([LastModified],10)  = LEFT(''', activity('Read Watermark').output.value[0].LastModified,'''',',10)' )",
 										"type": "Expression"
 									},
 									"queryTimeout": "02:00:00",
