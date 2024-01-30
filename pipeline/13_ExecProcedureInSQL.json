@@ -17,7 +17,10 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [SchemaInput],[TableInput],\n[SchemaOutput],[TableOutput], [MergeProcedure]\nFROM [cfg].[RawParquet]\nwhere Pipeline = '13_ExecProcedureInSQL' and FlagEnabled = 1\norder by [JobOrder]",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT  [SchemaInput],[TableInput],\n[SchemaOutput],[TableOutput], [MergeProcedure] FROM [cfg].[vToDoActivitiesSynapse] WHERE Pipeline = ''13_ExecProcedureInSQL'' AND [TaskId] = ', pipeline().parameters.TaskId, ' ORDER BY [JobOrder]')",
+							"type": "Expression"
+						},
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -74,6 +77,12 @@
 				}
 			}
 		],
+		"parameters": {
+			"TaskId": {
+				"type": "string",
+				"defaultValue": "0"
+			}
+		},
 		"folder": {
 			"name": "Ingestion"
 		},

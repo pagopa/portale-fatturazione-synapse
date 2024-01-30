@@ -17,7 +17,10 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [SchemaInput],[TableInput],\n[SchemaOutput],[TableOutput], [MergeProcedure]\nFROM [cfg].[RawParquet]\nwhere Pipeline = '12_TransferLakeDBToSQL' and FlagEnabled = 1 order by [JobOrder]",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT  [SchemaInput],[TableInput],\n[SchemaOutput],[TableOutput], [MergeProcedure] FROM [cfg].[vToDoActivitiesSynapse] WHERE Pipeline = ''12_TransferLakeDBToSQL'' AND [TaskId] = ', pipeline().parameters.TaskId, ' ORDER BY [JobOrder]')\n",
+							"type": "Expression"
+						},
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -232,6 +235,12 @@
 				}
 			}
 		],
+		"parameters": {
+			"TaskId": {
+				"type": "string",
+				"defaultValue": "0"
+			}
+		},
 		"folder": {
 			"name": "Ingestion"
 		},

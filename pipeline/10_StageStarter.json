@@ -24,7 +24,10 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT [FolderInput], SwitchCase, PathSink\nFROM [cfg].[RawParquet]\nwhere Pipeline = '11_TransferStageToRaw' and FlagEnabled = 1 order by [JobOrder]",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT [FolderInput], SwitchCase, PathSink FROM [cfg].[vToDoActivitiesSynapse] WHERE Pipeline = ''11_TransferStageToRaw'' AND [TaskId] = ', pipeline().parameters.TaskId, ' ORDER BY [JobOrder]')\n",
+							"type": "Expression"
+						},
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -141,6 +144,12 @@
 				}
 			}
 		],
+		"parameters": {
+			"TaskId": {
+				"type": "string",
+				"defaultValue": "0"
+			}
+		},
 		"variables": {
 			"SourcePath": {
 				"type": "String"

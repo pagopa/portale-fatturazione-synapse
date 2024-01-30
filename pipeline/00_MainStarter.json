@@ -3,24 +3,40 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "Execute StageStarter",
-				"type": "ExecutePipeline",
+				"name": "Read Jobs From Task",
+				"type": "Lookup",
 				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
 				"userProperties": [],
 				"typeProperties": {
-					"pipeline": {
-						"referenceName": "10_StageStarter",
-						"type": "PipelineReference"
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT DISTINCT [Pipeline] FROM [cfg].[vToDoActivitiesSynapse] where [TaskId] = ',pipeline().parameters.TaskId)",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
 					},
-					"waitOnCompletion": true
+					"dataset": {
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
 				}
 			},
 			{
-				"name": "Execute TransferLakeDBToSQL",
-				"type": "ExecutePipeline",
+				"name": "ForEachJobInTask",
+				"type": "ForEach",
 				"dependsOn": [
 					{
-						"activity": "Execute StageStarter",
+						"activity": "Read Jobs From Task",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -28,34 +44,169 @@
 				],
 				"userProperties": [],
 				"typeProperties": {
-					"pipeline": {
-						"referenceName": "12_TransferLakeDBToSQL",
-						"type": "PipelineReference"
+					"items": {
+						"value": "@activity('Read Jobs From Task').output.value",
+						"type": "Expression"
 					},
-					"waitOnCompletion": true
-				}
-			},
-			{
-				"name": "Execute ExecProcedureInSQL",
-				"type": "ExecutePipeline",
-				"dependsOn": [
-					{
-						"activity": "Execute TransferLakeDBToSQL",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"userProperties": [],
-				"typeProperties": {
-					"pipeline": {
-						"referenceName": "13_ExecProcedureInSQL",
-						"type": "PipelineReference"
-					},
-					"waitOnCompletion": true
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "If 11_TransferStageToRaw",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(item().Pipeline, '11_TransferStageToRaw')\n\n\n",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Execute StageStarter",
+										"type": "ExecutePipeline",
+										"dependsOn": [],
+										"userProperties": [],
+										"typeProperties": {
+											"pipeline": {
+												"referenceName": "10_StageStarter",
+												"type": "PipelineReference"
+											},
+											"waitOnCompletion": true,
+											"parameters": {
+												"TaskId": {
+													"value": "@pipeline().parameters.TaskId",
+													"type": "Expression"
+												}
+											}
+										}
+									}
+								]
+							}
+						},
+						{
+							"name": "If 12_TransferLakeDBToSQL",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "If 11_TransferStageToRaw",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(item().Pipeline, '12_TransferLakeDBToSQL')\n\n\n",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Execute TransferLakeDBToSQL",
+										"type": "ExecutePipeline",
+										"dependsOn": [],
+										"userProperties": [],
+										"typeProperties": {
+											"pipeline": {
+												"referenceName": "12_TransferLakeDBToSQL",
+												"type": "PipelineReference"
+											},
+											"waitOnCompletion": true,
+											"parameters": {
+												"TaskId": {
+													"value": "@pipeline().parameters.TaskId",
+													"type": "Expression"
+												}
+											}
+										}
+									}
+								]
+							}
+						},
+						{
+							"name": "If 13_ExecProcedureInSQL",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "If 12_TransferLakeDBToSQL",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(item().Pipeline, '13_ExecProcedureInSQL')\n\n\n",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Execute ExecProcedureInSQL",
+										"type": "ExecutePipeline",
+										"dependsOn": [],
+										"userProperties": [],
+										"typeProperties": {
+											"pipeline": {
+												"referenceName": "13_ExecProcedureInSQL",
+												"type": "PipelineReference"
+											},
+											"waitOnCompletion": true,
+											"parameters": {
+												"TaskId": {
+													"value": "@pipeline().parameters.TaskId",
+													"type": "Expression"
+												}
+											}
+										}
+									}
+								]
+							}
+						},
+						{
+							"name": "If SendToSap",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "If 13_ExecProcedureInSQL",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(item().Pipeline, 'SendToSap')\n\n\n",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Execute SendToSap",
+										"type": "ExecutePipeline",
+										"dependsOn": [],
+										"userProperties": [],
+										"typeProperties": {
+											"pipeline": {
+												"referenceName": "SendToSAP",
+												"type": "PipelineReference"
+											},
+											"waitOnCompletion": true
+										}
+									}
+								]
+							}
+						}
+					]
 				}
 			}
 		],
+		"parameters": {
+			"TaskId": {
+				"type": "string",
+				"defaultValue": "0"
+			}
+		},
 		"annotations": [],
 		"lastPublishTime": "2023-12-18T11:36:29Z"
 	},
