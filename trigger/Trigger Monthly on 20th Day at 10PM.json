@@ -20,7 +20,7 @@
 				"frequency": "Month",
 				"interval": 1,
 				"startTime": "2024-01-23T16:33:00",
-				"timeZone": "GMT Standard Time",
+				"timeZone": "W. Europe Standard Time",
 				"schedule": {
 					"hours": [
 						22

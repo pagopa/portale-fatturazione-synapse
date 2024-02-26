@@ -20,10 +20,13 @@
 				"frequency": "Day",
 				"interval": 1,
 				"startTime": "2024-01-23T16:21:00",
-				"timeZone": "GMT Standard Time",
+				"timeZone": "W. Europe Standard Time",
 				"schedule": {
+					"minutes": [
+						30
+					],
 					"hours": [
-						10
+						14
 					]
 				}
 			}
