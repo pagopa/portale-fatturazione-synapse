@@ -100,7 +100,7 @@
 		"parameters": {
 			"Recalculate": {
 				"type": "bool",
-				"defaultValue": true
+				"defaultValue": "0"
 			}
 		},
 		"variables": {
