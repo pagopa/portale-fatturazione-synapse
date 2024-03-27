@@ -1,0 +1,113 @@
+{
+	"name": "REL Primo Saldo",
+	"properties": {
+		"activities": [
+			{
+				"name": "Creazione REL PrimoSaldo",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spUpsertPrimoSaldoRel]",
+					"storedProcedureParameters": {
+						"Recalculate": {
+							"value": {
+								"value": "@pipeline().parameters.Recalculate",
+								"type": "Expression"
+							},
+							"type": "Boolean"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "If Condition1",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Creazione REL PrimoSaldo",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(\n\tsubstring(\n\t\tactivity('Creazione REL PrimoSaldo').error.message,\n\t\tsub(length(activity('Creazione REL PrimoSaldo').error.message),5),\n\t\t5\n\t\t)\n\t,'00100')",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Fail1",
+							"type": "Fail",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"message": {
+									"value": "@activity('Creazione REL PrimoSaldo').error.message",
+									"type": "Expression"
+								},
+								"errorCode": "50000"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "AF SendMail",
+				"type": "AzureFunctionActivity",
+				"dependsOn": [
+					{
+						"activity": "Creazione REL PrimoSaldo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"functionName": {
+						"value": "@concat('sendemail?anno=2024&mese=1&tipologiafattura=PRIMO%20SALDO')",
+						"type": "Expression"
+					},
+					"method": "GET"
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureFunction",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"Recalculate": {
+				"type": "bool",
+				"defaultValue": true
+			}
+		},
+		"variables": {
+			"ErrorMsg": {
+				"type": "String"
+			}
+		},
+		"annotations": []
+	}
+}

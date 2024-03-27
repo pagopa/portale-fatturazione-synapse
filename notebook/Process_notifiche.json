@@ -1,0 +1,629 @@
+{
+	"name": "Process_notifiche",
+	"properties": {
+		"folder": {
+			"name": "Ingestion"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "9d2f770b-b2e5-49de-addf-08c1609c9a84"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "subscriptions/*/resourceGroups/*/providers/Microsoft.Synapse/workspaces/*/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				}
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Import Libraries"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"from pyspark.sql.types import *\r\n",
+					"from pyspark.sql.functions import expr, length, explode, lit, sum as f_sum, when, col, size, coalesce, format_number, date_format\r\n",
+					"from datetime import datetime, timedelta\r\n",
+					"from dateutil.relativedelta import relativedelta\r\n",
+					"import pandas as pd\r\n",
+					"from decimal import Decimal\r\n",
+					"from delta.tables import *"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Set reference dates"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"referance_day = datetime.now()-relativedelta(months=1)\r\n",
+					"reference_month = '%02d' % referance_day.month\r\n",
+					"reference_year = referance_day.year"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Read Invoicing Timeline"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"invoicing_timeline = spark.sql(f'''\r\n",
+					"    select \r\n",
+					"        eventid,\r\n",
+					"        iun,\r\n",
+					"        `timestamp`,\r\n",
+					"        paid, \r\n",
+					"        notificationsentat,\r\n",
+					"        coalesce(get_json_object(details, '$.notificationCost'), get_json_object(details, '$.analogCost')) as cost,\r\n",
+					"        -- get_json_object(details, '$.notificationCost') as notificationcost, \r\n",
+					"        -- get_json_object(details, '$.analogCost') as analogcost, \r\n",
+					"        get_json_object(details, '$.productType') product_type,\r\n",
+					"        get_json_object(details, '$.physicalAddress.zip') zip,\r\n",
+					"        get_json_object(details, '$.physicalAddress.foreignState') foreignstate,\r\n",
+					"        get_json_object(details, '$.numberOfPages') numberofpages,\r\n",
+					"        get_json_object(details, '$.envelopeWeight') envelopeweight,\r\n",
+					"        get_json_object(details, '$.recIndex') recindex,\r\n",
+					"        invoincingtimestamp,\r\n",
+					"        timelineelementid,\r\n",
+					"        category,\r\n",
+					"        `year`,\r\n",
+					"        `month`,\r\n",
+					"        daily\r\n",
+					"    from fat_delta.invoicing_timeline\r\n",
+					"    where year='{reference_year}' and month='{reference_month}'\r\n",
+					"    and \r\n",
+					"    (\r\n",
+					"        (\r\n",
+					"        category in ('REFINEMENT','NOTIFICATION_VIEWED', 'REQUEST_REFUSED', 'NOTIFICATION_CANCELLED') AND get_json_object(details, '$.notificationCost') is not null \r\n",
+					"        )\r\n",
+					"        or \r\n",
+					"        (\r\n",
+					"        category in ( 'SEND_SIMPLE_REGISTERED_LETTER', 'SEND_ANALOG_DOMICILE' ) and get_json_object(details, '$.analogCost') is not null\r\n",
+					"        )\r\n",
+					"    )\r\n",
+					"    order by paid, daily\r\n",
+					"''')"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Change categories"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"invoicing_timeline = invoicing_timeline\\\r\n",
+					"    .withColumn(\"notificationtype\",\r\n",
+					"       when((col(\"category\") == \"REFINEMENT\") | (col(\"category\") == \"NOTIFICATION_VIEWED\") | (col(\"category\") == \"REQUEST_REFUSED\" ) | (col(\"category\") == \"NOTIFICATION_CANCELLED\" ), \"Digitale\") \r\n",
+					"      .when(((col(\"category\") == \"SEND_SIMPLE_REGISTERED_LETTER\") | (col(\"category\") == \"SEND_ANALOG_DOMICILE\")) & (col(\"product_type\") == \"890\"), \"Analog. L. 890/82\")\r\n",
+					"      .when(((col(\"category\") == \"SEND_SIMPLE_REGISTERED_LETTER\") | (col(\"category\") == \"SEND_ANALOG_DOMICILE\")) & ((col(\"product_type\") == \"AR\") | (col(\"product_type\") == \"RIR\")), \"Analog. A/R\")\r\n",
+					"      .when(((col(\"category\") == \"SEND_SIMPLE_REGISTERED_LETTER\") | (col(\"category\") == \"SEND_ANALOG_DOMICILE\")) & ((col(\"product_type\") == \"RS\") | (col(\"product_type\") == \"RIS\")), \"Analog. R/S\")\r\n",
+					"      .otherwise(\"\"))"
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Read Notifications"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"notifications_df = spark.sql(f'''\r\n",
+					"    SELECT n.iun, n.senderpaid, n.sentat,\r\n",
+					"            n.recipients as recipients,\r\n",
+					"            n.recipients.recipientType as recipienttype,\r\n",
+					"            n.recipients.recipientId as recipientid\r\n",
+					"    FROM fat_delta.notification n\r\n",
+					"''') "
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Join notifications and invoicing timeline"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"cond = [invoicing_timeline.iun == notifications_df.iun, invoicing_timeline.paid == notifications_df.senderpaid, invoicing_timeline.notificationsentat == notifications_df.sentat]\r\n",
+					"invoicing_notifications_df = invoicing_timeline.join(notifications_df, on=cond, how='left')"
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"invoices_messages_final = invoicing_notifications_df.select(\\\r\n",
+					"             col(\"zip\").alias(\"zip_code\"),\r\n",
+					"             col(\"foreignstate\").alias(\"foreign_state\"),\r\n",
+					"             col(\"numberofpages\").alias(\"number_of_pages\"),\r\n",
+					"             col(\"envelopeweight\").alias(\"g_envelope_weight\"),\r\n",
+					"             col(\"cost\").alias(\"cost_eurocent\"),\r\n",
+					"             col(\"category\").alias(\"timeline_category\"),\r\n",
+					"             col(\"product_type\").alias(\"paper_product_type\"),\r\n",
+					"             col(\"timelineelementid\").alias(\"event_id\"),\r\n",
+					"             col(\"n.iun\").alias(\"iun\"),\r\n",
+					"             col(\"notificationsentat\").alias(\"notification_sent_at\"),\r\n",
+					"             col(\"paid\").alias(\"internal_organization_id\"),\r\n",
+					"             col(\"timestamp\").alias(\"event_timestamp\"),\r\n",
+					"             col(\"recipients\"),\r\n",
+					"             col(\"invoincingtimestamp\"),\r\n",
+					"             col(\"recindex\").alias(\"recipient_index\"),\r\n",
+					"             col(\"recipienttype\")[col(\"recindex\").cast(IntegerType())].alias(\"recipient_type\"),\r\n",
+					"             col(\"recipientid\")[col(\"recindex\").cast(IntegerType())].alias(\"recipient_id\"),\r\n",
+					"             size(col(\"recipients\")).alias('recipients_cardinality'),\r\n",
+					"             col('year'),\r\n",
+					"             col('month'),\r\n",
+					"             col('daily'),\r\n",
+					"             col('notificationtype')\r\n",
+					"    )\\\r\n",
+					"    .withColumn('item_code', lit(''))\\\r\n",
+					"    .withColumn('notification_request_id', lit(''))\\\r\n",
+					"    .withColumn('recipient_tax_id', lit(''))"
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"invoices_messages_final = invoices_messages_final.withColumn('cost_eurocent', col('cost_eurocent').cast(IntegerType()))"
+				],
+				"execution_count": 11
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Managing multi-recipient notifications\r\n",
+					"\r\n",
+					"Creation of multi-recipient df"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"temp_df = invoices_messages_final.where(\r\n",
+					"    ((invoices_messages_final['timeline_category'] == 'REQUEST_REFUSED') | \r\n",
+					"    (invoices_messages_final['timeline_category'] == 'NOTIFICATION_CANCELLED')) &\r\n",
+					"    (invoices_messages_final['cost_eurocent'] > 100))"
+				],
+				"execution_count": 12
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Adding a temporary column with the extracted recipient id list"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"temp_df = temp_df.withColumn(\"recipients_id_temp\", col(\"recipients\")['recipientid'])"
+				],
+				"execution_count": 13
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Creation of new rows for each recipient id"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"temp_df = temp_df.withColumn(\"recipient_id\", explode(temp_df['recipients_id_temp']))"
+				],
+				"execution_count": 14
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Dividing total cost by number of recipients"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"temp_df = temp_df.withColumn(\"cost_eurocent\",temp_df[\"cost_eurocent\"]/temp_df[\"recipients_cardinality\"])\r\n",
+					"\r\n",
+					"temp_df = temp_df.withColumn(\"cost_eurocent\", temp_df['cost_eurocent'].cast(IntegerType()))\r\n",
+					""
+				],
+				"execution_count": 15
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"temp_df = temp_df.drop(\"recipients_id_temp\")"
+				],
+				"execution_count": 16
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Append of the generated rows to the complete df"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"invoices_messages_final = invoices_messages_final.union(temp_df)"
+				],
+				"execution_count": 18
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Removal of the unnecessary rows"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"invoices_messages_final = invoices_messages_final.filter(~\r\n",
+					"    ((invoices_messages_final['timeline_category'] == 'REQUEST_REFUSED') | \r\n",
+					"    (invoices_messages_final['timeline_category'] == 'NOTIFICATION_CANCELLED')) |\r\n",
+					"    (invoices_messages_final['cost_eurocent'] <= 100))"
+				],
+				"execution_count": 19
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"actualTimeStamp = datetime.now()\r\n",
+					"invoices_messages_final = invoices_messages_final.withColumn(\"LastModified\",  lit(actualTimeStamp))"
+				],
+				"execution_count": 22
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"invoices_messages_final.write.format(\"delta\").mode(\"append\").saveAsTable(\"fat_delta.notifiche\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"watermarkTable =  DeltaTable.forName(spark, \"fat_delta.watermark\")\r\n",
+					"watermarkTable.update(\"TableName = 'notifiche'\", {\"LastModified\": lit(actualTimeStamp)})"
+				],
+				"execution_count": 24
+			}
+		]
+	}
+}
