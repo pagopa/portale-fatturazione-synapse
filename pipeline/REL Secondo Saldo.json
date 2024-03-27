@@ -60,7 +60,7 @@
 		"parameters": {
 			"Recalculate": {
 				"type": "bool",
-				"defaultValue": "0"
+				"defaultValue": "False"
 			}
 		},
 		"annotations": []
