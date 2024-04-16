@@ -104,7 +104,23 @@
 							]
 						},
 						{
-							"value": "SECONDO SALDO"
+							"value": "SECONDO SALDO",
+							"activities": [
+								{
+									"name": "Set variable1",
+									"type": "SetVariable",
+									"dependsOn": [],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "varDummy",
+										"value": "dummyvalue"
+									}
+								}
+							]
 						}
 					]
 				}
@@ -116,29 +132,8 @@
 			}
 		},
 		"variables": {
-			"AnnoRiferimento": {
-				"type": "Integer"
-			},
-			"MeseRiferimento": {
-				"type": "Integer"
-			},
-			"anno": {
-				"type": "Integer"
-			},
-			"mese": {
+			"varDummy": {
 				"type": "String"
-			},
-			"Mese": {
-				"type": "Integer"
-			},
-			"mesetest": {
-				"type": "Integer"
-			},
-			"Anno": {
-				"type": "Integer"
-			},
-			"AnnoAnticipo": {
-				"type": "Integer"
 			}
 		},
 		"folder": {
