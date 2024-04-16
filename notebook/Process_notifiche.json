@@ -20,7 +20,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "9d2f770b-b2e5-49de-addf-08c1609c9a84"
+				"spark.autotune.trackingId": "4e8b80a7-1d10-462a-9a94-9ad097896b4d"
 			}
 		},
 		"metadata": {
@@ -34,12 +34,19 @@
 				"name": "python"
 			},
 			"a365ComputeOptions": {
-				"id": "subscriptions/*/resourceGroups/*/providers/Microsoft.Synapse/workspaces/*/bigDataPools/sparkcls01",
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
 				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
 				"auth": {
 					"type": "AAD",
 					"authResource": "https://dev.azuresynapse.net"
-				}
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": true
 			},
 			"sessionKeepAliveTimeout": 30
 		},
@@ -351,6 +358,24 @@
 				"execution_count": 11
 			},
 			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"invoices_messages_final = invoices_messages_final.distinct()"
+				],
+				"execution_count": null
+			},
+			{
 				"cell_type": "markdown",
 				"metadata": {
 					"nteract": {
@@ -564,7 +589,9 @@
 					"invoices_messages_final = invoices_messages_final.filter(~\r\n",
 					"    ((invoices_messages_final['timeline_category'] == 'REQUEST_REFUSED') | \r\n",
 					"    (invoices_messages_final['timeline_category'] == 'NOTIFICATION_CANCELLED')) |\r\n",
-					"    (invoices_messages_final['cost_eurocent'] <= 100))"
+					"    (invoices_messages_final['cost_eurocent'] <= 100))\r\n",
+					"invoices_messages_final = invoices_messages_final.distinct\r\n",
+					""
 				],
 				"execution_count": 19
 			},

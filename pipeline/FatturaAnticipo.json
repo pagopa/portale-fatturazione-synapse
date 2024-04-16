@@ -1,0 +1,181 @@
+{
+	"name": "FatturaAnticipo",
+	"properties": {
+		"activities": [
+			{
+				"name": "spCreazioneFattureAnticipo",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Set MeseRiferimentoAnticipo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spCreazioneFattureAnticipo]",
+					"storedProcedureParameters": {
+						"AnnoRiferimento": {
+							"value": {
+								"value": "@variables('AnnoRiferimento')",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseRiferimento": {
+							"value": {
+								"value": "@variables('MeseRiferimento')",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Set AnnoRiferimentoAnticipo",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "AnnoRiferimento",
+					"value": {
+						"value": "@if(equals(int(substring(utcnow(),5,2)) ,12), add(int(substring(utcnow(),0,4)) , 1), int(substring(utcnow(),0,4)))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set MeseRiferimentoAnticipo",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set AnnoRiferimentoAnticipo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "MeseRiferimento",
+					"value": {
+						"value": "@if(equals(int(substring(utcnow(),5,2)),12), 1 , add(int(substring(utcnow(),5,2)),1)\n)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "SendJsonAnticipoToSAP",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "spCreazioneFattureAnticipo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "SendJsonToSap",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"AnnoRiferimento": {
+							"value": "@variables('AnnoRiferimento')",
+							"type": "Expression"
+						},
+						"MeseRiferimento": {
+							"value": "@variables('MeseRiferimento')",
+							"type": "Expression"
+						},
+						"TipologiaFattura": "ANTICIPO"
+					}
+				}
+			},
+			{
+				"name": "spAggionaFattureStatus",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "SendJsonAnticipoToSAP",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spAggiornaStatusFattureAnticipo]",
+					"storedProcedureParameters": {
+						"AnnoRiferimento": {
+							"value": {
+								"value": "@variables('AnnoRiferimento')",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseRiferimento": {
+							"value": {
+								"value": "@variables('MeseRiferimento')",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TipologiaFattura": {
+							"value": "ANTICIPO",
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"variables": {
+			"AnnoRiferimento": {
+				"type": "Integer"
+			},
+			"MeseRiferimento": {
+				"type": "Integer"
+			}
+		},
+		"folder": {
+			"name": "ManageInvoice"
+		},
+		"annotations": []
+	}
+}

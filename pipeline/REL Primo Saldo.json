@@ -64,37 +64,6 @@
 						}
 					]
 				}
-			},
-			{
-				"name": "AF SendMail",
-				"type": "AzureFunctionActivity",
-				"dependsOn": [
-					{
-						"activity": "Creazione REL PrimoSaldo",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"functionName": {
-						"value": "@concat('sendemail?anno=2024&mese=1&tipologiafattura=PRIMO%20SALDO')",
-						"type": "Expression"
-					},
-					"method": "GET"
-				},
-				"linkedServiceName": {
-					"referenceName": "AzureFunction",
-					"type": "LinkedServiceReference"
-				}
 			}
 		],
 		"parameters": {

@@ -1,0 +1,149 @@
+{
+	"name": "99_ManageInvoice",
+	"properties": {
+		"activities": [
+			{
+				"name": "lkTask",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT SwitchCase\n  FROM [cfg].[vToDoActivitiesSynapse]\n  where TaskId = ', pipeline().parameters.TaskId)",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "SwitchTipologiaFattura",
+				"type": "Switch",
+				"dependsOn": [
+					{
+						"activity": "lkTask",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"on": {
+						"value": "@activity('lkTask').output.firstRow.SwitchCase",
+						"type": "Expression"
+					},
+					"cases": [
+						{
+							"value": "ANTICIPO",
+							"activities": [
+								{
+									"name": "Execute Pipeline Fattura Anticipo",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "FatturaAnticipo",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true
+									}
+								}
+							]
+						},
+						{
+							"value": "ACCONTO",
+							"activities": [
+								{
+									"name": "Execute Pipeline Fattura Acconto",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "FatturaAcconto",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true
+									}
+								}
+							]
+						},
+						{
+							"value": "PRIMO SALDO",
+							"activities": [
+								{
+									"name": "Execute Pipeline Fattura Primo Saldo",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "FatturaPrimoSaldo",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true
+									}
+								}
+							]
+						},
+						{
+							"value": "SECONDO SALDO"
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"TaskId": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"AnnoRiferimento": {
+				"type": "Integer"
+			},
+			"MeseRiferimento": {
+				"type": "Integer"
+			},
+			"anno": {
+				"type": "Integer"
+			},
+			"mese": {
+				"type": "String"
+			},
+			"Mese": {
+				"type": "Integer"
+			},
+			"mesetest": {
+				"type": "Integer"
+			},
+			"Anno": {
+				"type": "Integer"
+			},
+			"AnnoAnticipo": {
+				"type": "Integer"
+			}
+		},
+		"folder": {
+			"name": "ManageInvoice"
+		},
+		"annotations": []
+	}
+}

@@ -1,0 +1,118 @@
+{
+	"name": "FatturaPrimoSaldo",
+	"properties": {
+		"activities": [
+			{
+				"name": "Set AnnoRiferimentoPrimoSaldo",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "AnnoRiferimento",
+					"value": {
+						"value": "@int(substring(addToTime(utcNow(), -2, 'Month'), 0, 4))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set MeseRiferimentoPrimoSaldo",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set AnnoRiferimentoPrimoSaldo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "MeseRiferimento",
+					"value": {
+						"value": "@int(substring(addToTime(utcNow(), -2, 'Month'), 5, 2))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "SendJsonPrimoSaldoToSAP",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "spCreazioneFatturePrimoSaldo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "SendJsonToSap",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"AnnoRiferimento": {
+							"value": "@variables('AnnoRiferimento')",
+							"type": "Expression"
+						},
+						"MeseRiferimento": {
+							"value": "@variables('MeseRiferimento')",
+							"type": "Expression"
+						},
+						"TipologiaFattura": "PRIMO SALDO"
+					}
+				}
+			},
+			{
+				"name": "spCreazioneFatturePrimoSaldo",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Set MeseRiferimentoPrimoSaldo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[CreazioneFatturePrimoSaldo]"
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"variables": {
+			"AnnoRiferimento": {
+				"type": "Integer"
+			},
+			"MeseRiferimento": {
+				"type": "Integer"
+			}
+		},
+		"folder": {
+			"name": "ManageInvoice"
+		},
+		"annotations": []
+	}
+}

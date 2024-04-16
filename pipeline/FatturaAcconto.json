@@ -1,0 +1,118 @@
+{
+	"name": "FatturaAcconto",
+	"properties": {
+		"activities": [
+			{
+				"name": "spCreazioneFattureAcconto",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Set MeseRiferimentoAcconto",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spCreazioneFattureAcconto]"
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "SendJsonAccontoToSAP",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "spCreazioneFattureAcconto",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "SendJsonToSap",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"AnnoRiferimento": {
+							"value": "@variables('AnnoRiferimento')",
+							"type": "Expression"
+						},
+						"MeseRiferimento": {
+							"value": "@variables('MeseRiferimento')",
+							"type": "Expression"
+						},
+						"TipologiaFattura": "ACCONTO"
+					}
+				}
+			},
+			{
+				"name": "Set AnnoRiferimentoAcconto",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "AnnoRiferimento",
+					"value": {
+						"value": "@int(substring(addToTime(utcNow(), -1, 'Month'), 0, 4))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set MeseRiferimentoAcconto",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set AnnoRiferimentoAcconto",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "MeseRiferimento",
+					"value": {
+						"value": "@int(substring(addToTime(utcNow(), -1, 'Month'), 5, 2))",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"variables": {
+			"AnnoRiferimento": {
+				"type": "Integer"
+			},
+			"MeseRiferimento": {
+				"type": "Integer"
+			}
+		},
+		"folder": {
+			"name": "ManageInvoice"
+		},
+		"annotations": []
+	}
+}
