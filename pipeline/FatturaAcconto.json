@@ -5,14 +5,7 @@
 			{
 				"name": "spCreazioneFattureAcconto",
 				"type": "SqlServerStoredProcedure",
-				"dependsOn": [
-					{
-						"activity": "Set MeseRiferimentoAcconto",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
+				"dependsOn": [],
 				"policy": {
 					"timeout": "0.12:00:00",
 					"retry": 0,
@@ -34,12 +27,15 @@
 				"type": "ExecutePipeline",
 				"dependsOn": [
 					{
-						"activity": "spCreazioneFattureAcconto",
+						"activity": "OrdinaNumeroRigheAcconto",
 						"dependencyConditions": [
 							"Succeeded"
 						]
 					}
 				],
+				"policy": {
+					"secureInput": false
+				},
 				"userProperties": [],
 				"typeProperties": {
 					"pipeline": {
@@ -49,11 +45,11 @@
 					"waitOnCompletion": true,
 					"parameters": {
 						"AnnoRiferimento": {
-							"value": "@variables('AnnoRiferimento')",
+							"value": "@pipeline().parameters.AnnoAcconto",
 							"type": "Expression"
 						},
 						"MeseRiferimento": {
-							"value": "@variables('MeseRiferimento')",
+							"value": "@pipeline().parameters.MeseAcconto",
 							"type": "Expression"
 						},
 						"TipologiaFattura": "ACCONTO"
@@ -61,52 +57,78 @@
 				}
 			},
 			{
-				"name": "Set AnnoRiferimentoAcconto",
-				"type": "SetVariable",
-				"dependsOn": [],
-				"policy": {
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"variableName": "AnnoRiferimento",
-					"value": {
-						"value": "@int(substring(addToTime(utcNow(), -1, 'Month'), 0, 4))",
-						"type": "Expression"
-					}
-				}
-			},
-			{
-				"name": "Set MeseRiferimentoAcconto",
-				"type": "SetVariable",
+				"name": "OrdinaNumeroRigheAcconto",
+				"type": "SqlServerStoredProcedure",
 				"dependsOn": [
 					{
-						"activity": "Set AnnoRiferimentoAcconto",
+						"activity": "spCreazioneFattureAcconto",
 						"dependencyConditions": [
 							"Succeeded"
 						]
 					}
 				],
 				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
 					"secureOutput": false,
 					"secureInput": false
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"variableName": "MeseRiferimento",
-					"value": {
-						"value": "@int(substring(addToTime(utcNow(), -1, 'Month'), 5, 2))",
-						"type": "Expression"
+					"storedProcedureName": "[pfd].[updateNumLineaFattura]",
+					"storedProcedureParameters": {
+						"AnnoRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoAcconto",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.MeseAcconto",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TipologiaFattura": {
+							"value": "ACCONTO",
+							"type": "String"
+						}
 					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
 				}
 			}
 		],
+		"parameters": {
+			"AnnoAcconto": {
+				"type": "int"
+			},
+			"MeseAcconto": {
+				"type": "int"
+			}
+		},
 		"variables": {
 			"AnnoRiferimento": {
 				"type": "Integer"
 			},
 			"MeseRiferimento": {
+				"type": "Integer"
+			},
+			"AnnoAcconto": {
+				"type": "Integer"
+			},
+			"MeseAcconto": {
+				"type": "Integer"
+			},
+			"AnnoPrimoSaldo": {
+				"type": "Integer"
+			},
+			"MesePrimoSaldo": {
 				"type": "Integer"
 			}
 		},

@@ -20,7 +20,7 @@
 				"spark.dynamicAllocation.enabled": "true",
 				"spark.dynamicAllocation.minExecutors": "1",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "4e8b80a7-1d10-462a-9a94-9ad097896b4d"
+				"spark.autotune.trackingId": "99e91784-d7ed-41ca-a2c7-97ac21c30566"
 			}
 		},
 		"metadata": {
@@ -590,7 +590,7 @@
 					"    ((invoices_messages_final['timeline_category'] == 'REQUEST_REFUSED') | \r\n",
 					"    (invoices_messages_final['timeline_category'] == 'NOTIFICATION_CANCELLED')) |\r\n",
 					"    (invoices_messages_final['cost_eurocent'] <= 100))\r\n",
-					"invoices_messages_final = invoices_messages_final.distinct\r\n",
+					"invoices_messages_final = invoices_messages_final.distinct()\r\n",
 					""
 				],
 				"execution_count": 19

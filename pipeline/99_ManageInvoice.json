@@ -55,14 +55,75 @@
 								{
 									"name": "Execute Pipeline Fattura Anticipo",
 									"type": "ExecutePipeline",
-									"dependsOn": [],
+									"dependsOn": [
+										{
+											"activity": "Set MeseRiferimentoAnticipo",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureInput": false
+									},
 									"userProperties": [],
 									"typeProperties": {
 										"pipeline": {
 											"referenceName": "FatturaAnticipo",
 											"type": "PipelineReference"
 										},
-										"waitOnCompletion": true
+										"waitOnCompletion": true,
+										"parameters": {
+											"AnnoAnticipo": {
+												"value": "@variables('AnnoAnticipo')",
+												"type": "Expression"
+											},
+											"MeseAnticipo": {
+												"value": "@variables('MeseAnticipo')",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								{
+									"name": "Set AnnoRiferimentoAnticipo",
+									"type": "SetVariable",
+									"dependsOn": [],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "AnnoAnticipo",
+										"value": {
+											"value": "@if(equals(int(substring(utcnow(),5,2)) ,12), add(int(substring(utcnow(),0,4)) , 1), int(substring(utcnow(),0,4)))",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Set MeseRiferimentoAnticipo",
+									"type": "SetVariable",
+									"dependsOn": [
+										{
+											"activity": "Set AnnoRiferimentoAnticipo",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "MeseAnticipo",
+										"value": {
+											"value": "@if(equals(int(substring(utcnow(),5,2)),12), 1 , add(int(substring(utcnow(),5,2)),1)\n)",
+											"type": "Expression"
+										}
 									}
 								}
 							]
@@ -73,14 +134,75 @@
 								{
 									"name": "Execute Pipeline Fattura Acconto",
 									"type": "ExecutePipeline",
-									"dependsOn": [],
+									"dependsOn": [
+										{
+											"activity": "Set MeseRiferimentoAcconto",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureInput": false
+									},
 									"userProperties": [],
 									"typeProperties": {
 										"pipeline": {
 											"referenceName": "FatturaAcconto",
 											"type": "PipelineReference"
 										},
-										"waitOnCompletion": true
+										"waitOnCompletion": true,
+										"parameters": {
+											"AnnoAcconto": {
+												"value": "@variables('AnnoAcconto')",
+												"type": "Expression"
+											},
+											"MeseAcconto": {
+												"value": "@variables('MeseAcconto')",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								{
+									"name": "Set AnnoRiferimentoAcconto",
+									"type": "SetVariable",
+									"dependsOn": [],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "AnnoAcconto",
+										"value": {
+											"value": "@int(substring(addToTime(utcNow(), -1, 'Month'), 0, 4))",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Set MeseRiferimentoAcconto",
+									"type": "SetVariable",
+									"dependsOn": [
+										{
+											"activity": "Set AnnoRiferimentoAcconto",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "MeseAcconto",
+										"value": {
+											"value": "@int(substring(addToTime(utcNow(), -1, 'Month'), 5, 2))",
+											"type": "Expression"
+										}
 									}
 								}
 							]
@@ -91,14 +213,75 @@
 								{
 									"name": "Execute Pipeline Fattura Primo Saldo",
 									"type": "ExecutePipeline",
-									"dependsOn": [],
+									"dependsOn": [
+										{
+											"activity": "Set MeseRiferimentoPrimoSaldo",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureInput": false
+									},
 									"userProperties": [],
 									"typeProperties": {
 										"pipeline": {
 											"referenceName": "FatturaPrimoSaldo",
 											"type": "PipelineReference"
 										},
-										"waitOnCompletion": true
+										"waitOnCompletion": true,
+										"parameters": {
+											"AnnoRiferimento": {
+												"value": "@variables('AnnoPrimoSaldo')",
+												"type": "Expression"
+											},
+											"MeseRiferimento": {
+												"value": "@variables('MesePrimoSaldo')",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								{
+									"name": "Set AnnoRiferimentoPrimoSaldo",
+									"type": "SetVariable",
+									"dependsOn": [],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "AnnoPrimoSaldo",
+										"value": {
+											"value": "@int(substring(addToTime(utcNow(), -2, 'Month'), 0, 4))",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Set MeseRiferimentoPrimoSaldo",
+									"type": "SetVariable",
+									"dependsOn": [
+										{
+											"activity": "Set AnnoRiferimentoPrimoSaldo",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "MesePrimoSaldo",
+										"value": {
+											"value": "@int(substring(addToTime(utcNow(), -2, 'Month'), 5, 2))",
+											"type": "Expression"
+										}
 									}
 								}
 							]
@@ -134,6 +317,24 @@
 		"variables": {
 			"varDummy": {
 				"type": "String"
+			},
+			"AnnoAnticipo": {
+				"type": "Integer"
+			},
+			"MeseAnticipo": {
+				"type": "Integer"
+			},
+			"AnnoAcconto": {
+				"type": "Integer"
+			},
+			"MeseAcconto": {
+				"type": "Integer"
+			},
+			"AnnoPrimoSaldo": {
+				"type": "Integer"
+			},
+			"MesePrimoSaldo": {
+				"type": "Integer"
 			}
 		},
 		"folder": {
