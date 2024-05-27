@@ -5,7 +5,14 @@
 			{
 				"name": "spCreazioneFattureAnticipo",
 				"type": "SqlServerStoredProcedure",
-				"dependsOn": [],
+				"dependsOn": [
+					{
+						"activity": "UpdateTotaleNotificheCategoria",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
 				"policy": {
 					"timeout": "0.12:00:00",
 					"retry": 0,
@@ -30,6 +37,13 @@
 								"type": "Expression"
 							},
 							"type": "Int32"
+						},
+						"DataFatturazione": {
+							"value": {
+								"value": "@pipeline().parameters.DataFatturazione",
+								"type": "Expression"
+							},
+							"type": "Datetime"
 						}
 					}
 				},
@@ -165,6 +179,139 @@
 					"referenceName": "fat_sql",
 					"type": "LinkedServiceReference"
 				}
+			},
+			{
+				"name": "CalcoloPrevisionale",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "stg.spCalcoloPrevisionale"
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "InsertDatiModuloCommessaPrevisionali",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "CalcoloPrevisionale",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "pfd.spInsertDatiModuloCommessaPrevisionali",
+					"storedProcedureParameters": {
+						"AnnoValidita": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoAnticipo",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseValidita": {
+							"value": {
+								"value": "@pipeline().parameters.MeseAnticipo",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "InsertDatiModuloCommessaTotaliPrevisionali",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "InsertDatiModuloCommessaPrevisionali",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "pfd.spInsertDatiModuloCommessaTotaliPrevisionali",
+					"storedProcedureParameters": {
+						"AnnoValidita": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoAnticipo",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseValidita": {
+							"value": {
+								"value": "@pipeline().parameters.MeseAnticipo",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "UpdateTotaleNotificheCategoria",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "InsertDatiModuloCommessaTotaliPrevisionali",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "pfd.spUpdateTotaleNotificheCategoria"
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
 			}
 		],
 		"parameters": {
@@ -173,6 +320,9 @@
 			},
 			"MeseAnticipo": {
 				"type": "int"
+			},
+			"DataFatturazione": {
+				"type": "string"
 			}
 		},
 		"variables": {

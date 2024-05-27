@@ -49,7 +49,30 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"storedProcedureName": "[pfd].[CreazioneFatturePrimoSaldo]"
+					"storedProcedureName": "[pfd].[CreazioneFatturePrimoSaldo]",
+					"storedProcedureParameters": {
+						"AnnoRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoRiferimento",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"DataFatturazione": {
+							"value": {
+								"value": "@pipeline().parameters.DataFatturazione",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"MeseRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.MeseRiferimento",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						}
+					}
 				},
 				"linkedServiceName": {
 					"referenceName": "fat_sql",
@@ -110,6 +133,9 @@
 			},
 			"MeseRiferimento": {
 				"type": "int"
+			},
+			"DataFatturazione": {
+				"type": "string"
 			}
 		},
 		"variables": {

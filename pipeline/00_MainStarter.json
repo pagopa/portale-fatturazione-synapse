@@ -245,49 +245,6 @@
 									}
 								]
 							}
-						},
-						{
-							"name": "If ManageInvoice",
-							"type": "IfCondition",
-							"dependsOn": [
-								{
-									"activity": "If ProcessNotifiche",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"userProperties": [],
-							"typeProperties": {
-								"expression": {
-									"value": "@equals(item().Pipeline, '99_ManageInvoice')\n\n\n",
-									"type": "Expression"
-								},
-								"ifTrueActivities": [
-									{
-										"name": "Execute ManageInvoice",
-										"type": "ExecutePipeline",
-										"dependsOn": [],
-										"policy": {
-											"secureInput": false
-										},
-										"userProperties": [],
-										"typeProperties": {
-											"pipeline": {
-												"referenceName": "99_ManageInvoice",
-												"type": "PipelineReference"
-											},
-											"waitOnCompletion": true,
-											"parameters": {
-												"TaskId": {
-													"value": "@pipeline().parameters.TaskId",
-													"type": "Expression"
-												}
-											}
-										}
-									}
-								]
-							}
 						}
 					]
 				}

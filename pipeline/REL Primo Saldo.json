@@ -77,6 +77,9 @@
 				"type": "String"
 			}
 		},
+		"folder": {
+			"name": "ManageREL"
+		},
 		"annotations": []
 	}
 }

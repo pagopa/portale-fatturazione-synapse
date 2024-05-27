@@ -15,7 +15,30 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"storedProcedureName": "[pfd].[spCreazioneFattureAcconto]"
+					"storedProcedureName": "[pfd].[spCreazioneFattureAcconto]",
+					"storedProcedureParameters": {
+						"AnnoFatturazione": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoAcconto",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"DataFatturazione": {
+							"value": {
+								"value": "@pipeline().parameters.DataFatturazione",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"MeseFatturazione": {
+							"value": {
+								"value": "@pipeline().parameters.MeseAcconto",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						}
+					}
 				},
 				"linkedServiceName": {
 					"referenceName": "fat_sql",
@@ -110,6 +133,9 @@
 			},
 			"MeseAcconto": {
 				"type": "int"
+			},
+			"DataFatturazione": {
+				"type": "string"
 			}
 		},
 		"variables": {
