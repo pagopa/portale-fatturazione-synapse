@@ -2,7 +2,7 @@
 	"name": "JsonToSapStorage",
 	"properties": {
 		"linkedServiceName": {
-			"referenceName": "fat_sap",
+			"referenceName": "fat_adls",
 			"type": "LinkedServiceReference"
 		},
 		"parameters": {
@@ -15,12 +15,12 @@
 		"type": "Json",
 		"typeProperties": {
 			"location": {
-				"type": "AzureBlobStorageLocation",
+				"type": "AzureBlobFSLocation",
 				"fileName": {
 					"value": "@dataset().NomeFile",
 					"type": "Expression"
 				},
-				"container": "sap"
+				"fileSystem": "tmpfatture"
 			}
 		},
 		"schema": {

@@ -1,0 +1,162 @@
+{
+	"name": "Ingest_PnTimeLine",
+	"properties": {
+		"folder": {
+			"name": "Ingestion"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "0bb691fa-6d7f-43e6-a0ce-839369c67503"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Parameter"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"tableName_pnTimeLine = 'fat_delta.pn_timeline'\r\n",
+					"linked_service_name = 'nomeLinkedService'\r\n",
+					"#sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/CSV-EntityMapping/notificationconverted/part-00000-f8ab67da-73a6-4fc6-8d82-989cb48f3ed8-c000.snappy.parquet'"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Libraries"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql import functions as F\r\n",
+					"from delta.tables import *\r\n",
+					"from pyspark.sql.functions import max\r\n",
+					"from datetime import datetime\r\n",
+					"import pandas as pd"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Load and Process"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfNewFile = spark.read.format(\"parquet\").load(sourcefile)\r\n",
+					"actualTimeStamp = datetime.now()\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"LastModified\",  F.lit(actualTimeStamp))\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"SourceFile\",  F.lit(sourcefile))\r\n",
+					"\r\n",
+					"dfNewFile.write.format(\"delta\").mode(\"append\").saveAsTable(tableName_pnTimeLine)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Update Watermark table"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"watermarkTable =  DeltaTable.forName(spark, \"fat_delta.watermark\")\r\n",
+					"watermarkTable.update(\"TableName = 'pn_timeline'\", {\"LastModified\": F.lit(actualTimeStamp)})"
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

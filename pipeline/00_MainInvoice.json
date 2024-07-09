@@ -139,7 +139,7 @@
 									{
 										"type": "Query",
 										"text": {
-											"value": "@concat('UPDATE cfg.CalendarioFatturazione\n  SET CicloEffettuato = 1\n  WHERE MeseRiferimento = ',item().MeseRiferimento,\n  'AND AnnoRiferimento = ', item().AnnoRiferimento,\n  ' AND TipologiaFattura = ''', item().TipologiaFattura,\n   '''  AND Fase = ', item().Fase, '''')",
+											"value": "@concat('UPDATE cfg.CalendarioFatturazione\n  SET CicloEffettuato = 1\n  WHERE MeseRiferimento = ',item().MeseRiferimento,\n  'AND AnnoRiferimento = ', item().AnnoRiferimento,\n  ' AND TipologiaFattura = ''', item().TipologiaFattura,\n   '''  AND Fase = '\n   , item().Fase)",
 											"type": "Expression"
 										}
 									}
