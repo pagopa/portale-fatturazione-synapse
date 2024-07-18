@@ -1,0 +1,123 @@
+{
+	"name": "JsonAccertamenti",
+	"properties": {
+		"folder": {
+			"name": "Accertamenti"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "ea40e571-4610-44bd-9b4e-b10c18153dac"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": true
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"df = spark.sql(\"\"\"SELECT \r\n",
+					"                    *\r\n",
+					"                    ,'022024' as numero\r\n",
+					"                    ,'2024-02-28' as data\r\n",
+					"                    ,'PROD-PN' as prodotto\r\n",
+					"                    ,'id' as identificativo\r\n",
+					"                    ,'AC' as tipologiadocumento\r\n",
+					"                    ,'EUR' as DIVISA\r\n",
+					"                    , CASE WHEN (tipologia_notifica = 'DIGITALE') THEN\r\n",
+					"                        'PRIMO SALDO N.DIG.'\r\n",
+					"                    ELSE\r\n",
+					"                        'PRIMO SALDO N.ANL.' END as codicemateriale\r\n",
+					"                FROM fat_delta.allpreseincarico \r\n",
+					"                \"\"\")\r\n",
+					"\r\n",
+					"df = df.toPandas()\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": 18
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(df)"
+				],
+				"execution_count": 16
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"pippo = (df.groupby(['numero','data','prodotto','identificativo','tipologiadocumento','id_ente','DIVISA'])\r\n",
+					".apply(lambda x: x[['codicemateriale','tot_prezzo_ente']].to_dict('records'))\r\n",
+					".reset_index()\r\n",
+					".rename(columns={0:'posizioni'})\r\n",
+					".to_json(orient='records'))\r\n",
+					"\r\n",
+					"print(pippo)"
+				],
+				"execution_count": 19
+			}
+		]
+	}
+}

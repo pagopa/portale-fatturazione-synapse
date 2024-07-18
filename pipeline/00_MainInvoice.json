@@ -1,0 +1,161 @@
+{
+	"name": "00_MainInvoice",
+	"properties": {
+		"activities": [
+			{
+				"name": "CheckDate",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "TodayDate",
+					"value": {
+						"value": "@utcnow('yyyy-MM-dd')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "LkFatturazioneCFG",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "CheckDate",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT [AnnoRiferimento]\n      ,[MeseRiferimento]\n      ,[TipologiaFattura]\n      ,[Fase]\n      ,[DataEsecuzione]\n      ,[DataFatturazione]\n      ,[CicloEffettuato]\nFROM [cfg].[CalendarioFatturazione]\nWHERE CicloEffettuato = 0 AND DataEsecuzione = ''',variables('TodayDate') ,'''\nORDER BY AnnoRiferimento, MeseRiferimento, FASE')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "SqlDatabse",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableSql": "a",
+							"SchemaSql": "a"
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "LkFatturazioneCFG",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('LkFatturazioneCFG').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "ExecManageInvoice",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "99_ManageInvoice",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"TipoFattura": {
+										"value": "@item().TipologiaFattura",
+										"type": "Expression"
+									},
+									"AnnoRiferimento": {
+										"value": "@item().AnnoRiferimento",
+										"type": "Expression"
+									},
+									"MeseRiferimento": {
+										"value": "@item().MeseRiferimento",
+										"type": "Expression"
+									},
+									"DataFatturazione": {
+										"value": "@item().DataFatturazione",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "UpdateCalendario",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "ExecManageInvoice",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "fat_sql",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "Query",
+										"text": {
+											"value": "@concat('UPDATE cfg.CalendarioFatturazione\n  SET CicloEffettuato = 1\n  WHERE MeseRiferimento = ',item().MeseRiferimento,\n  'AND AnnoRiferimento = ', item().AnnoRiferimento,\n  ' AND TipologiaFattura = ''', item().TipologiaFattura,\n   '''  AND Fase = ', item().Fase, '''')",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						}
+					]
+				}
+			}
+		],
+		"variables": {
+			"TodayDate": {
+				"type": "String"
+			}
+		},
+		"annotations": []
+	}
+}

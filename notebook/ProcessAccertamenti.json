@@ -1,0 +1,307 @@
+{
+	"name": "ProcessAccertamenti",
+	"properties": {
+		"folder": {
+			"name": "Accertamenti"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "ef48603c-ddcf-4ccd-8f35-9206b442bd06"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": true
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Parametri"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"mesediriferimento = \"2024-02\""
+				],
+				"execution_count": 29
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Variabili ambiente"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"LinkedServiceName = 'fat_sql'\r\n",
+					"strCnn=mssparkutils.credentials.getFullConnectionString(LinkedServiceName)\r\n",
+					"ServerSql=strCnn.split(';')\r\n",
+					"\r\n",
+					"ServerSql = ServerSql[0].split('url=')[1]\r\n",
+					"DbName = ''\r\n",
+					"if ServerSql.startswith('fat-d'):\r\n",
+					"    DbName = 'fat-sqldb'\r\n",
+					"else:\r\n",
+					"    DbName = 'fat-p-db'\r\n",
+					"\r\n",
+					"DbPort = 1433\r\n",
+					"\r\n",
+					"TablePreseInCaricoRaw = \"fat_delta.preseincarico_raw\""
+				],
+				"execution_count": 30
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"all_preseincarico_sql = \"\"\"\r\n",
+					"WITH all_analog AS (\r\n",
+					"  SELECT\r\n",
+					"    iun,\r\n",
+					"    paid,\r\n",
+					"    'ANALOGICO' AS notification_cluster,\r\n",
+					"    left(`timestamp`, 7) as takenincharge_date,\r\n",
+					"    CAST(get_json_object( details, '$.analogCost' ) as INT) as price_paid,\r\n",
+					"    get_json_object( details, '$.productType' ) as paper_productType,\r\n",
+					"    get_json_object( details, '$.numberOfPages' ) as paper_numberOfPages,\r\n",
+					"    get_json_object( details, '$.envelopeWeight' ) as paper_envelopeWeight,\r\n",
+					"    get_json_object( details, '$.physicalAddress.zip' ) as paper_dest_zip,\r\n",
+					"    get_json_object( details, '$.physicalAddress.foreignState' ) as paper_dest_foreignState,\r\n",
+					"    timelineelementid AS event_id\r\n",
+					"\tFROM \r\n",
+					"\t  fat_delta.pn_timeline\r\n",
+					"  WHERE \r\n",
+					"      category in ( 'SEND_ANALOG_DOMICILE', 'SEND_SIMPLE_REGISTERED_LETTER')\r\n",
+					"      AND left(`timestamp` ,7) = \"{mesediriferimento}\"\r\n",
+					"      AND paid != '4a4149af-172e-4950-9cc8-63ccc9a6d865' \r\n",
+					"), all_notification_withdest AS (\r\n",
+					"  SELECT \r\n",
+					"\t\tiun, \r\n",
+					"\t\tinternal_organization_id AS senderpaid,\r\n",
+					"     notification_sent_at AS    sentat,\r\n",
+					"\t\trecipients_cardinality as recipients,\r\n",
+					"    event_id\r\n",
+					"\tFROM fat_delta.notifiche\r\n",
+					"\tWHERE \r\n",
+					"\t  left(`notification_sent_at`, 7) = \"{mesediriferimento}\"\r\n",
+					"\t  AND internal_organization_id != '4a4149af-172e-4950-9cc8-63ccc9a6d865'\r\n",
+					"), all_digital AS (\r\n",
+					"  SELECT\r\n",
+					"    iun,\r\n",
+					"    senderpaid as paid,\r\n",
+					"    'DIGITALE' AS notification_cluster,\r\n",
+					"    left(`sentat`, 7) as takenincharge_date,\r\n",
+					"    (100*recipients) as price_paid,\r\n",
+					"    '' as paper_productType,\r\n",
+					"    '' as paper_numberOfPages,\r\n",
+					"    '' as paper_envelopeWeight,\r\n",
+					"    '' as paper_dest_zip,\r\n",
+					"    '' as paper_dest_foreignState\r\n",
+					"    ,event_id\r\n",
+					"\tFROM \r\n",
+					"\t  all_notification_withdest\r\n",
+					"), all_notification AS (\r\n",
+					"  SELECT * FROM all_digital UNION ALL\r\n",
+					"  SELECT * FROM all_analog\r\n",
+					")\r\n",
+					"SELECT * FROM all_notification \r\n",
+					"\"\"\".format(mesediriferimento = mesediriferimento)\r\n",
+					"\r\n",
+					"spark.sql(all_preseincarico_sql).createOrReplaceTempView(\"all_preseincarico\")"
+				],
+				"execution_count": 31
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Get Sql conn"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"server = ServerSql # 'fat-d-sql.database.windows.net'\r\n",
+					"Port = DbPort\r\n",
+					"Database = DbName # \"fat-sqldb\"\r\n",
+					"jdbcUrl = f\"jdbc:sqlserver://{server}:{Port};databaseName={Database};encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30\"\r\n",
+					"token = TokenLibrary.getConnectionString(LinkedServiceName)\r\n",
+					"#query = \"pfd.MatriceCostiRecapitisti\"\r\n",
+					"\r\n",
+					"#mcr\r\n",
+					"#    LEFT JOIN pfd.Enti e on  e.InternalIstitutionId = mcr.id_recapitista\"\"\"\r\n",
+					"\r\n",
+					"conn_Prop = {\r\n",
+					"    \"driver\": \"com.microsoft.sqlserver.jdbc.SQLServerDriver\",\r\n",
+					"    \"accessToken\": token\r\n",
+					"}\r\n",
+					""
+				],
+				"execution_count": 32
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Get Asseverazioni"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"query = \"(SELECT * FROM [pfd].[Notifiche] WHERE TipologiaFattura = 'ASSEVERAZIONE') as tb\"\r\n",
+					"spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop).createOrReplaceTempView(\"TmpNotificheSql\")"
+				],
+				"execution_count": 33
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"preseincarico_asseverazioni = spark.sql(\"SELECT a.*,n.TipologiaFattura FROM all_preseincarico a LEFT JOIN TmpNotificheSql n ON a.event_id = n.event_id\").createOrReplaceTempView(\"all_preseincarico\")\r\n",
+					"#display(preseincarico_asseverazioni.count())"
+				],
+				"execution_count": 34
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfPreseInCaricoRaw = spark.sql(\"SELECT * FROM all_preseincarico\")\r\n",
+					"dfPreseInCaricoRaw.write.format(\"delta\").mode(\"append\").saveAsTable(TablePreseInCaricoRaw)"
+				],
+				"execution_count": 36
+			}
+		]
+	}
+}

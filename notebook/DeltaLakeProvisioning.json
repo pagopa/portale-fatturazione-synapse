@@ -1,0 +1,820 @@
+{
+	"name": "DeltaLakeProvisioning",
+	"properties": {
+		"folder": {
+			"name": "Provisioning"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "88907742-d5e8-4989-9417-d4be74ddcbc9"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": true
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Configurations"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Variables\r\n",
+					"linked_service_name = 'fat_adls'\r\n",
+					"container_name = 'synapse'"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Get adls account name\n",
+					"raw_adls_container_name = mssparkutils.credentials.getFullConnectionString(linked_service_name)\n",
+					"print(raw_adls_container_name)"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"adls_account_name = raw_adls_container_name.split('url=https://')[1].split('/;token')[0]\n",
+					"# delta_path = \"abfss://synapse@\" + adls_account_name +\"/synapse/\"\n",
+					"print(adls_account_name)"
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Set configuration (SAS Token)\r\n",
+					"adls_sas_token = mssparkutils.credentials.getConnectionStringOrCreds(linked_service_name)\r\n",
+					"spark.conf.set('fs.azure.sas.%s.%s' % (container_name, adls_account_name), adls_sas_token)\r\n",
+					"print(adls_sas_token)"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Create Database"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Create Database \"epson_delta\"\r\n",
+					"spark.sql(f\"\"\"CREATE DATABASE IF NOT EXISTS fat_delta\"\"\")"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Create Tables"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# device\r\n",
+					"spark.sql('DROP TABLE IF EXISTS  fat_delta.test')\r\n",
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"    CREATE TABLE fat_delta.test  \r\n",
+					"    (\r\n",
+					"          ID string\r\n",
+					"        , Code string\r\n",
+					"        , Value double\r\n",
+					"        , CreatedOn timestamp                        \r\n",
+					"    ) USING DELTA\r\n",
+					"    LOCATION 'test'\r\n",
+					"    TBLPROPERTIES (\r\n",
+					"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+					"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+					"    \"\"\"\r\n",
+					")\r\n",
+					""
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Creazione tabella watermark\r\n",
+					"spark.sql('DROP TABLE IF EXISTS  fat_delta.watermark')\r\n",
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"    CREATE TABLE fat_delta.watermark  \r\n",
+					"    (\r\n",
+					"          TableName string\r\n",
+					"        , LastModified timestamp                        \r\n",
+					"    ) USING DELTA\r\n",
+					"    LOCATION 'watermark'\r\n",
+					"    TBLPROPERTIES (\r\n",
+					"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+					"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+					"    \"\"\"\r\n",
+					")"
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Creazione tabella Enti\r\n",
+					"spark.sql('DROP TABLE IF EXISTS  fat_delta.enti')\r\n",
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"    CREATE TABLE fat_delta.enti  \r\n",
+					"    (\r\n",
+					"          InternalIstitutionId string\r\n",
+					"        , institutionType string\r\n",
+					"        , description string\r\n",
+					"        , digitalAddress string\r\n",
+					"        , address string\r\n",
+					"        , originId string\r\n",
+					"        , zipCode string\r\n",
+					"        , istatCode string\r\n",
+					"        , city string\r\n",
+					"        , country string\r\n",
+					"        , county string\r\n",
+					"        , subUnitCode string\r\n",
+					"        , subUnitType string\r\n",
+					"        , paymentServiceProvider string\r\n",
+					"        , vatnumber string\r\n",
+					"        , publicservices string\r\n",
+					"        , LastModified timestamp    \r\n",
+					"        , Category string                    \r\n",
+					"    ) USING DELTA\r\n",
+					"    LOCATION 'enti'\r\n",
+					"    TBLPROPERTIES (\r\n",
+					"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+					"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+					"    \"\"\"\r\n",
+					")\r\n",
+					"\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Creazione tabella Contratti\r\n",
+					"spark.sql('DROP TABLE IF EXISTS  fat_delta.contratti')\r\n",
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"    CREATE TABLE fat_delta.contratti  \r\n",
+					"    (\r\n",
+					"          internalistitutionid string\r\n",
+					"        , product string\r\n",
+					"        , filename string\r\n",
+					"        , onboardingtokenid string\r\n",
+					"        , pricingplan string\r\n",
+					"        , updatedat string\r\n",
+					"        , createdat timestamp\r\n",
+					"        , closedat timestamp\r\n",
+					"        , year int\r\n",
+					"        , month int\r\n",
+					"        , daily string\r\n",
+					"        , LastModified timestamp                        \r\n",
+					"    ) USING DELTA\r\n",
+					"    LOCATION 'contratti'\r\n",
+					"    TBLPROPERTIES (\r\n",
+					"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+					"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+					"    \"\"\"\r\n",
+					")"
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"        INSERT INTO fat_delta.watermark (TableName, LastModified) \r\n",
+					"        VALUES \r\n",
+					"        (\"contratti\",null),\r\n",
+					"        (\"enti\",null)\r\n",
+					"    \"\"\"\r\n",
+					")"
+				],
+				"execution_count": 10
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Creazione tabella Enti_History\r\n",
+					"spark.sql('DROP TABLE IF EXISTS  fat_delta.enti_history')\r\n",
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"    CREATE TABLE fat_delta.enti_history  \r\n",
+					"    (\r\n",
+					"          InternalIstitutionId string\r\n",
+					"        , institutionType string\r\n",
+					"        , description string\r\n",
+					"        , digitalAddress string\r\n",
+					"        , address string\r\n",
+					"        , originId string\r\n",
+					"        , zipCode string\r\n",
+					"        , istatCode string\r\n",
+					"        , city string\r\n",
+					"        , country string\r\n",
+					"        , county string\r\n",
+					"        , subUnitCode string\r\n",
+					"        , subUnitType string\r\n",
+					"        , paymentServiceProvider string\r\n",
+					"        , abiCode string \r\n",
+					"        , vatNumberGroup string \r\n",
+					"        , businessRegisterNumber string \r\n",
+					"        , legalRegisterName string \r\n",
+					"        , legalRegisterNumber string     \r\n",
+					"        , vatnumber string\r\n",
+					"        , publicservices string\r\n",
+					"        , InsertionTimestamp timestamp\r\n",
+					"        , SourceFile string    \r\n",
+					"        , Category string           \r\n",
+					"    ) USING DELTA\r\n",
+					"    LOCATION 'enti_history'\r\n",
+					"    TBLPROPERTIES (\r\n",
+					"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+					"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+					"    \"\"\"\r\n",
+					")\r\n",
+					"\r\n",
+					"\r\n",
+					"# root\r\n",
+					"#  |-- internalistitutionid: string (nullable = true)\r\n",
+					"#  |-- institutionType: string (nullable = true)\r\n",
+					"#  |-- description: string (nullable = true)\r\n",
+					"#  |-- digitalAddress: string (nullable = true)\r\n",
+					"#  |-- address: string (nullable = true)\r\n",
+					"#  |-- originId: string (nullable = true)\r\n",
+					"#  |-- zipCode: string (nullable = true)\r\n",
+					"#  |-- istatCode: string (nullable = true)\r\n",
+					"#  |-- city: string (nullable = true)\r\n",
+					"#  |-- country: string (nullable = true)\r\n",
+					"#  |-- county: string (nullable = true)\r\n",
+					"#  |-- subUnitCode: string (nullable = true)\r\n",
+					"#  |-- subUnitType: string (nullable = true)\r\n",
+					"                        #  |-- abiCode: string (nullable = true)\r\n",
+					"                        #  |-- vatNumberGroup: boolean (nullable = true)\r\n",
+					"                        #  |-- businessRegisterNumber: string (nullable = true)\r\n",
+					"                        #  |-- legalRegisterName: string (nullable = true)\r\n",
+					"                        #  |-- legalRegisterNumber: string (nullable = true)\r\n",
+					"#  |-- vatnumber: string (nullable = true)\r\n",
+					"#  |-- publicservices: boolean (nullable = true)\r\n",
+					"#  |-- Category: string (nullable = true)\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": 19
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Creazione tabella Contratti_history\r\n",
+					"spark.sql('DROP TABLE IF EXISTS  fat_delta.contratti_history')\r\n",
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"    CREATE TABLE fat_delta.contratti_history  \r\n",
+					"    (\r\n",
+					"          internalistitutionid string\r\n",
+					"        , product string\r\n",
+					"        , filename string\r\n",
+					"        , onboardingtokenid string\r\n",
+					"        , pricingplan string\r\n",
+					"        , updatedat string\r\n",
+					"        , createdat string\r\n",
+					"        , closedat string \r\n",
+					"        , year string\r\n",
+					"        , month string\r\n",
+					"        , daily string\r\n",
+					"        , InsertionTimestamp timestamp \r\n",
+					"        , SourceFile string                        \r\n",
+					"    ) USING DELTA\r\n",
+					"    LOCATION 'contratti_history'\r\n",
+					"    TBLPROPERTIES (\r\n",
+					"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+					"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+					"    \"\"\"\r\n",
+					")"
+				],
+				"execution_count": 22
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\"\"\"\r\n",
+					"  ALTER TABLE fat_delta.contratti_history\r\n",
+					"  SET TBLPROPERTIES (\r\n",
+					"    'delta.columnMapping.mode' = 'name',\r\n",
+					"    'delta.minReaderVersion' = '2',\r\n",
+					"    'delta.minWriterVersion' = '5'\r\n",
+					"  )\r\n",
+					"\"\"\")\r\n",
+					"\r\n",
+					"\r\n",
+					"\r\n",
+					"spark.sql('ALTER TABLE fat_delta.contratti_history RENAME COLUMN InsertionTimestamp TO LastModified')"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\"\"\"\r\n",
+					"  ALTER TABLE fat_delta.notification\r\n",
+					"  SET TBLPROPERTIES (\r\n",
+					"    'delta.columnMapping.mode' = 'name',\r\n",
+					"    'delta.minReaderVersion' = '2',\r\n",
+					"    'delta.minWriterVersion' = '5'\r\n",
+					"  )\r\n",
+					"\"\"\")\r\n",
+					"\r\n",
+					"spark.sql(\"\"\"\r\n",
+					"  ALTER TABLE fat_delta.invoicing_timeline\r\n",
+					"  SET TBLPROPERTIES (\r\n",
+					"    'delta.columnMapping.mode' = 'name',\r\n",
+					"    'delta.minReaderVersion' = '2',\r\n",
+					"    'delta.minWriterVersion' = '5'\r\n",
+					"  )\r\n",
+					"\"\"\")\r\n",
+					"\r\n",
+					"\r\n",
+					"spark.sql(\"\"\"\r\n",
+					"  ALTER TABLE fat_delta.enti_history\r\n",
+					"  SET TBLPROPERTIES (\r\n",
+					"    'delta.columnMapping.mode' = 'name',\r\n",
+					"    'delta.minReaderVersion' = '2',\r\n",
+					"    'delta.minWriterVersion' = '5'\r\n",
+					"  )\r\n",
+					"\"\"\")\r\n",
+					"\r\n",
+					"\r\n",
+					"\r\n",
+					"\r\n",
+					"\r\n",
+					"\r\n",
+					"spark.sql('ALTER TABLE fat_delta.notification RENAME COLUMN InsertionTimestamp TO LastModified')\r\n",
+					"spark.sql('ALTER TABLE fat_delta.invoicing_timeline RENAME COLUMN InsertionTimestamp TO LastModified')\r\n",
+					"spark.sql('ALTER TABLE fat_delta.enti_history RENAME COLUMN InsertionTimestamp TO LastModified')"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"        INSERT INTO fat_delta.watermark (TableName, LastModified) \r\n",
+					"        VALUES \r\n",
+					"        (\"notification\",null),\r\n",
+					"        (\"invoicing_timeline\",null)\r\n",
+					"    \"\"\"\r\n",
+					")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(f\"\"\"INSERT INTO fat_delta.watermark (TableName, LastModified)\r\n",
+					"            VALUES\r\n",
+					"            (\"pn_timeline\",null)\r\n",
+					"            \"\"\"\r\n",
+					"            )\r\n",
+					"            "
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\"\"\"\r\n",
+					"delete from fat_delta.notification_raw where day(data_import) = '18'\r\n",
+					"\"\"\")"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Creazione tabella notification_raw\r\n",
+					"# spark.sql('DROP TABLE IF EXISTS  fat_delta.notification_raw')\r\n",
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"    CREATE TABLE fat_delta.notification_raw\r\n",
+					"    (\r\n",
+					"        eventid string\r\n",
+					"      ,eventname string\r\n",
+					"      ,tablename string\r\n",
+					"      ,amount int\r\n",
+					"      ,cancelledbyiun string\r\n",
+					"      ,cancellediun string\r\n",
+					"      ,documents string\r\n",
+					"      ,group string\r\n",
+					"      ,idempotencetoken string\r\n",
+					"      ,iun string\r\n",
+					"      ,notificationabstract string\r\n",
+					"      ,notificationfeepolicy string\r\n",
+					"      ,pagopaintmode string\r\n",
+					"      ,panotificationid string\r\n",
+					"      ,paymentexpirationdate string\r\n",
+					"      ,physicalcommunicationtype string\r\n",
+					"      ,recipients string\r\n",
+					"      ,requestid string\r\n",
+					"      ,senderdenomination string\r\n",
+					"      ,senderpaid string\r\n",
+					"      ,sendertaxid string\r\n",
+					"      ,sentat string\r\n",
+					"      ,sourcechannel string\r\n",
+					"      ,sourcechanneldetails string\r\n",
+					"      ,subject string\r\n",
+					"      ,taxonomycode string\r\n",
+					"      ,ingestion_tms bigint\r\n",
+					"      ,year string\r\n",
+					"      ,month string\r\n",
+					"      ,daily string\r\n",
+					"      ,data_import date\r\n",
+					"      ,file_import string\r\n",
+					"\r\n",
+					"    ) USING DELTA\r\n",
+					"    LOCATION 'notification_raw'\r\n",
+					"    TBLPROPERTIES (\r\n",
+					"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+					"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+					"    \"\"\"\r\n",
+					")"
+				],
+				"execution_count": 12
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Creazione tabella invoicing_timeline_raw\r\n",
+					"# spark.sql('DROP TABLE IF EXISTS  fat_delta.invoicing_timeline_raw')\r\n",
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"    CREATE TABLE fat_delta.invoicing_timeline_raw\r\n",
+					"    (\r\n",
+					"       eventid string\r\n",
+					"      ,eventname string\r\n",
+					"      ,tablename string\r\n",
+					"      ,iun string\r\n",
+					"      ,timelineelementid string\r\n",
+					"      ,timestamp string\r\n",
+					"      ,legalfactid string\r\n",
+					"      ,paid string\r\n",
+					"      ,statusinfo string\r\n",
+					"      ,notificationsentat string\r\n",
+					"      ,details string\r\n",
+					"      ,invoicingday string\r\n",
+					"      ,ttl string\r\n",
+					"      ,invoincingtimestamp string\r\n",
+					"      ,invoincingtimestamp_timelineelementid string\r\n",
+					"      ,paid_invoicingday string\r\n",
+					"      ,ingestion_tms bigint\r\n",
+					"      ,category string\r\n",
+					"      ,year string\r\n",
+					"      ,month string\r\n",
+					"      ,daily string\r\n",
+					"      ,data_import date\r\n",
+					"      ,file_import string\r\n",
+					"\r\n",
+					"    ) USING DELTA\r\n",
+					"    LOCATION 'invoicing_timeline_raw'\r\n",
+					"    TBLPROPERTIES (\r\n",
+					"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+					"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+					"    \"\"\"\r\n",
+					")"
+				],
+				"execution_count": 14
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# spark.sql('DROP TABLE IF EXISTS  fat_delta.Notifiche')\r\n",
+					"spark.sql(\r\n",
+					"    f\"\"\"\r\n",
+					"    CREATE TABLE fat_delta.Notifiche\r\n",
+					"    (\r\n",
+					"       contract_id string\r\n",
+					"      ,tax_code string  \r\n",
+					"      ,vat_number string\r\n",
+					"      ,zip_code string\r\n",
+					"      ,foreign_state string\r\n",
+					"      ,number_of_pages int\r\n",
+					"      ,g_envelope_weight string\r\n",
+					"      ,cost_eurocent bigint\r\n",
+					"      ,timeline_category string\r\n",
+					"      ,paper_product_type string\r\n",
+					"      ,event_id string\r\n",
+					"      ,iun string\r\n",
+					"      ,notification_sent_at string\r\n",
+					"      ,internal_organization_id string\r\n",
+					"      ,event_timestamp string\r\n",
+					"      ,recipient_index string\r\n",
+					"      ,recipient_type string\r\n",
+					"      ,recipient_id string\r\n",
+					"      ,year int\r\n",
+					"      ,month int\r\n",
+					"      ,daily string\r\n",
+					"      ,item_code string\r\n",
+					"      ,notification_request_id string\r\n",
+					"      ,recipient_tax_id string\r\n",
+					"      ,notificationtype string\r\n",
+					"      ,Recapitista string\r\n",
+					"      ,invoincingtimestamp string\r\n",
+					"      ,Fatturabile tinyint\r\n",
+					"      ,TipologiaFattura string\r\n",
+					"      ,data_processing date\r\n",
+					"\r\n",
+					"    ) USING DELTA\r\n",
+					"    LOCATION 'Notifiche'\r\n",
+					"    TBLPROPERTIES (\r\n",
+					"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+					"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+					"    \"\"\"\r\n",
+					")"
+				],
+				"execution_count": 5
+			}
+		]
+	}
+}

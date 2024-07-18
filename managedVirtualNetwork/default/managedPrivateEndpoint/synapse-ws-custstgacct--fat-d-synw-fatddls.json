@@ -1,0 +1,10 @@
+{
+	"name": "synapse-ws-custstgacct--fat-d-synw-fatddls",
+	"properties": {
+		"privateLinkResourceId": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Storage/storageAccounts/fatddls",
+		"groupId": "dfs",
+		"fqdns": [
+			"fatddls.dfs.core.windows.net"
+		]
+	}
+}

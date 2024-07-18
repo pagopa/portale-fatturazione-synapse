@@ -1,0 +1,273 @@
+{
+	"name": "IngestNotification",
+	"properties": {
+		"folder": {
+			"name": "Ingestion"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "610a7f72-87dd-40d9-8043-fa5aa7db60f2"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": true
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Parameters"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"#Variables\r\n",
+					"tableNameNotification = 'fat_delta.notification'\r\n",
+					"\r\n",
+					"linked_service_name = 'nomeLinkedService'\r\n",
+					"sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/CSV-EntityMapping/notificationconverted/part-00000-f8ab67da-73a6-4fc6-8d82-989cb48f3ed8-c000.snappy.parquet'\r\n",
+					""
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Import libraries"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql import functions as F\r\n",
+					"from delta.tables import *\r\n",
+					"from pyspark.sql.functions import max\r\n",
+					"from datetime import datetime\r\n",
+					"import pandas as pd"
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Load and process source file"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfNewFile = spark.read.format(\"parquet\").load(sourcefile)\r\n",
+					"actualTimeStamp = datetime.now()\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"LastModified\",  F.lit(actualTimeStamp))\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"SourceFile\",  F.lit(sourcefile))\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#dfNewFile.printSchema()"
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"###TEST ON JOIN####\r\n",
+					"#CAN'T BE DONE SIMPLE### IS NOT A JSON BUT AN ARRAY ### POSSIBILITY OF LOSSING DATA/DUPLICATING#####\r\n",
+					"#keys_df = dfNewFile.select(F.explode(F.map_keys(F.col(\"documents\")))).distinct()\r\n",
+					"# keys = list(map(lambda row: row[0], keys_df.collect()))\r\n",
+					"# key_cols = list(map(lambda f: F.col(\"signals\").getItem(f).alias(str(f)), keys))\r\n",
+					"# final_cols = [F.col(\"asset\"), F.col(\"ts\")] + key_cols\r\n",
+					"# dfNewFile.select(final_cols).show()"
+				],
+				"execution_count": 17
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#spark.sql('DROP TABLE IF EXISTS fat_delta.notification')\r\n",
+					"\r\n",
+					"dfNewFile.write.format(\"delta\").mode(\"append\").saveAsTable(\"fat_delta.notification\")"
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Update watermark table"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"watermarkTable =  DeltaTable.forName(spark, \"fat_delta.watermark\")\r\n",
+					"\r\n",
+					"\r\n",
+					"watermarkTable.update(\"TableName = 'notification'\", {\"LastModified\": F.lit(actualTimeStamp)})\r\n",
+					"\r\n",
+					"\r\n",
+					"# Assuming you have the actualTimeStamp variable defined\r\n",
+					"#actualTimeStamp = \"2022-01-01T12:00:00\"  # Replace with your actual timestamp\r\n",
+					"\r\n",
+					"# Load the Delta table\r\n",
+					"#watermarkTable = DeltaTable.forName(spark, \"fat_delta.watermark\")\r\n",
+					"\r\n",
+					"# Define the data to be merged\r\n",
+					"#data_to_merge = {\"TableName\": \"notification\", \"LastModified\": actualTimeStamp}\r\n",
+					"\r\n",
+					"# Perform the merge operation\r\n",
+					"#watermarkTable.alias(\"target\").merge(\r\n",
+					"#    source=spark.createDataFrame([data_to_merge]),\r\n",
+					"#    condition=\"target.TableName = 'notification'\",\r\n",
+					"#).whenMatchedUpdate(\r\n",
+					"#    set={\"LastModified\": F.lit(actualTimeStamp)}\r\n",
+					"#).whenNotMatchedInsertAll().execute()\r\n",
+					""
+				],
+				"execution_count": 9
+			}
+		]
+	}
+}

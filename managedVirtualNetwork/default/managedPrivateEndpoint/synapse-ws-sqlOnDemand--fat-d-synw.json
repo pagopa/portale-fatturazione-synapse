@@ -1,0 +1,10 @@
+{
+	"name": "synapse-ws-sqlOnDemand--fat-d-synw",
+	"properties": {
+		"privateLinkResourceId": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw",
+		"groupId": "sqlOnDemand",
+		"fqdns": [
+			"fat-d-synw-ondemand.785370fa-774e-4489-9ad1-7e8b6d08f398.sql.azuresynapse.net"
+		]
+	}
+}

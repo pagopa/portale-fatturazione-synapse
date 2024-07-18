@@ -1,0 +1,30 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"value": "fat-d-synw"
+		},
+		"fat-d-synw-WorkspaceDefaultSqlServer_connectionString": {
+			"value": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:fat-d-synw.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
+		},
+		"fat_sql_connectionString": {
+			"value": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=fat-d-sql.database.windows.net;Initial Catalog=fat-sqldb"
+		},
+		"pfstage_accountKey": {
+			"value": ""
+		},
+		"fat-d-synw-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"value": "https://fatddls.dfs.core.windows.net"
+		},
+		"fat_adls_properties_typeProperties_url": {
+			"value": "https://fatddls.dfs.core.windows.net/"
+		},
+		"fat_stage_sa_properties_typeProperties_serviceEndpoint": {
+			"value": "https://fatdstagesa.blob.core.windows.net/"
+		},
+		"pfstage_properties_typeProperties_url": {
+			"value": "https://fatdstagesa.dfs.core.windows.net/"
+		}
+	}
+}

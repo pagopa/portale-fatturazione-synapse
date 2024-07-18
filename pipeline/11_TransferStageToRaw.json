@@ -1,0 +1,606 @@
+{
+	"name": "11_TransferStageToRaw",
+	"properties": {
+		"activities": [
+			{
+				"name": "GetItemsMetadata",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "fat_stage_parquet",
+						"type": "DatasetReference",
+						"parameters": {
+							"PathFolderFile": {
+								"value": "@pipeline().parameters.FolderInput",
+								"type": "Expression"
+							}
+						}
+					},
+					"fieldList": [
+						"childItems",
+						"itemName",
+						"itemType"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "ParquetReadSettings"
+					}
+				}
+			},
+			{
+				"name": "GetFolders",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "GetItemsMetadata",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('GetItemsMetadata').output.childItems",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@equals(item().type,'Folder')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "ForEachFolder",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "GetFolders",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('GetFolders').output.Value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "GetFileName",
+							"type": "GetMetadata",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "fat_stage_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"PathFolderFile": {
+											"value": "@concat(pipeline().parameters.FolderInput,'/',item().name)",
+											"type": "Expression"
+										}
+									}
+								},
+								"fieldList": [
+									"childItems",
+									"itemName",
+									"itemType"
+								],
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "ParquetReadSettings"
+								}
+							}
+						},
+						{
+							"name": "FilterParquetFile",
+							"type": "Filter",
+							"dependsOn": [
+								{
+									"activity": "GetFileName",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"items": {
+									"value": "@activity('GetFileName').output.childItems",
+									"type": "Expression"
+								},
+								"condition": {
+									"value": "@endswith(item().name,'.parquet')",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "IfFileParquetExist",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "FilterParquetFile",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(activity('FilterParquetFile').output.FilteredItemsCount,1)",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "DeleteFilesInStageNoParquet",
+										"type": "Delete",
+										"state": "Inactive",
+										"onInactiveMarkAs": "Succeeded",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"dataset": {
+												"referenceName": "fat_stage_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"PathFolderFile": {
+														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('GetFileName').output.itemName)",
+														"type": "Expression"
+													}
+												}
+											},
+											"enableLogging": false,
+											"storeSettings": {
+												"type": "AzureBlobStorageReadSettings",
+												"recursive": true,
+												"wildcardFileName": "*",
+												"enablePartitionDiscovery": false
+											}
+										}
+									}
+								],
+								"ifTrueActivities": [
+									{
+										"name": "TransferFileToRaw",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "ParquetSource",
+												"storeSettings": {
+													"type": "AzureBlobStorageReadSettings",
+													"recursive": true,
+													"wildcardFolderPath": {
+														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('GetFileName').output.itemName)",
+														"type": "Expression"
+													},
+													"wildcardFileName": {
+														"value": "@activity('FilterParquetFile').output.value[0].name",
+														"type": "Expression"
+													},
+													"enablePartitionDiscovery": false
+												},
+												"formatSettings": {
+													"type": "ParquetReadSettings"
+												}
+											},
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "fat_stage_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"PathFolderFile": {
+														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('GetFileName').output.itemName)",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "fat_ddls_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"PathFolderSink": {
+														"value": "@concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('GetFileName').output.itemName,0,4),\n'/',substring(activity('GetFileName').output.itemName,4,2),\n'/',substring(activity('GetFileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink)",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									},
+									{
+										"name": "SwitchNotebookIngest",
+										"type": "Switch",
+										"dependsOn": [
+											{
+												"activity": "TransferFileToRaw",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"userProperties": [],
+										"typeProperties": {
+											"on": {
+												"value": "@pipeline().parameters.SwitchCase",
+												"type": "Expression"
+											},
+											"cases": [
+												{
+													"value": "selfcare_contracts",
+													"activities": [
+														{
+															"name": "IngestSelfCare",
+															"type": "SynapseNotebook",
+															"dependsOn": [],
+															"policy": {
+																"timeout": "0.12:00:00",
+																"retry": 2,
+																"retryIntervalInSeconds": 30,
+																"secureOutput": false,
+																"secureInput": false
+															},
+															"userProperties": [],
+															"typeProperties": {
+																"notebook": {
+																	"referenceName": "IngestSelfCare",
+																	"type": "NotebookReference"
+																},
+																"parameters": {
+																	"sourcefile": {
+																		"value": {
+																			"value": "@concat(pipeline().parameters.StorageURL,concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('GetFileName').output.itemName,0,4),\n'/',substring(activity('GetFileName').output.itemName,4,2),\n'/',substring(activity('GetFileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
+																			"type": "Expression"
+																		},
+																		"type": "string"
+																	}
+																},
+																"snapshot": true,
+																"sparkPool": {
+																	"referenceName": "sparkcls01",
+																	"type": "BigDataPoolReference"
+																},
+																"executorSize": "Small",
+																"conf": {
+																	"spark.dynamicAllocation.enabled": null,
+																	"spark.dynamicAllocation.minExecutors": null,
+																	"spark.dynamicAllocation.maxExecutors": null
+																},
+																"driverSize": "Small",
+																"numExecutors": null
+															}
+														},
+														{
+															"name": "IngestSelfCare_History",
+															"type": "SynapseNotebook",
+															"state": "Inactive",
+															"onInactiveMarkAs": "Succeeded",
+															"dependsOn": [
+																{
+																	"activity": "IngestSelfCare",
+																	"dependencyConditions": [
+																		"Succeeded"
+																	]
+																}
+															],
+															"policy": {
+																"timeout": "0.12:00:00",
+																"retry": 0,
+																"retryIntervalInSeconds": 30,
+																"secureOutput": false,
+																"secureInput": false
+															},
+															"userProperties": [],
+															"typeProperties": {
+																"notebook": {
+																	"referenceName": "IngestSelfCare_History",
+																	"type": "NotebookReference"
+																},
+																"parameters": {
+																	"sourcefile": {
+																		"value": {
+																			"value": "@concat(pipeline().parameters.StorageURL,concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('GetFileName').output.itemName,0,4),\n'/',substring(activity('GetFileName').output.itemName,4,2),\n'/',substring(activity('GetFileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
+																			"type": "Expression"
+																		},
+																		"type": "string"
+																	}
+																},
+																"snapshot": true,
+																"sparkPool": {
+																	"referenceName": "sparkcls01",
+																	"type": "BigDataPoolReference"
+																},
+																"executorSize": "Small",
+																"conf": {
+																	"spark.dynamicAllocation.enabled": null,
+																	"spark.dynamicAllocation.minExecutors": null,
+																	"spark.dynamicAllocation.maxExecutors": null
+																},
+																"driverSize": "Small",
+																"numExecutors": null
+															}
+														}
+													]
+												},
+												{
+													"value": "notification",
+													"activities": [
+														{
+															"name": "IngestNotification",
+															"type": "SynapseNotebook",
+															"dependsOn": [],
+															"policy": {
+																"timeout": "0.12:00:00",
+																"retry": 2,
+																"retryIntervalInSeconds": 30,
+																"secureOutput": false,
+																"secureInput": false
+															},
+															"userProperties": [],
+															"typeProperties": {
+																"notebook": {
+																	"referenceName": "IngestNotification",
+																	"type": "NotebookReference"
+																},
+																"parameters": {
+																	"sourcefile": {
+																		"value": {
+																			"value": "@concat(pipeline().parameters.StorageURL,concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('GetFileName').output.itemName,0,4),\n'/',substring(activity('GetFileName').output.itemName,4,2),\n'/',substring(activity('GetFileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
+																			"type": "Expression"
+																		},
+																		"type": "string"
+																	}
+																},
+																"snapshot": true,
+																"sparkPool": {
+																	"referenceName": "sparkcls01",
+																	"type": "BigDataPoolReference"
+																},
+																"executorSize": "Small",
+																"conf": {
+																	"spark.dynamicAllocation.enabled": true,
+																	"spark.dynamicAllocation.minExecutors": null,
+																	"spark.dynamicAllocation.maxExecutors": null
+																},
+																"driverSize": "Small",
+																"numExecutors": null
+															}
+														}
+													]
+												},
+												{
+													"value": "invoicing_timeline",
+													"activities": [
+														{
+															"name": "IngestInvoicing_timeline",
+															"type": "SynapseNotebook",
+															"dependsOn": [],
+															"policy": {
+																"timeout": "0.12:00:00",
+																"retry": 2,
+																"retryIntervalInSeconds": 30,
+																"secureOutput": false,
+																"secureInput": false
+															},
+															"userProperties": [],
+															"typeProperties": {
+																"notebook": {
+																	"referenceName": "IngestInvoicing_timeline",
+																	"type": "NotebookReference"
+																},
+																"parameters": {
+																	"sourcefile": {
+																		"value": {
+																			"value": "@concat(pipeline().parameters.StorageURL,concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('GetFileName').output.itemName,0,4),\n'/',substring(activity('GetFileName').output.itemName,4,2),\n'/',substring(activity('GetFileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
+																			"type": "Expression"
+																		},
+																		"type": "string"
+																	}
+																},
+																"snapshot": true,
+																"sparkPool": {
+																	"referenceName": "sparkcls01",
+																	"type": "BigDataPoolReference"
+																},
+																"executorSize": "Small",
+																"conf": {
+																	"spark.dynamicAllocation.enabled": true,
+																	"spark.dynamicAllocation.minExecutors": null,
+																	"spark.dynamicAllocation.maxExecutors": null
+																},
+																"driverSize": "Small",
+																"numExecutors": null
+															}
+														}
+													]
+												},
+												{
+													"value": "pn_timeline",
+													"activities": [
+														{
+															"name": "Ingest PnTimeline",
+															"type": "SynapseNotebook",
+															"dependsOn": [],
+															"policy": {
+																"timeout": "0.12:00:00",
+																"retry": 2,
+																"retryIntervalInSeconds": 30,
+																"secureOutput": false,
+																"secureInput": false
+															},
+															"userProperties": [],
+															"typeProperties": {
+																"notebook": {
+																	"referenceName": "Ingest_PnTimeLine",
+																	"type": "NotebookReference"
+																},
+																"parameters": {
+																	"sourcefile": {
+																		"value": {
+																			"value": "@concat(pipeline().parameters.StorageURL,concat(substring(string(pipeline().parameters.FolderInput),0,indexOf(string(pipeline().parameters.FolderInput),'/')),\n'/',substring(activity('GetFileName').output.itemName,0,4),\n'/',substring(activity('GetFileName').output.itemName,4,2),\n'/',substring(activity('GetFileName').output.itemName,6,2),\n'/',pipeline().parameters.PathSink),'/', activity('FilterParquetFile').output.value[0].name)",
+																			"type": "Expression"
+																		},
+																		"type": "string"
+																	}
+																},
+																"snapshot": true,
+																"sparkPool": {
+																	"referenceName": "sparkcls01",
+																	"type": "BigDataPoolReference"
+																},
+																"executorSize": "Small",
+																"conf": {
+																	"spark.dynamicAllocation.enabled": true
+																},
+																"driverSize": "Small"
+															}
+														}
+													]
+												}
+											]
+										}
+									},
+									{
+										"name": "DeleteFilesInStage",
+										"type": "Delete",
+										"dependsOn": [
+											{
+												"activity": "SwitchNotebookIngest",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"dataset": {
+												"referenceName": "fat_stage_parquet",
+												"type": "DatasetReference",
+												"parameters": {
+													"PathFolderFile": {
+														"value": "@concat(pipeline().parameters.FolderInput,'/',activity('GetFileName').output.itemName)",
+														"type": "Expression"
+													}
+												}
+											},
+											"enableLogging": false,
+											"storeSettings": {
+												"type": "AzureBlobStorageReadSettings",
+												"recursive": true,
+												"wildcardFileName": "*",
+												"enablePartitionDiscovery": false
+											}
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"FolderInput": {
+				"type": "string"
+			},
+			"SwitchCase": {
+				"type": "string"
+			},
+			"PathSink": {
+				"type": "string"
+			},
+			"StorageURL": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"FileName": {
+				"type": "String"
+			},
+			"PathFolderRaw": {
+				"type": "String"
+			},
+			"PathFullStage": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Ingestion"
+		},
+		"annotations": [],
+		"lastPublishTime": "2023-12-18T11:39:33Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

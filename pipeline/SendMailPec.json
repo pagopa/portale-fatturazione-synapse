@@ -1,0 +1,49 @@
+{
+	"name": "SendMailPec",
+	"properties": {
+		"activities": [
+			{
+				"name": "SendPec",
+				"type": "AzureFunctionActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"functionName": {
+						"value": "@concat('SendMail?',\n        'anno=', pipeline().parameters.Anno,\n        ',mese=', pipeline().parameters.Mese,\n        ',ricalcola=', pipeline().parameters.Ricalcola,\n        ',tipologiafattura=', pipeline().parameters.TipologiaFattura\n        )",
+						"type": "Expression"
+					},
+					"method": "GET"
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureFunction",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"Anno": {
+				"type": "string"
+			},
+			"Mese": {
+				"type": "string"
+			},
+			"TipologiaFattura": {
+				"type": "string"
+			},
+			"Ricalcola": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "ManageREL"
+		},
+		"annotations": []
+	}
+}

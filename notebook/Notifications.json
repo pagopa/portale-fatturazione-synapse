@@ -1,0 +1,542 @@
+{
+	"name": "Notifications",
+	"properties": {
+		"folder": {
+			"name": "Ingestion"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "cf6bb31b-cb5b-4476-8b36-939bd74a0fc5"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": true
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"source": [
+					"# PN notifications invoices (step 1)\n",
+					"spark job per poter gestire l'esposizione dei file di dettaglio di tutte le notifiche (la mole di dati è destinata a crescere nel tempo)"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"%%configure -f\n",
+					"{ \n",
+					"    \"numExecutors\": 2, \"executorMemory\": \"4G\", \"executorCores\": 2,\n",
+					"    \"kind\": \"pyspark\", \n",
+					"    \"conf\": {\n",
+					"        \"spark.sql.sources.partitionColumnTypeInference.enabled\": \"false\",\n",
+					"        \"spark.dynamicAllocation.enabled\": \"false\",\n",
+					"        \"spark.sql.sources.partitionOverwriteMode\": \"dynamic\",\n",
+					"        \"spark.sql.parquet.output.committer.class\": \"org.apache.parquet.hadoop.ParquetOutputCommitter\",\n",
+					"        \"spark.sql.sources.commitProtocolClass\": \"org.apache.spark.sql.execution.datasources.SQLHadoopMapReduceCommitProtocol\",\n",
+					"        \"spark.jars.packages\": \"org.apache.iceberg:iceberg-spark-runtime-3.3_2.12:1.3.1\",\n",
+					"        \"spark.sql.extensions\": \"org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions\",\n",
+					"        \"spark.sql.catalog.spark_catalog\": \"org.apache.iceberg.spark.SparkSessionCatalog\",\n",
+					"        \"spark.sql.catalog.spark_catalog.type\": \"hive\",\n",
+					"        \"spark.sql.parquet.enableVectorizedReader\": \"false\",\n",
+					"        \"spark.sql.hive.convertMetastoreParquet\": \"false\",\n",
+					"        \"spark.sql.iceberg.handle-timestamp-without-timezone\": \"true\",\n",
+					"        \"spark.sql.adaptive.enabled\": \"true\",\n",
+					"        \"spark.cloduera.s3_committers.enabled\": \"false\"\n",
+					"    }\n",
+					"}"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"from pyspark.sql.types import *\n",
+					"from pyspark.sql.functions import lit, sum as f_sum, when, col, size, coalesce, format_number, date_format\n",
+					"from datetime import datetime, timedelta\n",
+					"from dateutil.relativedelta import relativedelta\n",
+					"import pandas as pd\n",
+					"from decimal import Decimal"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"%%local\n",
+					"\n",
+					"from pdnd.common.functions import *"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"%%local\n",
+					"\n",
+					"#Setup connections\n",
+					"\n",
+					"session = Session.from_env()\n",
+					"hive_cursor = session.get_hive_cursor()\n",
+					"impala_cursor = session.get_impala_cursor()"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# global vars\n",
+					"\n",
+					"db_registries_contracts = \"selfcare\"\n",
+					"selfcare_table = 'silver_contracts' \n",
+					"product = 'prod-pn' \n",
+					"db_services_pn = \"pagopa_any_services_pn\""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## Reference dates"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"referance_day = datetime.now()-timedelta(1)\n",
+					"reference_month = referance_day.month\n",
+					"reference_year = referance_day.year"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"reference_month = '%02d' % (int(reference_month))\n",
+					"reference_yearmonth = str(reference_year) + reference_month\n",
+					"reference_month, reference_yearmonth"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## Selfcare contracts"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# get most recent contract\n",
+					"# onboardingtokenid is contract id\n",
+					"\n",
+					"contract_df = spark.sql(f'''\n",
+					"    select \n",
+					"        source.id,\n",
+					"        source.internalistitutionid,\n",
+					"        source.product,\n",
+					"        source.state,\n",
+					"        -- filepath, filename, contenttype,\n",
+					"        source.onboardingtokenid,\n",
+					"        -- pricingplan\n",
+					"        source.updatedat,\n",
+					"        source.createdat,\n",
+					"        source.closedat,\n",
+					"        source.description,       -- \n",
+					"        source.taxcode,           -- deve essere quello specifico \n",
+					"        source.vatnumber          -- può essere quello generico\n",
+					"    from\n",
+					"    (\n",
+					"        select *, institution.*, billing.*,\n",
+					"        ROW_NUMBER() OVER (PARTITION BY internalistitutionid ORDER BY updatedat desc) _rank\n",
+					"        from {db_registries_contracts}.{selfcare_table}\n",
+					"        where product = \"{product}\"\n",
+					"    ) source\n",
+					"    where source.`_rank` = 1\n",
+					"''')"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# set createdat and closedat daily format\n",
+					"\n",
+					"contract_df = contract_df.withColumn('createdat_daily', date_format(contract_df.createdat,\"yyyyMMddHHMMSS\"))\n",
+					"contract_df = contract_df.withColumn('closedat_daily', date_format(contract_df.closedat,\"yyyyMMddHHMMSS\"))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# assert per segnalare enti con più contratti per lo stesso prodotto e stesso state\n",
+					"\n",
+					"duplicated_contracts_id = contract_df.groupby('internalistitutionid','product','state').count()\n",
+					"duplicated_contracts_id_count = duplicated_contracts_id.where('count > 1').count()\n",
+					"\n",
+					"assert duplicated_contracts_id_count == 0, \"There are entities with multiple contracts for in pn product\""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## notifications\n",
+					"qui si collezionano tutte le notifiche da fatturare per il periodo dove:\n",
+					"\n",
+					"- digitale: \n",
+					"    category in ('REFINEMENT','NOTIFICATION_VIEWED', 'REQUEST_REFUSED', 'NOTIFICATION_CANCELLED')\n",
+					"\n",
+					"- analogica: \n",
+					"    category in ( 'SEND_SIMPLE_REGISTERED_LETTER', 'SEND_ANALOG_DOMICILE' )"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# qui aggiungere eventuali campi di dettaglio\n",
+					"\n",
+					"invoicing_timeline = spark.sql(f'''\n",
+					"    select \n",
+					"        eventid,\n",
+					"        iun,\n",
+					"        `timestamp`,\n",
+					"        paid, \n",
+					"        notificationsentat,\n",
+					"        coalesce(get_json_object(details, '$.notificationCost'), get_json_object(details, '$.analogCost')) as cost,\n",
+					"        -- get_json_object(details, '$.notificationCost') as notificationcost, \n",
+					"        -- get_json_object(details, '$.analogCost') as analogcost, \n",
+					"        get_json_object(details, '$.productType') product_type,\n",
+					"        get_json_object(details, '$.physicalAddress.zip') zip,\n",
+					"        get_json_object(details, '$.physicalAddress.foreignState') foreignstate,\n",
+					"        get_json_object(details, '$.numberOfPages') numberofpages,\n",
+					"        get_json_object(details, '$.envelopeWeight') envelopeweight,\n",
+					"        get_json_object(details, '$.recIndex') recindex,\n",
+					"        timelineelementid,\n",
+					"        category,\n",
+					"        `year`,\n",
+					"        `month`,\n",
+					"        daily\n",
+					"    from {db_services_pn}.invoicing_timeline\n",
+					"    where year='{reference_year}' and month='{reference_month}'\n",
+					"    and \n",
+					"    (\n",
+					"        (\n",
+					"        category in ('REFINEMENT','NOTIFICATION_VIEWED', 'REQUEST_REFUSED', 'NOTIFICATION_CANCELLED') AND get_json_object(details, '$.notificationCost') is not null \n",
+					"        )\n",
+					"        or \n",
+					"        (\n",
+					"        category in ( 'SEND_SIMPLE_REGISTERED_LETTER', 'SEND_ANALOG_DOMICILE' ) and get_json_object(details, '$.analogCost') is not null\n",
+					"        )\n",
+					"    )\n",
+					"    order by paid, daily\n",
+					"''')"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"invoicing_timeline = invoicing_timeline\\\n",
+					"    .withColumn(\"notificationtype\",\n",
+					"       when((col(\"category\") == \"REFINEMENT\") | (col(\"category\") == \"NOTIFICATION_VIEWED\") | (col(\"category\") == \"REQUEST_REFUSED\" ) | (col(\"category\") == \"NOTIFICATION_CANCELLED\" ), \"digital\") \n",
+					"      .when((col(\"category\") == \"SEND_SIMPLE_REGISTERED_LETTER\") | (col(\"category\") == \"SEND_ANALOG_DOMICILE\"), \"analog\")\n",
+					"      .otherwise(\"\"))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"assert invoicing_timeline.where('notificationtype is null').count()==0, \"There is a problem with the category filter\""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"invoicing_timeline.createOrReplaceTempView(\"invoicing_timeline\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## join notifications"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifications_df = spark.sql(f'''\n",
+					"    SELECT n.iun, n.senderpaid, n.sentat,\n",
+					"            n.recipients as recipients,\n",
+					"            n.recipients.recipientType as recipienttype,\n",
+					"            n.recipients.recipientId as recipientid\n",
+					"    FROM {db_services_pn}.notification n\n",
+					"''') "
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"cond = [invoicing_timeline.iun == notifications_df.iun, invoicing_timeline.paid == notifications_df.senderpaid, invoicing_timeline.notificationsentat == notifications_df.sentat]\n",
+					"invoicing_notifications_df = invoicing_timeline.join(notifications_df, on=cond, how='left')"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"assert invoicing_notifications_df.count() == invoicing_timeline.count(), \"Error in join notification\""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## join contracts"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"invoicing_notifications_contracts_df = invoicing_notifications_df.join(contract_df, invoicing_notifications_df.senderpaid==contract_df.internalistitutionid, how='left')"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"tags": []
+				},
+				"source": [
+					"## details export\n",
+					"qui estraiamo i dettagli da fatturare agli enti\n",
+					"viene temporaneamente usato un path tmp, a tendere ci sarà un bucket dedicato e condiviso con Selfcare"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"invoices_messages_final = invoicing_notifications_contracts_df\\\n",
+					"    .select(\\\n",
+					"             col(\"id\").alias(\"contract_id\"),\n",
+					"             col(\"taxcode\").alias(\"tax_code\"),\n",
+					"             col(\"vatnumber\").alias(\"vat_number\"),\n",
+					"             col(\"zip\").alias(\"zip_code\"),\n",
+					"             col(\"foreignstate\").alias(\"foreign_state\"),\n",
+					"             col(\"numberofpages\").alias(\"number_of_pages\"),\n",
+					"             col(\"envelopeweight\").alias(\"g_envelope_weight\"),\n",
+					"             col(\"cost\").alias(\"cost_eurocent\"),\n",
+					"             col(\"category\").alias(\"timeline_category\"),\n",
+					"             col(\"product_type\").alias(\"paper_product_type\"),\n",
+					"             col(\"timelineelementid\").alias(\"event_id\"),\n",
+					"             col(\"invoicing_timeline.iun\").alias(\"iun\"),\n",
+					"             col(\"notificationsentat\").alias(\"notification_sent_at\"),\n",
+					"             col(\"paid\").alias(\"internal_organization_id\"),\n",
+					"             col(\"timestamp\").alias(\"event_timestamp\"),\n",
+					"             col(\"recindex\").alias(\"recipient_index\"),\n",
+					"             col(\"recipienttype\")[col(\"recindex\").cast(IntegerType())].alias(\"recipient_type\"),\n",
+					"             col(\"recipientid\")[col(\"recindex\").cast(IntegerType())].alias(\"recipient_id\"),\n",
+					"             size(col(\"recipients\")).alias('recipients_cardinality'),\n",
+					"             col('year'),\n",
+					"             col('month'),\n",
+					"             col('daily'),\n",
+					"    )\\\n",
+					"    .withColumn('item_code', lit(''))\\\n",
+					"    .withColumn('notification_request_id', lit(''))\\\n",
+					"    .withColumn('recipient_tax_id', lit(''))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"details_path = f's3a://pdnd-prod-dl-1/tmp/send_report_dettagli/{reference_yearmonth}' # s3 path\n",
+					"\n",
+					"invoices_messages_final\\\n",
+					"    .coalesce(1)\\\n",
+					"    .write.mode('overwrite')\\\n",
+					"    .option(\"header\",\"true\")\\\n",
+					"    .csv(details_path)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## invoices\n",
+					"daily aggregation per ente e daily\n",
+					"join tra contratti e notifiche (per popolare i dati di anagrafica degli enti)"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"agg_notifications = spark.sql(f'''\n",
+					"    select \n",
+					"        --count(distinct(timelineelementid)) as notifications_count, \n",
+					"        count((timelineelementid)) as notifications_count, \n",
+					"        sum (cost) as value,\n",
+					"        notificationtype,\n",
+					"        paid as internalistitutionid,\n",
+					"        `year`, \n",
+					"        `month`,\n",
+					"        daily\n",
+					"    from invoicing_timeline\n",
+					"    group by paid, notificationtype, `year`, `month`, daily -- la fattura va differenziata per numero di notifiche digitali/analog -> group per notification_type e non per category (che differenziarebbe ogni cat per tipio di notifica)\n",
+					"    order by paid, daily\n",
+					"''')"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"tags": []
+				},
+				"source": [
+					"## check"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifications_count = invoicing_timeline.count()\n",
+					"\n",
+					"agg_notifications_count = agg_notifications.select(f_sum(agg_notifications.notifications_count).alias(\"total\")).rdd.map(lambda x: x.total).collect()[0]\n",
+					"\n",
+					"assert notifications_count > 0, 'Total invoices notifications is zero'\n",
+					"assert notifications_count == agg_notifications_count, 'Total invoices notifications count differs aggregation count'"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## join contracts"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"contract_notifications_df = agg_notifications.join(contract_df, on='internalistitutionid', how='left')\n",
+					"\n",
+					"# fix int\n",
+					"contract_notifications_df = contract_notifications_df.withColumn(\"notifications_count\", contract_notifications_df[\"notifications_count\"].cast(IntegerType()))\n",
+					"contract_notifications_df = contract_notifications_df.withColumn(\"daily\", contract_notifications_df[\"daily\"].cast(IntegerType()))\n",
+					"contract_notifications_df = contract_notifications_df.withColumn(\"month\", contract_notifications_df[\"month\"].cast(IntegerType()))\n",
+					"contract_notifications_df = contract_notifications_df.withColumn(\"year\", contract_notifications_df[\"year\"].cast(IntegerType()))\n",
+					"\n",
+					"#fix decimal\n",
+					"contract_notifications_df = contract_notifications_df.withColumn(\"value\", (contract_notifications_df[\"value\"] / Decimal('100')).cast('decimal(20,2)'))\n",
+					"\n",
+					"contract_notifications_df = contract_notifications_df.select(\n",
+					"    'internalistitutionid',\n",
+					"    'taxcode',\n",
+					"    'vatnumber',\n",
+					"    'onboardingtokenid',\n",
+					"    'description',\n",
+					"    'notificationtype',\n",
+					"    'notifications_count', \n",
+					"    'value', \n",
+					"    'daily',\n",
+					"    'month',\n",
+					"    'year'\n",
+					")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## write to s3"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"%%local\n",
+					"\n",
+					"db_name = 'pagopa_any_services_pn'\n",
+					"table_name = 'notification_financial_report'"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"%%send_to_spark -i table_name -t str"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# overwrite daily data\n",
+					"\n",
+					"path = f'pagopa/any/services/pn/gold/{table_name}'\n",
+					"\n",
+					"contract_notifications_df\\\n",
+					"    .repartition('year','month')\\\n",
+					"    .write.mode('overwrite')\\\n",
+					"    .partitionBy('year','month')\\\n",
+					"    .parquet(f's3a://pdnd-prod-dl-1/{path}')\n",
+					"\n",
+					"print('Updated data for year %s month %s' % (reference_year, reference_month))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"%%local\n",
+					"\n",
+					"hive_cursor.execute(f\"MSCK REPAIR TABLE {db_name}.{table_name}\")\n",
+					"impala_cursor.execute(f\"INVALIDATE METADATA {db_name}.{table_name}\")"
+				],
+				"execution_count": null
+			}
+		]
+	}
+}
