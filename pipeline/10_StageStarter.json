@@ -1,0 +1,168 @@
+{
+	"name": "10_StageStarter",
+	"properties": {
+		"activities": [
+			{
+				"name": "Read Source Path",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Set StorageURL",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT [FolderInput], SwitchCase, PathSink FROM [cfg].[vToDoActivitiesSynapse] WHERE Pipeline = ''11_TransferStageToRaw'' AND [TaskId] = ', pipeline().parameters.TaskId, ' ORDER BY [JobOrder]')\n",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Loop",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Read Source Path",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Read Source Path').output.value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "11_TransferStageToRaw",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "11_TransferStageToRaw",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"FolderInput": {
+										"value": "@item().FolderInput",
+										"type": "Expression"
+									},
+									"SwitchCase": {
+										"value": "@item().SwitchCase",
+										"type": "Expression"
+									},
+									"PathSink": {
+										"value": "@item().PathSink",
+										"type": "Expression"
+									},
+									"StorageURL": {
+										"value": "@variables('StorageURL')",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "LookupStorageURL",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT ValueVariable\nFROM [cfg].[RawParquet]\nwhere Pipeline = ''10_StageStart'' and DimensionVariable = ''StorageURL'' and Environment = ''', pipeline().DataFactory,'''')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Set StorageURL",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "LookupStorageURL",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "StorageURL",
+					"value": {
+						"value": "@activity('LookupStorageURL').output.firstRow.ValueVariable",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"TaskId": {
+				"type": "string",
+				"defaultValue": "0"
+			}
+		},
+		"variables": {
+			"SourcePath": {
+				"type": "String"
+			},
+			"StorageURL": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Ingestion"
+		},
+		"annotations": [],
+		"lastPublishTime": "2023-12-18T11:36:11Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

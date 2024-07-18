@@ -1,0 +1,29 @@
+{
+	"name": "fat_ddls_parquet",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "fat_adls",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"PathFolderSink": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": {
+					"value": "@dataset().PathFolderSink",
+					"type": "Expression"
+				},
+				"fileSystem": "raw"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

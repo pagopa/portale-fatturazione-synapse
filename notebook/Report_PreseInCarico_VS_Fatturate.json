@@ -1,0 +1,469 @@
+{
+	"name": "Report_PreseInCarico_VS_Fatturate",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "578ec0fd-f1bf-4e5c-81b9-3a1a54c1926e"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": true
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"meseriferimento = 2"
+				],
+				"execution_count": 53
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"import pyspark.pandas as ps\r\n",
+					"from pyspark.sql import functions as F"
+				],
+				"execution_count": 54
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"anno_mese = \"2024-02\""
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"query = f\"\"\"(\r\n",
+					"SELECT\r\n",
+					"        event_id\r\n",
+					"        ,recipient_id\r\n",
+					"        ,internal_organization_id AS ente\r\n",
+					"\t\t,'01/'+ SUBSTRING([invoincingtimestamp], 6,2) +'/2024' AS data_fatturazione\r\n",
+					"        ,cost_eurocent/100 AS totale_prezzo_ente\r\n",
+					"        ,CASE\r\n",
+					"\t\tWHEN notificationtype <> 'DIGITALE' THEN 'ANALOGICA'\r\n",
+					"\t\t    ELSE 'DIGITALE'\r\n",
+					"\t\tEND AS tipologia_notifica\r\n",
+					"\t\tFROM pfd.notifiche\r\n",
+					"        WHERE month = {meseriferimento}) as tb\"\"\""
+				],
+				"execution_count": 55
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"server = 'fat-d-sql.database.windows.net'\r\n",
+					"Port = 1433\r\n",
+					"Database = \"fat-sqldb\"\r\n",
+					"jdbcUrl = f\"jdbc:sqlserver://{server}:{Port};databaseName={Database};encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30\"\r\n",
+					"token=TokenLibrary.getConnectionString(\"fat_sql\")\r\n",
+					"conn_Prop = {\r\n",
+					"\"driver\" : \"com.microsoft.sqlserver.jdbc.SQLServerDriver\",\r\n",
+					"\"accessToken\" : token\r\n",
+					"}\r\n",
+					"\r\n",
+					"fatturate = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop)"
+				],
+				"execution_count": 56
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# 1- id_ente: internal istitution_id dell’aderente \r\n",
+					"# 2- Ente: ragione sociale dell’ente, nel caso di UO la concatenazione della descrizione con la descrizione dell’UO\r\n",
+					"# 3- data_fatturazione: data contenuta nell’invoicing timestamp limitatamente a anno e mese\r\n",
+					"# 4- data_presa_incarico: la stessa vista al report precedente delle prese in carico\r\n",
+					"# 6- totale_prezzo_ente, coincide col costo ente riportato nella tabella invoicing_timeline (espresso in euro)\r\n",
+					"# 5- tipologia_notifica: può valere digitale/analogico a secondo della tipologia di notifica\r\n",
+					"# 6- totale_notifiche: numero complessivo delle notifiche risultante dall’aggregazione prevista\r\n",
+					"# 7- tot_costo_consolidatore (espresso in euro)\r\n",
+					"# 8- tot_costo_recapitista (espresso in euro)\r\n",
+					"# 9- delta_costo: differenza tra il prezzo pagato dall’ente e la somma dei costi recapitista e consolidatore"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\"\"\"insert into fat_delta.invoicing_timeline\r\n",
+					"select\r\n",
+					"eventid\r\n",
+					",eventname\r\n",
+					",tablename\r\n",
+					",iun\r\n",
+					",timelineelementid\r\n",
+					",timestamp\r\n",
+					",legalfactid\r\n",
+					",statusinfo\r\n",
+					",notificationsentat\r\n",
+					",details\r\n",
+					",invoicingday\r\n",
+					",ttl\r\n",
+					",invoincingtimestamp\r\n",
+					",invoincingtimestamp_timelineelementid\r\n",
+					",paid_invoicingday\r\n",
+					",ingestion_tms\r\n",
+					",category\r\n",
+					",year\r\n",
+					",month\r\n",
+					",99 as daily\r\n",
+					",paid\r\n",
+					",data_import\r\n",
+					",file_import\r\n",
+					"from fat_delta.invoicing_timeline_raw\"\"\")"
+				],
+				"execution_count": 104
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"fatturate = spark.sql(f\"\"\"\r\n",
+					"SELECT\r\n",
+					"        i.eventid\r\n",
+					"        ,i.paid AS ente\r\n",
+					"\t\t,'01/'+ SUBSTRING(i.invoincingtimestamp, 6,2) +'/2024' AS data_fatturazione\r\n",
+					"        ,CASE\r\n",
+					"\t\tWHEN i.category = 'REFINEMENT' or i.category = 'NOTIFICATION_VIEWED' or i.category = 'REQUEST_REFUSED' or i.category = 'NOTIFICATION_CANCELLED' THEN 'DIGITALE'\r\n",
+					"\t\t    ELSE 'ANALOGICA'\r\n",
+					"\t\tEND AS notificationtype\r\n",
+					"        ,coalesce(get_json_object(details, '$.notificationCost'), get_json_object(details, '$.analogCost')) as cost\r\n",
+					"        ,n.recipients.recipientId as recipientid\r\n",
+					"\t\tFROM fat_delta.invoicing_timeline i\r\n",
+					"        INNER JOIN fat_delta.notification n\r\n",
+					"        ON i.iun = n.iun AND i.paid = n.senderpaid AND i.notificationsentat = n.sentat\r\n",
+					"        WHERE i.month = {meseriferimento}\"\"\")"
+				],
+				"execution_count": 102
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"preseincarico = spark.sql(\"\"\"\r\n",
+					"SELECT *\r\n",
+					"FROM fat_delta.preseincarico_raw \r\n",
+					"where takenincharge_date = '2024-02'\"\"\")"
+				],
+				"execution_count": 57
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(fatturate.count())"
+				],
+				"execution_count": 105
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"fatturate = fatturate.withColumn(\"event_id\", F.concat(F.col(\"event_id\"), F.lit(\".\"), F.col(\"recipient_id\")))"
+				],
+				"execution_count": 58
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"fatturate = fatturate.withColumn(\"id_norid\", F.udf(lambda x, y: str(x).replace(f\".{y}\", \"\") if str(y) in str(x) else x)(\"event_id\", \"recipient_id\"))"
+				],
+				"execution_count": 60
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"fatturate.select('id_norid').distinct().count()"
+				],
+				"execution_count": 64
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"preseincarico.count()"
+				],
+				"execution_count": 62
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(fatturate.join(preseincarico, how='inner', on= fatturate.id_norid == preseincarico.event_id).filter(\"\").count())"
+				],
+				"execution_count": 71
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"result = spark.sql(\"\"\"SELECT * FROM all_preseincarico_final \"\"\").toPandas()\r\n",
+					"file_name = \"./output/all_preseincarico_final_{mesediriferimento}.csv\".format(mesediriferimento = mesediriferimento)\r\n",
+					"result.to_csv(file_name, index=False)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"file_path = \"abfss://pfstage@fatdstagesa.dfs.core.windows.net/test/\""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df.repartition(1).write.options(header = True, delimiter = ',').mode('overwrite').csv(file_path)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"for file in mssparkutils.fs.ls(file_path):\r\n",
+					"    if file.name == '_SUCCESS':\r\n",
+					"        mssparkutils.fs.rm(file.path)\r\n",
+					"    else:\r\n",
+					"        mssparkutils.fs.mv(file.path, file_path+'test.csv', True)\r\n",
+					"        # mssparkutils.fs.rm(file_path)"
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

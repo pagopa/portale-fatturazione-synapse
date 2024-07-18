@@ -1,0 +1,35 @@
+{
+	"name": "Trigger Monthly on 20th Day at 10PM",
+	"properties": {
+		"annotations": [],
+		"runtimeState": "Stopped",
+		"pipelines": [
+			{
+				"pipelineReference": {
+					"referenceName": "00_MainStarter",
+					"type": "PipelineReference"
+				},
+				"parameters": {
+					"TaskId": "200"
+				}
+			}
+		],
+		"type": "ScheduleTrigger",
+		"typeProperties": {
+			"recurrence": {
+				"frequency": "Month",
+				"interval": 1,
+				"startTime": "2024-01-23T16:33:00",
+				"timeZone": "W. Europe Standard Time",
+				"schedule": {
+					"hours": [
+						22
+					],
+					"monthDays": [
+						20
+					]
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,273 @@
+{
+	"name": "99_ManageInvoice",
+	"properties": {
+		"activities": [
+			{
+				"name": "SwitchTipologiaFattura",
+				"type": "Switch",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"on": {
+						"value": "@pipeline().parameters.TipoFattura",
+						"type": "Expression"
+					},
+					"cases": [
+						{
+							"value": "ANTICIPO",
+							"activities": [
+								{
+									"name": "Execute Pipeline Fattura Anticipo",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "FatturaAnticipo",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"AnnoAnticipo": {
+												"value": "@pipeline().parameters.AnnoRiferimento",
+												"type": "Expression"
+											},
+											"MeseAnticipo": {
+												"value": "@pipeline().parameters.MeseRiferimento",
+												"type": "Expression"
+											},
+											"DataFatturazione": {
+												"value": "@pipeline().parameters.DataFatturazione",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						},
+						{
+							"value": "ACCONTO",
+							"activities": [
+								{
+									"name": "Execute Pipeline Fattura Acconto",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "FatturaAcconto",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"AnnoAcconto": {
+												"value": "@pipeline().parameters.AnnoRiferimento",
+												"type": "Expression"
+											},
+											"MeseAcconto": {
+												"value": "@pipeline().parameters.MeseRiferimento",
+												"type": "Expression"
+											},
+											"DataFatturazione": {
+												"value": "@pipeline().parameters.DataFatturazione",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						},
+						{
+							"value": "PRIMO SALDO",
+							"activities": [
+								{
+									"name": "Execute Pipeline Fattura Primo Saldo",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "FatturaPrimoSaldo",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"AnnoRiferimento": {
+												"value": "@pipeline().parameters.AnnoRiferimento",
+												"type": "Expression"
+											},
+											"MeseRiferimento": {
+												"value": "@pipeline().parameters.MeseRiferimento",
+												"type": "Expression"
+											},
+											"DataFatturazione": {
+												"value": "@pipeline().parameters.DataFatturazione",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						},
+						{
+							"value": "SECONDO SALDO",
+							"activities": [
+								{
+									"name": "FatturaSecondoSaldo",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "FatturaSecondoSaldo",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"AnnoRiferimento": {
+												"value": "@pipeline().parameters.AnnoRiferimento",
+												"type": "Expression"
+											},
+											"MeseRiferimento": {
+												"value": "@pipeline().parameters.MeseRiferimento",
+												"type": "Expression"
+											},
+											"DataFatturazione": {
+												"value": "@pipeline().parameters.DataFatturazione",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						},
+						{
+							"value": "CONGUAGLIO",
+							"activities": [
+								{
+									"name": "FattureConguaglio",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "FattureConguaglio",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"AnnoRiferimento": {
+												"value": "@pipeline().parameters.AnnoRiferimento",
+												"type": "Expression"
+											},
+											"MeseRiferimento": {
+												"value": "@pipeline().parameters.MeseRiferimento",
+												"type": "Expression"
+											},
+											"DataFatturazione": {
+												"value": "@pipeline().parameters.DataFatturazione",
+												"type": "Expression"
+											},
+											"TipoFattura": {
+												"value": "@pipeline().parameters.TipoFattura",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "UpdFattureInviate",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "SwitchTipologiaFattura",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[spUpdateFlagFatturaInviata]",
+					"storedProcedureParameters": {
+						"AnnoRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoRiferimento",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.MeseRiferimento",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TipologiaFattura": {
+							"value": {
+								"value": "@pipeline().parameters.TipoFattura",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"TipoFattura": {
+				"type": "string"
+			},
+			"AnnoRiferimento": {
+				"type": "string"
+			},
+			"MeseRiferimento": {
+				"type": "string"
+			},
+			"DataFatturazione": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"dummyvar": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "ManageInvoice"
+		},
+		"annotations": []
+	}
+}

@@ -1,0 +1,79 @@
+{
+	"name": "MatriceRecapitista_xlsx",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "fat_sa",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Excel",
+		"typeProperties": {
+			"sheetName": "Foglio2",
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": "MatriceRecapitista.xlsx",
+				"folderPath": "matrice_recapitista",
+				"container": "pfstage"
+			},
+			"firstRowAsHeader": true
+		},
+		"schema": [
+			{
+				"name": "CAP",
+				"type": "String"
+			},
+			{
+				"name": "Regione",
+				"type": "String"
+			},
+			{
+				"name": "Provincia",
+				"type": "String"
+			},
+			{
+				"name": "RS",
+				"type": "String"
+			},
+			{
+				"name": "RS_AREA",
+				"type": "String"
+			},
+			{
+				"name": "RS_lotto",
+				"type": "String"
+			},
+			{
+				"name": "RS_recapitista",
+				"type": "String"
+			},
+			{
+				"name": "AR",
+				"type": "String"
+			},
+			{
+				"name": "AR_AREA",
+				"type": "String"
+			},
+			{
+				"name": "AR_lotto",
+				"type": "String"
+			},
+			{
+				"name": "AR_Recapitista",
+				"type": "String"
+			},
+			{
+				"name": "890",
+				"type": "String"
+			},
+			{
+				"name": "890_lotto",
+				"type": "String"
+			},
+			{
+				"name": "890_Recapista",
+				"type": "String"
+			}
+		]
+	}
+}

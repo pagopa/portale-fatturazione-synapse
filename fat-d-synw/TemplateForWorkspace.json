@@ -1,0 +1,2040 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"type": "string",
+			"metadata": "Workspace name",
+			"defaultValue": "fat-d-synw"
+		},
+		"fat-d-synw-WorkspaceDefaultSqlServer_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'fat-d-synw-WorkspaceDefaultSqlServer'",
+			"defaultValue": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:fat-d-synw.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
+		},
+		"fat_sql_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'fat_sql'",
+			"defaultValue": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=fat-d-sql.database.windows.net;Initial Catalog=fat-sqldb"
+		},
+		"pfstage_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'pfstage'"
+		},
+		"fat-d-synw-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://fatddls.dfs.core.windows.net"
+		},
+		"fat_adls_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://fatddls.dfs.core.windows.net/"
+		},
+		"fat_stage_sa_properties_typeProperties_serviceEndpoint": {
+			"type": "string",
+			"defaultValue": "https://fatdstagesa.blob.core.windows.net/"
+		},
+		"pfstage_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://fatdstagesa.dfs.core.windows.net/"
+		}
+	},
+	"variables": {
+		"workspaceId": "[concat('Microsoft.Synapse/workspaces/', parameters('workspaceName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('workspaceName'), '/sparkcls01')]",
+			"type": "Microsoft.Synapse/workspaces/bigDataPools",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/IngestSelfCare')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "IngestSelfCare",
+						"type": "SynapseNotebook",
+						"dependsOn": [
+							{
+								"activity": "Lookup1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebook": {
+								"referenceName": "IngestSelfCare",
+								"type": "NotebookReference"
+							},
+							"snapshot": true,
+							"sparkPool": {
+								"referenceName": "sparkcls01",
+								"type": "BigDataPoolReference"
+							},
+							"executorSize": "Small",
+							"conf": {
+								"spark.dynamicAllocation.enabled": null,
+								"spark.dynamicAllocation.minExecutors": null,
+								"spark.dynamicAllocation.maxExecutors": null
+							},
+							"driverSize": "Small",
+							"numExecutors": null
+						}
+					},
+					{
+						"name": "Lookup1",
+						"type": "Lookup",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFolderPath": "send/2023/11/08/selfcare_contract",
+									"wildcardFileName": "*.parquet",
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "ParquetReadSettings"
+								}
+							},
+							"dataset": {
+								"referenceName": "pfstage_ingestSource",
+								"type": "DatasetReference",
+								"parameters": {
+									"FolderIngestSource": "send/2023/11/08/selfcare_contract"
+								}
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"Test_source": {
+						"type": "String"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/notebooks/IngestSelfCare')]",
+				"[concat(variables('workspaceId'), '/bigDataPools/sparkcls01')]",
+				"[concat(variables('workspaceId'), '/datasets/pfstage_ingestSource')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Provisioning')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "LakeToSql",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlDWSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"writeBehavior": "insert",
+								"sqlWriterUseTableLock": false
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "LakeDatabase",
+								"type": "DatasetReference",
+								"parameters": {
+									"TableLake": "contratti"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "SqlDatabse",
+								"type": "DatasetReference",
+								"parameters": {
+									"TableSql": "pfd.Contratti"
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/LakeDatabase')]",
+				"[concat(variables('workspaceId'), '/datasets/SqlDatabse')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Transfer stage to raw OLD')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Loop",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Read Source Path",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Read Source Path').output.value",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "Transfer Files to raw",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "FileName",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "ParquetSource",
+											"storeSettings": {
+												"type": "AzureBlobStorageReadSettings",
+												"recursive": true,
+												"wildcardFolderPath": {
+													"value": "@item().FolderInput",
+													"type": "Expression"
+												},
+												"wildcardFileName": "*.parquet",
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "ParquetReadSettings"
+											}
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "fat_stage_parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"PathFolderFile": {
+													"value": "@item().FolderInput",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "fat_ddls_parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"PathFolderSink": {
+													"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),1),4),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),5),2),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),7),2),'/',replace(string(item().FolderInput),'send/',''))",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Get FileName",
+									"type": "GetMetadata",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataset": {
+											"referenceName": "fat_stage_parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"PathFolderFile": {
+													"value": "@item().FolderInput",
+													"type": "Expression"
+												}
+											}
+										},
+										"fieldList": [
+											"childItems"
+										],
+										"storeSettings": {
+											"type": "AzureBlobStorageReadSettings",
+											"recursive": true,
+											"enablePartitionDiscovery": false
+										},
+										"formatSettings": {
+											"type": "ParquetReadSettings"
+										}
+									}
+								},
+								{
+									"name": "FileName",
+									"type": "SetVariable",
+									"dependsOn": [
+										{
+											"activity": "Get FileName",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "FileName",
+										"value": {
+											"value": "@{string(activity('Get FileName').output.childItems)}",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Filter1",
+									"type": "Filter",
+									"state": "Inactive",
+									"onInactiveMarkAs": "Succeeded",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"items": {
+											"value": "@activity('Get Metadata1').output.childItems",
+											"type": "Expression"
+										},
+										"condition": {
+											"value": "@and(\nequals(item().type, 'File'),\nstartswith(item().name,variables('Generic_ItemFileName'))\n)",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Delete Files in stage",
+									"type": "Delete",
+									"state": "Inactive",
+									"onInactiveMarkAs": "Succeeded",
+									"dependsOn": [
+										{
+											"activity": "Transfer Files to raw",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataset": {
+											"referenceName": "fat_stage_parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"PathFolderFile": {
+													"value": "@item().FolderInput",
+													"type": "Expression"
+												}
+											}
+										},
+										"enableLogging": false,
+										"storeSettings": {
+											"type": "AzureBlobStorageReadSettings",
+											"recursive": true,
+											"wildcardFileName": "*.parquet",
+											"enablePartitionDiscovery": false
+										}
+									}
+								},
+								{
+									"name": "Filter1_copy1",
+									"type": "Filter",
+									"state": "Inactive",
+									"onInactiveMarkAs": "Succeeded",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"items": {
+											"value": "@activity('Get Metadata1').output.childItems",
+											"type": "Expression"
+										},
+										"condition": {
+											"value": "@and(\nequals(item().type, 'File'),\nstartswith(item().name,variables('Generic_ItemFileName'))\n)",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Filter1_copy2",
+									"type": "Filter",
+									"state": "Inactive",
+									"onInactiveMarkAs": "Succeeded",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"items": {
+											"value": "@activity('Get Metadata1').output.childItems",
+											"type": "Expression"
+										},
+										"condition": {
+											"value": "@and(\nequals(item().type, 'File'),\nstartswith(item().name,variables('Generic_ItemFileName'))\n)",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Read Source Path",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": "SELECT [FolderInput]\nFROM [cfg].[RawParquet]",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "fat_d_sql",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"FileName": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2023-11-10T11:49:13Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/fat_d_sql')]",
+				"[concat(variables('workspaceId'), '/datasets/fat_stage_parquet')]",
+				"[concat(variables('workspaceId'), '/datasets/fat_ddls_parquet')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Transfer stage to raw')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Loop",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Read Source Path",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Read Source Path').output.value",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "Transfer Files to raw",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "FileName",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "ParquetSource",
+											"storeSettings": {
+												"type": "AzureBlobStorageReadSettings",
+												"recursive": true,
+												"wildcardFolderPath": {
+													"value": "@item().FolderInput",
+													"type": "Expression"
+												},
+												"wildcardFileName": "*.parquet",
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "ParquetReadSettings"
+											}
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "fat_stage_parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"PathFolderFile": {
+													"value": "@item().FolderInput",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "fat_ddls_parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"PathFolderSink": {
+													"value": "@concat(substring(string(item().FolderInput),0,indexOf(string(item().FolderInput),'/')),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),1),4),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),5),2),'/',substring(string(variables('FileName')),add(indexOf(string(variables('FileName')),'_20'),7),2),'/',replace(string(item().FolderInput),'send/',''))",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Get FileName",
+									"type": "GetMetadata",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataset": {
+											"referenceName": "fat_stage_parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"PathFolderFile": {
+													"value": "@item().FolderInput",
+													"type": "Expression"
+												}
+											}
+										},
+										"fieldList": [
+											"childItems"
+										],
+										"storeSettings": {
+											"type": "AzureBlobStorageReadSettings",
+											"recursive": true,
+											"enablePartitionDiscovery": false
+										},
+										"formatSettings": {
+											"type": "ParquetReadSettings"
+										}
+									}
+								},
+								{
+									"name": "FileName",
+									"type": "SetVariable",
+									"dependsOn": [
+										{
+											"activity": "Get FileName",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "FileName",
+										"value": {
+											"value": "@{string(activity('Get FileName').output.childItems[1])}",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Delete Files in stage",
+									"type": "Delete",
+									"dependsOn": [
+										{
+											"activity": "Transfer Files to raw",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataset": {
+											"referenceName": "fat_stage_parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"PathFolderFile": {
+													"value": "@item().FolderInput",
+													"type": "Expression"
+												}
+											}
+										},
+										"enableLogging": false,
+										"storeSettings": {
+											"type": "AzureBlobStorageReadSettings",
+											"recursive": true,
+											"wildcardFileName": "*.parquet",
+											"enablePartitionDiscovery": false
+										}
+									}
+								},
+								{
+									"name": "Execute Pipeline1",
+									"type": "ExecutePipeline",
+									"dependsOn": [
+										{
+											"activity": "Delete Files in stage",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "IngestSelfCare",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Read Source Path",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": "SELECT [FolderInput]\nFROM [cfg].[RawParquet]",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "fat_d_sql",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"FileName": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2023-11-10T11:49:13Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/fat_d_sql')]",
+				"[concat(variables('workspaceId'), '/datasets/fat_stage_parquet')]",
+				"[concat(variables('workspaceId'), '/datasets/fat_ddls_parquet')]",
+				"[concat(variables('workspaceId'), '/pipelines/IngestSelfCare')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/LakeDatabase')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "fat-d-synw-WorkspaceDefaultSqlServer",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"DBName": "fat_delta"
+					}
+				},
+				"parameters": {
+					"TableLake": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDWTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": {
+						"value": "@dataset().TableLake",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/fat-d-synw-WorkspaceDefaultSqlServer')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SqlDatabse')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"TableSql": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "pfd",
+					"table": {
+						"value": "@dataset().TableSql",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/fat_sql')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/fat_d_sql')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "FolderInput",
+						"type": "varchar"
+					},
+					{
+						"name": "FolderOutput",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "cfg",
+					"table": "RawParquet"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/fat_sql')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/fat_ddls_parquet')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "fat_adls",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"PathFolderSink": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().PathFolderSink",
+							"type": "Expression"
+						},
+						"fileSystem": "raw"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/fat_adls')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/fat_stage_parquet')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "fat_stage_sa",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"PathFolderFile": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"folderPath": {
+							"value": "@dataset().PathFolderFile",
+							"type": "Expression"
+						},
+						"container": "pfstage"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/fat_stage_sa')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/pfstage_ingestSource')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "fat_adls",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FolderIngestSource": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().FolderIngestSource",
+							"type": "Expression"
+						},
+						"fileSystem": "raw"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/fat_adls')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/fat-d-synw-WorkspaceDefaultSqlServer')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"parameters": {
+					"DBName": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDW",
+				"typeProperties": {
+					"connectionString": "[parameters('fat-d-synw-WorkspaceDefaultSqlServer_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/fat-d-synw-WorkspaceDefaultStorage')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('fat-d-synw-WorkspaceDefaultStorage_properties_typeProperties_url')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/fat_adls')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('fat_adls_properties_typeProperties_url')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/fat_sql')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"connectionString": "[parameters('fat_sql_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/fat_stage_sa')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobStorage",
+				"typeProperties": {
+					"serviceEndpoint": "[parameters('fat_stage_sa_properties_typeProperties_serviceEndpoint')]",
+					"accountKind": "StorageV2"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/pfstage')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('pfstage_properties_typeProperties_url')]",
+					"accountKey": {
+						"type": "SecureString",
+						"value": "[parameters('pfstage_accountKey')]"
+					}
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AutoResolveIntegrationRuntime')]",
+			"type": "Microsoft.Synapse/workspaces/integrationRuntimes",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "Managed",
+				"typeProperties": {
+					"computeProperties": {
+						"location": "AutoResolve",
+						"dataFlowProperties": {
+							"computeType": "General",
+							"coreCount": 8,
+							"timeToLive": 0
+						}
+					}
+				},
+				"managedVirtualNetwork": {
+					"type": "ManagedVirtualNetworkReference",
+					"referenceName": "default"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/WorkspaceSystemIdentity')]",
+			"type": "Microsoft.Synapse/workspaces/credentials",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "ManagedIdentity",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 1')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "SELECT TOP (100) * FROM [fat_delta].[dbo].[enti]",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "fat_delta",
+						"poolName": "Built-in"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/IngestSelfCare')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"folder": {
+					"name": "Ingestion"
+				},
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "sparkcls01",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 1,
+					"conf": {
+						"spark.dynamicAllocation.enabled": "true",
+						"spark.dynamicAllocation.minExecutors": "1",
+						"spark.dynamicAllocation.maxExecutors": "2",
+						"spark.autotune.trackingId": "cc2086f4-92b1-487c-9189-315fbc6eca39"
+					}
+				},
+				"metadata": {
+					"saveOutput": true,
+					"enableDebugMode": false,
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					},
+					"a365ComputeOptions": {
+						"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+						"name": "sparkcls01",
+						"type": "Spark",
+						"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+						"auth": {
+							"type": "AAD",
+							"authResource": "https://dev.azuresynapse.net"
+						},
+						"sparkVersion": "3.3",
+						"nodeCount": 10,
+						"cores": 4,
+						"memory": 28
+					},
+					"sessionKeepAliveTimeout": 30
+				},
+				"cells": [
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Parameters"
+						]
+					},
+					{
+						"cell_type": "code",
+						"source": [
+							"#Variables\r\n",
+							"tableNameEnti = 'fat_delta.enti'\r\n",
+							"tableNameContratti = 'fat_delta.contratti'\r\n",
+							"linked_service_name = 'nomeLinkedService'\r\n",
+							"sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/2023/11/08/selfcare_contract/selfcare_contract_20231108.parquet'"
+						],
+						"outputs": [],
+						"execution_count": 17
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Import libraries"
+						]
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"from pyspark.sql import functions as F\r\n",
+							"from delta.tables import *\r\n",
+							"from pyspark.sql.functions import max"
+						],
+						"outputs": [],
+						"execution_count": 18
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Load delta tables"
+						]
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"tDeltaEnti = DeltaTable.forName(spark, tableNameEnti)\r\n",
+							"tDeltaContratti = DeltaTable.forName(spark, tableNameContratti)"
+						],
+						"outputs": [],
+						"execution_count": 19
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Load and process source file"
+						]
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"dfNewFile = spark.read.format(\"parquet\").load(sourcefile)\r\n",
+							"#nel file sono presenti duplicati per internalistitutionid con stato diverso e diversa data di creazione\r\n",
+							"#applico un filtro per prendere solo l'attivo più recente\r\n",
+							"\r\n",
+							"#print(dtTmp.count())\r\n",
+							"dfTmp = dfNewFile.filter(\"state = 'ACTIVE'\")\r\n",
+							"\r\n",
+							"#print(dtTmp.count())\r\n",
+							"dfAgg = dfTmp.groupBy(\"internalistitutionid\", \"product\").agg(max(\"updatedat\").alias(\"max_date\"))\r\n",
+							"\r\n",
+							"dfTmp = dfTmp.join(dfAgg,(dfTmp[\"internalistitutionid\"]==dfAgg[\"internalistitutionid\"]) & (dfTmp[\"createdat\"]== dfAgg[\"max_date\"]) & (dfTmp[\"product\"] == dfAgg[\"product\"]))\r\n",
+							"dfTmp = dfTmp.drop(dfAgg[\"internalistitutionid\"]).drop(dfAgg[\"max_date\"]).drop(dfAgg[\"product\"])\r\n",
+							"#print(dtTmp.count())\r\n",
+							"\r\n",
+							"\r\n",
+							"dfEnti = dfTmp.select(\"internalistitutionid\",\"institution.institutionType\",\"institution.description\", \"institution.digitalAddress\", \"institution.address\", \"institution.originId\", \"institution.zipCode\", \"institution.istatCode\", \"institution.city\", \"institution.country\", \"institution.county\", \"institution.subUnitCode\", \"institution.subUnitType\", \"institution.paymentServiceProvider\", \"billing.vatnumber\", \"billing.publicservices\")\r\n",
+							"dfContratti = dfTmp.select(\"internalistitutionid\", \"product\", \"filename\", \"onboardingtokenid\", \"pricingplan\", \"updatedat\", \"createdat\", \"closedat\", \"year\", \"month\", \"daily\")"
+						],
+						"outputs": [],
+						"execution_count": 20
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Add timestamp to dataframes"
+						]
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"actualTimeStamp = F.current_timestamp()\r\n",
+							"dfEnti = dfEnti.withColumn(\"LastModified\", actualTimeStamp)\r\n",
+							"dfContratti = dfContratti.withColumn(\"LastModified\", actualTimeStamp)"
+						],
+						"outputs": [],
+						"execution_count": 21
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Write to delta db"
+						]
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"mergedDfEnti = tDeltaEnti.alias(\"target\").merge(\r\n",
+							"    dfEnti.alias(\"source\"),\r\n",
+							"    \"target.internalistitutionid = source.internalistitutionid\"\r\n",
+							").whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()\r\n",
+							"\r\n",
+							"mergedDfContratti = tDeltaContratti.alias(\"target\").merge(\r\n",
+							"    dfContratti.alias(\"source\"),\r\n",
+							"    \"target.internalistitutionid = source.internalistitutionid AND target.product = source.product\"\r\n",
+							").whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()"
+						],
+						"outputs": [],
+						"execution_count": 23
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Update watermark table"
+						]
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"watermarkTable =  DeltaTable.forName(spark, \"fat_delta.watermark\")\r\n",
+							"\r\n",
+							"watermarkTable.update(\"TableName = 'enti'\", {\"LastModified\": actualTimeStamp})\r\n",
+							"watermarkTable.update(\"TableName = 'contratti'\", {\"LastModified\": actualTimeStamp})"
+						],
+						"outputs": [],
+						"execution_count": 26
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Notebook 1')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "sparkcls01",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 1,
+					"runAsWorkspaceSystemIdentity": false,
+					"conf": {
+						"spark.dynamicAllocation.enabled": "true",
+						"spark.dynamicAllocation.minExecutors": "1",
+						"spark.dynamicAllocation.maxExecutors": "2",
+						"spark.autotune.trackingId": "9c8043bc-8de9-4a6f-94ee-4d2bf55acd13"
+					}
+				},
+				"metadata": {
+					"saveOutput": true,
+					"synapse_widget": {
+						"version": "0.1"
+					},
+					"enableDebugMode": false,
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "python"
+					},
+					"language_info": {
+						"name": "python"
+					},
+					"a365ComputeOptions": {
+						"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+						"name": "sparkcls01",
+						"type": "Spark",
+						"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+						"auth": {
+							"type": "AAD",
+							"authResource": "https://dev.azuresynapse.net",
+							"authHeader": null
+						},
+						"sparkVersion": "3.3",
+						"nodeCount": 10,
+						"cores": 4,
+						"memory": 28,
+						"extraHeader": null
+					},
+					"sessionKeepAliveTimeout": 30
+				},
+				"cells": [
+					{
+						"cell_type": "code",
+						"source": [
+							""
+						],
+						"outputs": []
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/delta_lake_provisioning')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"folder": {
+					"name": "Provisioning"
+				},
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "sparkcls01",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 1,
+					"runAsWorkspaceSystemIdentity": false,
+					"conf": {
+						"spark.dynamicAllocation.enabled": "true",
+						"spark.dynamicAllocation.minExecutors": "1",
+						"spark.dynamicAllocation.maxExecutors": "2",
+						"spark.autotune.trackingId": "f115c748-d6f1-4a28-987c-13245ce2038e"
+					}
+				},
+				"metadata": {
+					"saveOutput": true,
+					"enableDebugMode": false,
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					},
+					"a365ComputeOptions": {
+						"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+						"name": "sparkcls01",
+						"type": "Spark",
+						"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+						"auth": {
+							"type": "AAD",
+							"authResource": "https://dev.azuresynapse.net"
+						},
+						"sparkVersion": "3.3",
+						"nodeCount": 10,
+						"cores": 4,
+						"memory": 28
+					},
+					"sessionKeepAliveTimeout": 30
+				},
+				"cells": [
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Configurations"
+						]
+					},
+					{
+						"cell_type": "code",
+						"source": [
+							"# Variables\r\n",
+							"linked_service_name = 'fat_adls'\r\n",
+							"container_name = 'synapse'"
+						],
+						"outputs": [],
+						"execution_count": 1
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Get adls account name\n",
+							"raw_adls_container_name = mssparkutils.credentials.getFullConnectionString(linked_service_name)\n",
+							"print(raw_adls_container_name)"
+						],
+						"outputs": [],
+						"execution_count": 2
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"adls_account_name = raw_adls_container_name.split('url=https://')[1].split('/;token')[0]\n",
+							"# delta_path = \"abfss://synapse@\" + adls_account_name +\"/synapse/\"\n",
+							"print(adls_account_name)"
+						],
+						"outputs": [],
+						"execution_count": 3
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Set configuration (SAS Token)\r\n",
+							"adls_sas_token = mssparkutils.credentials.getConnectionStringOrCreds(linked_service_name)\r\n",
+							"spark.conf.set('fs.azure.sas.%s.%s' % (container_name, adls_account_name), adls_sas_token)\r\n",
+							"print(adls_sas_token)"
+						],
+						"outputs": [],
+						"execution_count": 4
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Create Database"
+						]
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Create Database \"epson_delta\"\r\n",
+							"spark.sql(f\"\"\"CREATE DATABASE IF NOT EXISTS fat_delta\"\"\")"
+						],
+						"outputs": [],
+						"execution_count": 5
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Create Tables"
+						]
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# device\r\n",
+							"spark.sql('DROP TABLE IF EXISTS  fat_delta.test')\r\n",
+							"spark.sql(\r\n",
+							"    f\"\"\"\r\n",
+							"    CREATE TABLE fat_delta.test  \r\n",
+							"    (\r\n",
+							"          ID string\r\n",
+							"        , Code string\r\n",
+							"        , Value double\r\n",
+							"        , CreatedOn timestamp                        \r\n",
+							"    ) USING DELTA\r\n",
+							"    LOCATION 'test'\r\n",
+							"    TBLPROPERTIES (\r\n",
+							"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+							"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+							"    \"\"\"\r\n",
+							")\r\n",
+							""
+						],
+						"outputs": [],
+						"execution_count": 2
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Creazione tabella watermark\r\n",
+							"spark.sql('DROP TABLE IF EXISTS  fat_delta.watermark')\r\n",
+							"spark.sql(\r\n",
+							"    f\"\"\"\r\n",
+							"    CREATE TABLE fat_delta.watermark  \r\n",
+							"    (\r\n",
+							"          TableName string\r\n",
+							"        , LastModified timestamp                        \r\n",
+							"    ) USING DELTA\r\n",
+							"    LOCATION 'watermark'\r\n",
+							"    TBLPROPERTIES (\r\n",
+							"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+							"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+							"    \"\"\"\r\n",
+							")"
+						],
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Creazione tabella Enti\r\n",
+							"spark.sql('DROP TABLE IF EXISTS  fat_delta.enti')\r\n",
+							"spark.sql(\r\n",
+							"    f\"\"\"\r\n",
+							"    CREATE TABLE fat_delta.enti  \r\n",
+							"    (\r\n",
+							"          InternalIstitutionId string\r\n",
+							"        , institutionType string\r\n",
+							"        , description string\r\n",
+							"        , digitalAddress string\r\n",
+							"        , address string\r\n",
+							"        , originId string\r\n",
+							"        , zipCode string\r\n",
+							"        , istatCode string\r\n",
+							"        , city string\r\n",
+							"        , country string\r\n",
+							"        , county string\r\n",
+							"        , subUnitCode string\r\n",
+							"        , subUnitType string\r\n",
+							"        , paymentServiceProvider string\r\n",
+							"        , vatnumber string\r\n",
+							"        , publicservices string\r\n",
+							"        , LastModified timestamp                        \r\n",
+							"    ) USING DELTA\r\n",
+							"    LOCATION 'enti'\r\n",
+							"    TBLPROPERTIES (\r\n",
+							"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+							"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+							"    \"\"\"\r\n",
+							")"
+						],
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Creazione tabella Contratti\r\n",
+							"spark.sql('DROP TABLE IF EXISTS  fat_delta.contratti')\r\n",
+							"spark.sql(\r\n",
+							"    f\"\"\"\r\n",
+							"    CREATE TABLE fat_delta.contratti  \r\n",
+							"    (\r\n",
+							"          internalistitutionid string\r\n",
+							"        , product string\r\n",
+							"        , filename string\r\n",
+							"        , onboardingtokenid string\r\n",
+							"        , pricingplan string\r\n",
+							"        , updatedat string\r\n",
+							"        , createdat timestamp\r\n",
+							"        , closedat timestamp\r\n",
+							"        , year int\r\n",
+							"        , month int\r\n",
+							"        , daily string\r\n",
+							"        , LastModified timestamp                        \r\n",
+							"    ) USING DELTA\r\n",
+							"    LOCATION 'contratti'\r\n",
+							"    TBLPROPERTIES (\r\n",
+							"            'delta.logRetentionDuration'='interval 7 days', \r\n",
+							"            'delta.deletedFileRetentionDuration'='interval 7 days');\r\n",
+							"    \"\"\"\r\n",
+							")"
+						],
+						"outputs": [],
+						"execution_count": 2
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"from pyspark.sql import functions as F\r\n",
+							"\r\n",
+							"actualTimeStamp = F.current_timestamp()\r\n",
+							"data = [(\"contratti\",  actualTimeStamp), (\"enti\", actualTimeStamp)]\r\n",
+							"df = spark.createDataFrame(data, [\"TableName\",\"TimeStamp\"])\r\n",
+							"df.write.format(\"delta\").mode(\"append\").insertInto(\"fat_delta.watermark\")"
+						],
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"spark.sql(\r\n",
+							"    f\"\"\"\r\n",
+							"        INSERT INTO fat_delta.watermark (TableName, LastModified) \r\n",
+							"        VALUES \r\n",
+							"        (\"contratti\",null),\r\n",
+							"        (\"enti\",null)\r\n",
+							"    \"\"\"\r\n",
+							")"
+						],
+						"outputs": [],
+						"execution_count": 16
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/sparkcls01')]",
+			"type": "Microsoft.Synapse/workspaces/bigDataPools",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"autoPause": {
+					"enabled": true,
+					"delayInMinutes": 15
+				},
+				"autoScale": {
+					"enabled": true,
+					"maxNodeCount": 6,
+					"minNodeCount": 3
+				},
+				"nodeCount": 10,
+				"nodeSize": "Small",
+				"nodeSizeFamily": "MemoryOptimized",
+				"sparkVersion": "3.3",
+				"isComputeIsolationEnabled": false,
+				"sessionLevelPackagesEnabled": false,
+				"annotations": []
+			},
+			"dependsOn": [],
+			"location": "westeurope"
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/default')]",
+			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/default/AzureDataLakeStorage514')]",
+			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks/managedPrivateEndpoints",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"privateLinkResourceId": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Storage/storageAccounts/fatdstagesa",
+				"groupId": "dfs"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/default/synapse-ws-custstgacct--fat-d-synw-fatddls')]",
+			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks/managedPrivateEndpoints",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"privateLinkResourceId": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Storage/storageAccounts/fatddls",
+				"groupId": "dfs",
+				"fqdns": [
+					"fatddls.dfs.core.windows.net"
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/default/synapse-ws-sql--fat-d-synw')]",
+			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks/managedPrivateEndpoints",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"privateLinkResourceId": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw",
+				"groupId": "sql",
+				"fqdns": [
+					"fat-d-synw.785370fa-774e-4489-9ad1-7e8b6d08f398.sql.azuresynapse.net"
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/default/synapse-ws-sqlOnDemand--fat-d-synw')]",
+			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks/managedPrivateEndpoints",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"privateLinkResourceId": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw",
+				"groupId": "sqlOnDemand",
+				"fqdns": [
+					"fat-d-synw-ondemand.785370fa-774e-4489-9ad1-7e8b6d08f398.sql.azuresynapse.net"
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		}
+	]
+}

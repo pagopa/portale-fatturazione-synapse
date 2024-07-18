@@ -1,0 +1,265 @@
+{
+	"name": "IngestNotification_History",
+	"properties": {
+		"folder": {
+			"name": "Ingestion"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "ad17ba74-7a76-478d-8c38-d9759b057732"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": true
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"#Variables\r\n",
+					"tableName = 'fat_delta.notification_raw'\r\n",
+					"\r\n",
+					"linked_service_name = 'nomeLinkedService'\r\n",
+					"# sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/CSV-EntityMapping/notificationconverted/part-00000-f8ab67da-73a6-4fc6-8d82-989cb48f3ed8-c000.snappy.parquet'\r\n",
+					"\r\n",
+					"sourcefile = \"abfss://raw@fatddls.dfs.core.windows.net/Notification_marzo/\""
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#file febbraio\r\n",
+					"file_list = ['part-00000-a20c3c13-f714-44b6-964a-7631033d0d90-c000.snappy.parquet', 'part-00000-ce6ed47f-d80a-45b9-9c4e-145d54605665-c000.snappy.parquet', 'part-00000-183623a2-5787-46eb-a182-74710c426871-c000.snappy.parquet', 'part-00000-2b2aeadd-5e9f-439f-8d85-e32a4ec3c845-c000.snappy.parquet', 'part-00000-9b41e473-8681-4326-9f58-800feb142047-c000.snappy.parquet', 'part-00000-ccaba95a-8da0-47d6-b2cb-ef274e495fdd-c000.snappy.parquet', 'part-00000-b7e79e97-37a5-4dd0-9f74-1c7039f4d4c6-c000.snappy.parquet', 'part-00000-2ad9686d-1103-44bc-a44a-4342fbb5c6d7-c000.snappy.parquet', 'part-00000-96d4c648-3644-4354-837e-ae628cd1e39b-c000.snappy.parquet', 'part-00000-91ad2963-afe8-4743-a022-feec839675eb-c000.snappy.parquet','part-00000-32dc2a22-1c8a-45fe-916d-12e36009ddb9-c000.snappy.parquet', 'part-00000-6cfb7be8-6a51-46d5-8b85-ea1f3c16602b-c000.snappy.parquet', 'part-00000-a638e10e-28a2-4060-b137-235f982e7e0f-c000.snappy.parquet', 'part-00000-35f283fc-b16d-4f82-96e8-914af8681b23-c000.snappy.parquet', 'part-00000-83cadb4e-ad24-4a45-aeff-58cbb7a6c66c-c000.snappy.parquet', 'part-00000-39f66d8c-9436-4813-a205-d4316061dc6a-c000.snappy.parquet','part-00000-1b09050f-b5c1-45b3-9a24-9a9be5319d66-c000.snappy.parquet', 'part-00000-1234f235-cf72-4fa7-ae10-c4ed5fb999b1-c000.snappy.parquet', 'part-00000-22033d60-a12f-40ba-a2dc-7966a227e903-c000.snappy.parquet', 'part-00000-f62282ee-5c2a-480a-8169-e06c2b0a0def-c000.snappy.parquet', 'part-00000-64c6b06f-de4c-4404-ad4b-8fdea557dfb2-c000.snappy.parquet', 'part-00000-5f50065f-c824-4b6d-bbee-154bdf7ab2a4-c000.snappy.parquet', 'part-00000-71fe6503-41fc-40dd-bb7b-6c7c3d313c70-c000.snappy.parquet','part-00000-8a9a2d40-f619-4696-88f6-fe1bc644ed59-c000.snappy.parquet', 'part-00000-4440e1cc-685a-4c59-9135-1592cf692cf6-c000.snappy.parquet', 'part-00000-7c9a1703-d297-419f-9315-9cde4d3e4bb3-c000.snappy.parquet', 'part-00000-a1c64021-2e34-4cae-8ae3-6d2548d0ed92-c000.snappy.parquet', 'part-00000-161f1d09-19e3-4e01-aff6-c8e38aef89da-c000.snappy.parquet', 'part-00000-0c6eec8e-cad9-4f40-9795-6bc098d0624c-c000.snappy.parquet']"
+				],
+				"execution_count": 60
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#file marzo\r\n",
+					"file_list = ['part-00000-60d15691-b4dc-4fdb-9deb-388dc0f30c5b-c000.snappy.parquet', 'part-00000-ec3940cb-de25-4b1f-bd03-3a3b4f0510d3-c000.snappy.parquet', 'part-00000-0701493e-756f-414d-b5c0-ddd3e052140f-c000.snappy.parquet', 'part-00000-013f41ad-85a5-40bc-98b4-ab08cae1fb3f-c000.snappy.parquet']"
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql import functions as F\r\n",
+					"from delta.tables import *\r\n",
+					"from pyspark.sql.functions import max\r\n",
+					"from datetime import datetime\r\n",
+					"import pandas as pd\r\n",
+					"from pyspark.sql.types import *\r\n",
+					"import os\r\n",
+					"from azure.storage.blob import ContainerClient"
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_list = [spark.read.format(\"parquet\").load(f\"{sourcefile}{filename}\") for filename in file_list]"
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"union_df = df_list[0]"
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"for index, n in enumerate(df_list):\r\n",
+					"    if index!=0:\r\n",
+					"        union_df = union_df.union(n)\r\n",
+					"    else:\r\n",
+					"        continue"
+				],
+				"execution_count": 10
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(union_df.count())"
+				],
+				"execution_count": 11
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"actualTimeStamp = datetime.now()\r\n",
+					"union_df = union_df.withColumn(\"data_import\",  F.lit(actualTimeStamp))\r\n",
+					"union_df = union_df.withColumn(\"file_import\",  F.lit(\"Caricamento_massivo\"))"
+				],
+				"execution_count": 12
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"union_df = union_df.withColumn(\"data_import\", F.lit(\"data_import\").cast(DateType()))"
+				],
+				"execution_count": 13
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"union_df.write.format(\"delta\").mode(\"append\").saveAsTable(tableName)"
+				],
+				"execution_count": 14
+			}
+		]
+	}
+}

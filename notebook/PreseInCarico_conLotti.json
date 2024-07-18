@@ -1,0 +1,434 @@
+{
+	"name": "PreseInCarico_conLotti",
+	"properties": {
+		"folder": {
+			"name": "Accertamenti"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "093a9631-feff-4553-ac28-da6b133fc6d3"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": true
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"mesediriferimento = \"2024-02\""
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.functions import lit\r\n",
+					"import pandas as pd"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"LinkedServiceName = 'fat_sql'\r\n",
+					"strCnn=mssparkutils.credentials.getFullConnectionString(LinkedServiceName)\r\n",
+					"ServerSql=strCnn.split(';')\r\n",
+					"\r\n",
+					"ServerSql = ServerSql[0].split('url=')[1]\r\n",
+					"DbName = ''\r\n",
+					"if ServerSql.startswith('fat-d'):\r\n",
+					"    DbName = 'fat-sqldb'\r\n",
+					"else:\r\n",
+					"    DbName = 'fat-p-db'\r\n",
+					"\r\n",
+					"DbPort = 1433\r\n",
+					"\r\n",
+					"TablePreseInCarico = 'fat_delta.allpreseincarico_conlotti'"
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"server = ServerSql # 'fat-d-sql.database.windows.net'\r\n",
+					"Port = DbPort\r\n",
+					"Database = DbName # \"fat-sqldb\"\r\n",
+					"jdbcUrl = f\"jdbc:sqlserver://{server}:{Port};databaseName={Database};encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30\"\r\n",
+					"token = TokenLibrary.getConnectionString(LinkedServiceName)\r\n",
+					"#query = \"pfd.MatriceCostiRecapitisti\"\r\n",
+					"\r\n",
+					"#mcr\r\n",
+					"#    LEFT JOIN pfd.Enti e on  e.InternalIstitutionId = mcr.id_recapitista\"\"\"\r\n",
+					"\r\n",
+					"conn_Prop = {\r\n",
+					"    \"driver\": \"com.microsoft.sqlserver.jdbc.SQLServerDriver\",\r\n",
+					"    \"accessToken\": token\r\n",
+					"}"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"query = \"(SELECT * FROM [pfd].[MatriceCostiRecapitisti] ) as tb\"\r\n",
+					"#dfMatriceRecapitisti = \r\n",
+					"spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop).createOrReplaceTempView(\"TmpMatriceRecapitisti\")\r\n",
+					"#display(dfMatriceRecapitisti)"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfPreseInCaricoAsseverazione = spark.sql(\"\"\"\r\n",
+					"WITH sender AS (\r\n",
+					"\tSELECT\r\n",
+					"\t\tdistinct\r\n",
+					"\t\t  internalistitutionid as senderpaid,\r\n",
+					"\t\t  description as senderdenomination\r\n",
+					"\tFROM \r\n",
+					"\t\t\tfat_delta.enti\r\n",
+					"), all_preseincarico_costipassivi_map AS (\r\n",
+					"    SELECT \r\n",
+					"        iun,\r\n",
+					"        paid as id_ente,\r\n",
+					"        notification_cluster as tipologia_notifica,\r\n",
+					"        takenincharge_date as presaincarico_data,\r\n",
+					"        price_paid as prezzo_ente,\r\n",
+					"        paper_productType as analogico_prodotto,\r\n",
+					"        cast(paper_numberOfPages as int) as analogico_totale_pagine,\r\n",
+					"        CASE\r\n",
+					"            WHEN paper_envelopeWeight BETWEEN 1 AND 20 THEN 1\r\n",
+					"            WHEN paper_envelopeWeight BETWEEN 21 AND 50 THEN 21\r\n",
+					"            WHEN paper_envelopeWeight BETWEEN 51 AND 100 THEN 51\r\n",
+					"            WHEN paper_envelopeWeight BETWEEN 101 AND 250 THEN 101\r\n",
+					"            WHEN paper_envelopeWeight BETWEEN 251 AND 350 THEN 251\r\n",
+					"            WHEN paper_envelopeWeight BETWEEN 351 AND 1000 THEN 351\r\n",
+					"            WHEN paper_envelopeWeight BETWEEN 1001 AND 2000 THEN 1001\r\n",
+					"        END as analogico_totale_peso_gr_min,\r\n",
+					"        CASE\r\n",
+					"            WHEN paper_productType in ('RIS', 'RIR') THEN paper_dest_foreignState\r\n",
+					"            ELSE paper_dest_zip\r\n",
+					"        END as analogico_geokey\r\n",
+					"    FROM \r\n",
+					"        fat_delta.preseincarico_raw_test\r\n",
+					"    WHERE\r\n",
+					"        TipologiaFattura = 'ASSEVERAZIONE'\r\n",
+					"), all_preseincarico_costipassivi AS (\r\n",
+					"    SELECT \r\n",
+					"        iun,\r\n",
+					"        id_ente,\r\n",
+					"        presaincarico_data,\r\n",
+					"        tipologia_notifica,\r\n",
+					"        prezzo_ente,\r\n",
+					"        lotto,\r\n",
+					"        recapitista,\r\n",
+					"        CASE tipologia_notifica\r\n",
+					"            WHEN 'ANALOGICO' THEN costo_plico + (analogico_totale_pagine-1)*costo_foglio\r\n",
+					"            ELSE 0\r\n",
+					"        END as costo_consolidatore,\r\n",
+					"        CASE tipologia_notifica\r\n",
+					"            WHEN 'ANALOGICO' THEN (costo + costo_demat)\r\n",
+					"            ELSE 0\r\n",
+					"        END as costo_recapitista\r\n",
+					"    FROM\r\n",
+					"        all_preseincarico_costipassivi_map a\r\n",
+					"    LEFT JOIN TmpMatriceRecapitisti c\r\n",
+					"    ON a.analogico_prodotto=c.product \r\n",
+					"        AND a.analogico_geokey = c.geokey \r\n",
+					"        AND a.analogico_totale_peso_gr_min=c.min\r\n",
+					")\r\n",
+					"SELECT\r\n",
+					"    id_ente,\r\n",
+					"    s.senderdenomination as ente,\r\n",
+					"    presaincarico_data,\r\n",
+					"    tipologia_notifica,\r\n",
+					"    sum(prezzo_ente) as tot_prezzo_ente,\r\n",
+					"    count(*) as tot_notifiche,\r\n",
+					"    lotto,\r\n",
+					"    recapitista,\r\n",
+					"    CAST(sum(costo_consolidatore) as int) as tot_costo_consolidatore,\r\n",
+					"    CAST(sum(costo_recapitista) as int) as tot_costo_recapitista\r\n",
+					"FROM \r\n",
+					"    all_preseincarico_costipassivi JOIN sender s\r\n",
+					"    ON id_ente=s.senderpaid\r\n",
+					"GROUP BY id_ente,\r\n",
+					"    s.senderdenomination,\r\n",
+					"    presaincarico_data,\r\n",
+					"    tipologia_notifica,\r\n",
+					"    lotto,\r\n",
+					"    recapitista\r\n",
+					"\"\"\")#.createOrReplaceTempView(\"all_preseincarico_final_asseverazione\")"
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"dfPreseInCaricoAsseverazione = dfPreseInCaricoAsseverazione.withColumn('FlagAsseverazione', lit(1))\r\n",
+					"#display(dfPreseInCaricoAsseverazione)"
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfPreseInCarico = spark.sql(\"\"\"\r\n",
+					"WITH sender AS (\r\n",
+					"\tSELECT\r\n",
+					"\t\tdistinct\r\n",
+					"\t\t  internalistitutionid as senderpaid,\r\n",
+					"\t\t  description as senderdenomination\r\n",
+					"\tFROM \r\n",
+					"\t\t\tfat_delta.enti\r\n",
+					"), all_preseincarico_costipassivi_map AS (\r\n",
+					"    SELECT \r\n",
+					"        iun,\r\n",
+					"        paid as id_ente,\r\n",
+					"        notification_cluster as tipologia_notifica,\r\n",
+					"        takenincharge_date as presaincarico_data,\r\n",
+					"        price_paid as prezzo_ente,\r\n",
+					"        paper_productType as analogico_prodotto,\r\n",
+					"        cast(paper_numberOfPages as int) as analogico_totale_pagine,\r\n",
+					"        CASE\r\n",
+					"            WHEN paper_envelopeWeight BETWEEN 1 AND 20 THEN 1\r\n",
+					"            WHEN paper_envelopeWeight BETWEEN 21 AND 50 THEN 21\r\n",
+					"            WHEN paper_envelopeWeight BETWEEN 51 AND 100 THEN 51\r\n",
+					"            WHEN paper_envelopeWeight BETWEEN 101 AND 250 THEN 101\r\n",
+					"            WHEN paper_envelopeWeight BETWEEN 251 AND 350 THEN 251\r\n",
+					"            WHEN paper_envelopeWeight BETWEEN 351 AND 1000 THEN 351\r\n",
+					"            WHEN paper_envelopeWeight BETWEEN 1001 AND 2000 THEN 1001\r\n",
+					"        END as analogico_totale_peso_gr_min,\r\n",
+					"        CASE\r\n",
+					"            WHEN paper_productType in ('RIS', 'RIR') THEN paper_dest_foreignState\r\n",
+					"            ELSE paper_dest_zip\r\n",
+					"        END as analogico_geokey\r\n",
+					"    FROM \r\n",
+					"        fat_delta.preseincarico_raw_test\r\n",
+					"    WHERE\r\n",
+					"        TipologiaFattura is NULL\r\n",
+					"), all_preseincarico_costipassivi AS (\r\n",
+					"    SELECT \r\n",
+					"        iun,\r\n",
+					"        id_ente,\r\n",
+					"        presaincarico_data,\r\n",
+					"        tipologia_notifica,\r\n",
+					"        prezzo_ente,\r\n",
+					"        lotto,\r\n",
+					"        recapitista,\r\n",
+					"        CASE tipologia_notifica\r\n",
+					"            WHEN 'ANALOGICO' THEN costo_plico + (analogico_totale_pagine-1)*costo_foglio\r\n",
+					"            ELSE 0\r\n",
+					"        END as costo_consolidatore,\r\n",
+					"        CASE tipologia_notifica\r\n",
+					"            WHEN 'ANALOGICO' THEN (costo + costo_demat)\r\n",
+					"            ELSE 0\r\n",
+					"        END as costo_recapitista\r\n",
+					"    FROM\r\n",
+					"        all_preseincarico_costipassivi_map a\r\n",
+					"    LEFT JOIN TmpMatriceRecapitisti c\r\n",
+					"    ON a.analogico_prodotto=c.product \r\n",
+					"        AND a.analogico_geokey = c.geokey \r\n",
+					"        AND a.analogico_totale_peso_gr_min=c.min\r\n",
+					")\r\n",
+					"SELECT\r\n",
+					"    id_ente,\r\n",
+					"    s.senderdenomination as ente,\r\n",
+					"    presaincarico_data,\r\n",
+					"    tipologia_notifica,\r\n",
+					"    sum(prezzo_ente) as tot_prezzo_ente,\r\n",
+					"    count(*) as tot_notifiche,\r\n",
+					"    lotto,\r\n",
+					"    recapitista,\r\n",
+					"    CAST(sum(costo_consolidatore) as int) as tot_costo_consolidatore,\r\n",
+					"    CAST(sum(costo_recapitista) as int) as tot_costo_recapitista\r\n",
+					"FROM \r\n",
+					"    all_preseincarico_costipassivi JOIN sender s\r\n",
+					"    ON id_ente=s.senderpaid\r\n",
+					"GROUP BY id_ente,\r\n",
+					"    s.senderdenomination,\r\n",
+					"    presaincarico_data,\r\n",
+					"    tipologia_notifica,\r\n",
+					"    lotto,\r\n",
+					"    recapitista\r\n",
+					"\"\"\")"
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"dfPreseInCarico = dfPreseInCarico.withColumn(\"FlagAsseverazione\", lit(0))\r\n",
+					"#display(dfPreseInCarico)"
+				],
+				"execution_count": 10
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\"drop table fat_delta.allpreseincarico_conlotti\")"
+				],
+				"execution_count": 13
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfPreseInCarico.write.format(\"delta\").mode(\"append\").saveAsTable(TablePreseInCarico)\r\n",
+					"dfPreseInCaricoAsseverazione.write.format(\"delta\").mode(\"append\").saveAsTable(TablePreseInCarico)"
+				],
+				"execution_count": 14
+			}
+		]
+	}
+}

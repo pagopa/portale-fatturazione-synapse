@@ -1,0 +1,29 @@
+{
+	"name": "pfstage_ingestSource",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "fat_adls",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"FolderIngestSource": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": {
+					"value": "@dataset().FolderIngestSource",
+					"type": "Expression"
+				},
+				"fileSystem": "raw"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

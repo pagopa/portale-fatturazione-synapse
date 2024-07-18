@@ -1,0 +1,85 @@
+{
+	"name": "REL Primo Saldo",
+	"properties": {
+		"activities": [
+			{
+				"name": "Creazione REL PrimoSaldo",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spUpsertPrimoSaldoRel]",
+					"storedProcedureParameters": {
+						"Recalculate": {
+							"value": {
+								"value": "@pipeline().parameters.Recalculate",
+								"type": "Expression"
+							},
+							"type": "Boolean"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "If Condition1",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Creazione REL PrimoSaldo",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(\n\tsubstring(\n\t\tactivity('Creazione REL PrimoSaldo').error.message,\n\t\tsub(length(activity('Creazione REL PrimoSaldo').error.message),5),\n\t\t5\n\t\t)\n\t,'00100')",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Fail1",
+							"type": "Fail",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"message": {
+									"value": "@activity('Creazione REL PrimoSaldo').error.message",
+									"type": "Expression"
+								},
+								"errorCode": "50000"
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"Recalculate": {
+				"type": "bool",
+				"defaultValue": false
+			}
+		},
+		"variables": {
+			"ErrorMsg": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "ManageREL"
+		},
+		"annotations": []
+	}
+}

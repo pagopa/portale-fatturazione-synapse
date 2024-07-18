@@ -1,0 +1,71 @@
+{
+	"name": "REL Secondo Saldo",
+	"properties": {
+		"activities": [
+			{
+				"name": "Creazione REL Secondo Saldo",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spUpsertSecondoSaldoRel]"
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "If Condition1",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Creazione REL Secondo Saldo",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(\n\tsubstring(\n\t\tactivity('Creazione REL Secondo Saldo').error.message,\n\t\tsub(length(activity('Creazione REL Secondo Saldo').error.message),5),\n\t\t5\n\t\t)\n\t,'00100')",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Fail1",
+							"type": "Fail",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"message": {
+									"value": "@activity('Creazione REL Secondo Saldo').error.message",
+									"type": "Expression"
+								},
+								"errorCode": "100"
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"Recalculate": {
+				"type": "bool",
+				"defaultValue": false
+			}
+		},
+		"folder": {
+			"name": "ManageREL"
+		},
+		"annotations": []
+	}
+}

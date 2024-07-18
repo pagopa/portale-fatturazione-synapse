@@ -1,0 +1,166 @@
+{
+	"name": "FatturaAcconto",
+	"properties": {
+		"activities": [
+			{
+				"name": "spCreazioneFattureAcconto",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spCreazioneFattureAcconto]",
+					"storedProcedureParameters": {
+						"AnnoFatturazione": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoAcconto",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"DataFatturazione": {
+							"value": {
+								"value": "@pipeline().parameters.DataFatturazione",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"MeseFatturazione": {
+							"value": {
+								"value": "@pipeline().parameters.MeseAcconto",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "SendJsonAccontoToSAP",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "OrdinaNumeroRigheAcconto",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "SendJsonToSap",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"AnnoRiferimento": {
+							"value": "@pipeline().parameters.AnnoAcconto",
+							"type": "Expression"
+						},
+						"MeseRiferimento": {
+							"value": "@pipeline().parameters.MeseAcconto",
+							"type": "Expression"
+						},
+						"TipologiaFattura": "ACCONTO"
+					}
+				}
+			},
+			{
+				"name": "OrdinaNumeroRigheAcconto",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "spCreazioneFattureAcconto",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[updateNumLineaFattura]",
+					"storedProcedureParameters": {
+						"AnnoRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoAcconto",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.MeseAcconto",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TipologiaFattura": {
+							"value": "ACCONTO",
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"AnnoAcconto": {
+				"type": "int"
+			},
+			"MeseAcconto": {
+				"type": "int"
+			},
+			"DataFatturazione": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"AnnoRiferimento": {
+				"type": "Integer"
+			},
+			"MeseRiferimento": {
+				"type": "Integer"
+			},
+			"AnnoAcconto": {
+				"type": "Integer"
+			},
+			"MeseAcconto": {
+				"type": "Integer"
+			},
+			"AnnoPrimoSaldo": {
+				"type": "Integer"
+			},
+			"MesePrimoSaldo": {
+				"type": "Integer"
+			}
+		},
+		"folder": {
+			"name": "ManageInvoice"
+		},
+		"annotations": []
+	}
+}

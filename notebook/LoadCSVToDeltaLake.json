@@ -1,0 +1,183 @@
+{
+	"name": "LoadCSVToDeltaLake",
+	"properties": {
+		"folder": {
+			"name": "Ingestion"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "0ebf15b7-72f1-450a-bfac-b8d16f78ece9"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": true
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"#Variables\r\n",
+					"tableNameEnti = 'fat_delta.EntiMappingDevProd'\r\n",
+					"\r\n",
+					"\r\n",
+					"sourcefile = 'abfss://raw@fatddls.dfs.core.windows.net/send/CSV-EntityMapping/Entita-Mapping.csv'\r\n",
+					"parquetSource = 'abfss://raw@fatddls.dfs.core.windows.net/send/CSV-EntityMapping/invoice-timeline/part-00000-5c306a30-d129-40a5-aa8c-81e45204f0c5-c000.snappy.parquet'\r\n",
+					"parquetDestination = 'abfss://raw@fatddls.dfs.core.windows.net/send/CSV-EntityMapping/invoice-timelineconverted/'"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql import functions as F\r\n",
+					"from delta.tables import *\r\n",
+					"from pyspark.sql.functions import max\r\n",
+					"from datetime import datetime\r\n",
+					"\r\n",
+					"\r\n",
+					"dfCSVMapping = spark.read.format(\"CSV\").option(\"delimiter\", \";\").option(\"header\", True).load(sourcefile)\r\n",
+					"#dfCSVMapping.write.format(\"delta\").mode(\"append\").saveAsTable(\"fat_delta.EntiMappingDevProd\")\r\n",
+					"dfCSVMapping.show()"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dFOriginParquet = spark.read.format(\"parquet\").load(parquetSource)\r\n",
+					"dFOriginParquet.printSchema()\r\n",
+					"# Perform join operation"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dFOriginParquet.show()"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"\r\n",
+					"joinedDF = dFOriginParquet.join(dfCSVMapping, dFOriginParquet.paid == dfCSVMapping.InternalIstitutionId)\r\n",
+					"dropedDF = joinedDF.drop(\"InternalIstitutionId\").drop(\"paid\")\r\n",
+					"renamedDF = dropedDF.withColumnRenamed(\"InternalIstitutionId-DEV\",\"paid\")\r\n",
+					"renamedDF.show()\r\n",
+					"\r\n",
+					"\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Write the resulting DataFrame to a new Parquet file\r\n",
+					"#renamedDF.write.format(\"parquet\").mode(\"overwrite\").save(parquetDestination)\r\n",
+					"\r\n",
+					"\r\n",
+					"renamedDF.coalesce(1).write.format(\"parquet\").mode(\"append\").save(parquetDestination)\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": 8
+			}
+		]
+	}
+}

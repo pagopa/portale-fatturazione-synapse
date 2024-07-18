@@ -1,0 +1,263 @@
+{
+	"name": "MatriceRecapitista",
+	"properties": {
+		"activities": [
+			{
+				"name": "MatriceRecapitista",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "ExcelSource",
+						"storeSettings": {
+							"type": "AzureBlobStorageReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						}
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"preCopyScript": "TRUNCATE TABLE [stg].[MatriceRecapitista]",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "CAP",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "CAP",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "Regione",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "Regione",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "Provincia",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "Provincia",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "RS",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "RS",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "RS_AREA",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "RS_AREA",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "RS_lotto",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "RS_lotto",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "RS_recapitista",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "RS_recapitista",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "AR",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "AR",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "AR_AREA",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "AR_AREA",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "AR_lotto",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "AR_lotto",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "AR_Recapitista",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "AR_Recapitista",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "890",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "890",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "890_lotto",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "890_lotto",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "890_Recapista",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "890_Recapista",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							}
+						],
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "MatriceRecapitista_xlsx",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "SqlDatabse",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableSql": "MatriceRecapitista",
+							"SchemaSql": "stg"
+						}
+					}
+				]
+			},
+			{
+				"name": "spLoadMatriceRecapitista",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "MatriceRecapitista",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spLoadMatriceRecapitista]"
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"folder": {
+			"name": "Provisioning"
+		},
+		"annotations": []
+	}
+}

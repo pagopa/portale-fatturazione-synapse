@@ -1,0 +1,359 @@
+{
+	"name": "FatturaAnticipo",
+	"properties": {
+		"activities": [
+			{
+				"name": "spCreazioneFattureAnticipo",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "UpdateTotaleNotificheCategoria",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spCreazioneFattureAnticipo]",
+					"storedProcedureParameters": {
+						"AnnoRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoAnticipo",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.MeseAnticipo",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"DataFatturazione": {
+							"value": {
+								"value": "@pipeline().parameters.DataFatturazione",
+								"type": "Expression"
+							},
+							"type": "Datetime"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "SendJsonAnticipoToSAP",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "OrdinaRigheAnticipo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "SendJsonToSap",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"AnnoRiferimento": {
+							"value": "@pipeline().parameters.AnnoAnticipo",
+							"type": "Expression"
+						},
+						"MeseRiferimento": {
+							"value": "@pipeline().parameters.MeseAnticipo",
+							"type": "Expression"
+						},
+						"TipologiaFattura": "ANTICIPO"
+					}
+				}
+			},
+			{
+				"name": "spAggionaFattureStatus",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "SendJsonAnticipoToSAP",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spAggiornaStatusFattureAnticipo]",
+					"storedProcedureParameters": {
+						"AnnoRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoAnticipo",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.MeseAnticipo",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TipologiaFattura": {
+							"value": "ANTICIPO",
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "OrdinaRigheAnticipo",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "spCreazioneFattureAnticipo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[updateNumLineaFattura]",
+					"storedProcedureParameters": {
+						"AnnoRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoAnticipo",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.MeseAnticipo",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TipologiaFattura": {
+							"value": "ANTICIPO",
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "CalcoloPrevisionale",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "stg.spCalcoloPrevisionale"
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "InsertDatiModuloCommessaPrevisionali",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "CalcoloPrevisionale",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "pfd.spInsertDatiModuloCommessaPrevisionali",
+					"storedProcedureParameters": {
+						"AnnoValidita": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoAnticipo",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseValidita": {
+							"value": {
+								"value": "@pipeline().parameters.MeseAnticipo",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "InsertDatiModuloCommessaTotaliPrevisionali",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "InsertDatiModuloCommessaPrevisionali",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "pfd.spInsertDatiModuloCommessaTotaliPrevisionali",
+					"storedProcedureParameters": {
+						"AnnoValidita": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoAnticipo",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseValidita": {
+							"value": {
+								"value": "@pipeline().parameters.MeseAnticipo",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "UpdateTotaleNotificheCategoria",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "InsertDatiModuloCommessaTotaliPrevisionali",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "pfd.spUpdateTotaleNotificheCategoria"
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"AnnoAnticipo": {
+				"type": "int"
+			},
+			"MeseAnticipo": {
+				"type": "int"
+			},
+			"DataFatturazione": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"AnnoRiferimento": {
+				"type": "Integer"
+			},
+			"MeseRiferimento": {
+				"type": "Integer"
+			},
+			"AnnoAnticipo": {
+				"type": "Integer"
+			},
+			"MeseAnticipo": {
+				"type": "Integer"
+			},
+			"AnnoAcconto": {
+				"type": "Integer"
+			},
+			"MeseAcconto": {
+				"type": "Integer"
+			},
+			"AnnoPrimoSaldo": {
+				"type": "Integer"
+			},
+			"MesePrimoSaldo": {
+				"type": "Integer"
+			}
+		},
+		"folder": {
+			"name": "ManageInvoice"
+		},
+		"annotations": []
+	}
+}
