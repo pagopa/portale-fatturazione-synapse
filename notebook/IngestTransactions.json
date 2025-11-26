@@ -1,0 +1,291 @@
+{
+	"name": "IngestTransactions",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/IngestRaw"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "2d3760ce-bd81-44dc-b0f6-8510b8d01d4d"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Parametri"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"tableName = 'pagopa.transaction_raw'\r\n",
+					"sourcefile = 'abfss://raw@fatpdls.dfs.core.windows.net/pagopa_raw/gold_invoicing_payments/2025/03/21'"
+				],
+				"execution_count": 19
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql import functions as F\r\n",
+					"from pyspark.sql.functions import col, lit\r\n",
+					"from pyspark.sql.types import IntegerType, StructType, StructField, StringType, LongType, TimestampType, BooleanType\r\n",
+					"from delta.tables import *\r\n",
+					"from datetime import datetime,date,timedelta"
+				],
+				"execution_count": 20
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfTransactionTable = DeltaTable.forName(spark, tableName)\r\n",
+					"columns = dfTransactionTable.toDF().schema.fieldNames()"
+				],
+				"execution_count": 27
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Define the schema\r\n",
+					"schema = StructType([\r\n",
+					"    StructField(\"payment_id\", StringType(), True),\r\n",
+					"    StructField(\"iuv\", StringType(), True),\r\n",
+					"    StructField(\"psp_id\", StringType(), True),\r\n",
+					"    StructField(\"psp_name\", StringType(), True),\r\n",
+					"    StructField(\"psp_channel_id\", StringType(), True),\r\n",
+					"    StructField(\"total_amount\", LongType(), True),\r\n",
+					"    StructField(\"payment_date_time\", TimestampType(), True),\r\n",
+					"    StructField(\"sorgente\", StringType(), True),\r\n",
+					"    StructField(\"isPosFisico\", BooleanType(), True),\r\n",
+					"    StructField(\"year\", StringType(), True),\r\n",
+					"    StructField(\"month\", StringType(), True),\r\n",
+					"    StructField(\"daily\", StringType(), True),\r\n",
+					"    StructField(\"dl_processed_tms\", IntegerType(), True),\r\n",
+					"    StructField(\"client_id\", StringType(), True),\r\n",
+					"    StructField(\"pa_fiscal_code\", StringType(), True),\r\n",
+					"    StructField(\"partner_station\", StringType(), True),\r\n",
+					"])"
+				],
+				"execution_count": 22
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfNewFile = spark.read.format(\"parquet\").schema(schema).load(sourcefile)\r\n",
+					"\r\n",
+					"actualTimeStamp = datetime.now()\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"LastModified\",  F.lit(actualTimeStamp))\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"SourceFile\",  F.lit(sourcefile))"
+				],
+				"execution_count": 23
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"latest_timestamp = dfNewFile.select(F.max(\"dl_processed_tms\")).collect()[0][0]\r\n",
+					"dfNewFile = dfNewFile.where(f\"dl_processed_tms = {latest_timestamp}\")"
+				],
+				"execution_count": 24
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_transactions = dfNewFile\\\r\n",
+					"    .withColumn(\"processed_timestamp\", F.to_timestamp(col(\"daily\"), \"yyyyMMdd\"))\\\r\n",
+					"    .withColumn(\"quarter\", F.quarter(col(\"processed_timestamp\")))\\\r\n",
+					"    .withColumn(\"month\", F.substring(\"daily\", 1, 6).cast(\"int\"))\\\r\n",
+					"    .withColumn(\"year\", F.year(col(\"processed_timestamp\")))\\\r\n",
+					"    .withColumn(\"year_quarter\", F.concat(col(\"year\"), lit(\"_\"), col(\"quarter\")))\\\r\n",
+					"    .withColumn(\"giorno\", F.date_format(col(\"payment_date_time\"), \"yyyyMMdd\"))"
+				],
+				"execution_count": 17
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# mergedDfTrx = dfTransactionTable.alias(\"target\").merge(\r\n",
+					"#     df_transactions.alias(\"source\"),\r\n",
+					"#     \"target.payment_id = source.payment_id\"\r\n",
+					"# ).whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()"
+				],
+				"execution_count": 35
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false
+					}
+				},
+				"source": [
+					"update_dict = {c: col(f\"source.{c}\") for c in columns}\r\n",
+					"\r\n",
+					"dfTransactionTable.alias(\"target\").merge(\r\n",
+					"    df_transactions.alias(\"source\"),\r\n",
+					"    \"target.payment_id = source.payment_id\"\r\n",
+					").whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()"
+				],
+				"execution_count": 134
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#df_transactions.write.format(\"delta\").mode(\"append\").saveAsTable(tableName)"
+				],
+				"execution_count": 29
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"# -- %%sql\r\n",
+					"# -- ALTER TABLE pagopa.transaction_raw\r\n",
+					"# -- ADD COLUMNS (pa_fiscal_code varchar(8000), partner_station varchar(8000));"
+				],
+				"execution_count": 19
+			}
+		]
+	}
+}

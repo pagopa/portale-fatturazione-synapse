@@ -1,0 +1,42 @@
+{
+	"name": "ModuloCommessa",
+	"properties": {
+		"activities": [
+			{
+				"name": "nbModuloCommessa",
+				"type": "SynapseNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "ModuliCommessa_giornaliero",
+						"type": "NotebookReference"
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": false
+					},
+					"driverSize": "Small"
+				}
+			}
+		],
+		"folder": {
+			"name": "CRM"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-03-20T15:42:47Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

@@ -1,0 +1,124 @@
+{
+	"name": "00_MainREL",
+	"properties": {
+		"activities": [
+			{
+				"name": "GetRelToDo",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Set Today",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT [MeseContestazione]\n      ,[AnnoContestazione]\n\t  ,''PRIMO SALDO'' as Tipo\nFROM [pfw].[ContestazioniCalendario]\nWHERE DataCalcoloPrimoSecondo = ''',variables('TodayDate'),'''\nUNION \nSELECT [MeseContestazione]\n      ,[AnnoContestazione]\n\t  ,''SECONDO SALDO'' as Tipo\nFROM [pfw].[ContestazioniCalendario]\nWHERE DataVerifica = ''',variables('TodayDate'), '''\n UNION \n SELECT \n      MeseRel as MeseContestazione\n      ,AnnoRel as AnnoContestazione\n      ,''VAR. SEMESTRALE'' as Tipo\nFROM cfg.CalendarioVarSemestrale      \nWHERE DataEsecuzione = ''', variables('TodayDate'),'''')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "SqlDatabse",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableSql": " ",
+							"SchemaSql": " "
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Set Today",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "TodayDate",
+					"value": {
+						"value": "@utcNow('yyyy-MM-dd')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "GetRelToDo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('GetRelToDo').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"activities": [
+						{
+							"name": "ManageRel",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "ManageRel",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"TipoRel": {
+										"value": "@item().Tipo",
+										"type": "Expression"
+									},
+									"MeseCompetenza": {
+										"value": "@item().MeseContestazione",
+										"type": "Expression"
+									},
+									"AnnoCompetenza": {
+										"value": "@item().AnnoContestazione",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"variables": {
+			"TodayDate": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-01-16T13:55:40Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

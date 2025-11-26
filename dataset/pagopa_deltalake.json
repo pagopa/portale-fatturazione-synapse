@@ -1,0 +1,16 @@
+{
+	"name": "pagopa_deltalake",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "fat_delta",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"DBName": "pagopa"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlDWTable",
+		"schema": []
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

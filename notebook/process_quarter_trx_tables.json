@@ -1,0 +1,569 @@
+{
+	"name": "process_quarter_trx_tables",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/quarter_trx"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "da23c4cc-e4c4-4acc-abc6-07642e1aa16a"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Write transactions and contracts data into Delta tables"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"#Attivazione modalità \"dynamic\" per la scrittura delle partizioni\r\n",
+					"spark.conf.set(\"spark.sql.sources.partitionOverwriteMode\", \"dynamic\")"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.types import StructType, StructField, IntegerType\r\n",
+					"from datetime import date, timedelta, datetime\r\n",
+					"from pyspark.sql.functions import *\r\n",
+					"from py4j.protocol import Py4JJavaError\r\n",
+					"import pandas as pd"
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Reference time indicators\r\n",
+					"\r\n",
+					"In this section, the invoce period is set.\\\r\n",
+					"The reference date is 5 days before the current date.\\\r\n",
+					"The current date is by default the day on which the job runs.\\\r\n",
+					"However, this can be overwritten by uncommenting the next cell of code and inserting the year, month, and day of choice."
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"today_date = '2024-12-23'\r\n",
+					"import_trimestrale = False"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"date_format = \"%Y-%m-%d\"\r\n",
+					"\r\n",
+					"current_date = datetime.strptime(today_date, date_format)\r\n",
+					"\r\n",
+					"if import_trimestrale is True:\r\n",
+					"    reference_date = current_date - timedelta(10)\r\n",
+					"else:\r\n",
+					"    reference_date = current_date - timedelta(1)\r\n",
+					"\r\n",
+					"# Define time variables\r\n",
+					"current_year_month = str(current_date.year) + str(current_date.month).zfill(2)\r\n",
+					"reference_quarter = ((reference_date.month - 1) // 3 + 1)\r\n",
+					"reference_year = reference_date.year\r\n",
+					"reference_year_quarter = str(reference_year) + \"_\" + str(reference_quarter)\r\n",
+					"\r\n",
+					"print(f\"Import Trimestrale: {import_trimestrale}\\nCurrent year_month: {current_year_month}\\nReference year_quarter: {reference_year_quarter}\")"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"latest_contracts_year_month = spark.sql(\"\"\"with months as (SELECT DISTINCT year_month FROM pagopa.contracts_raw order by year_month DESC)\r\n",
+					"                     SELECT MAX(year_month) FROM months\"\"\").collect()[0][0]"
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"if int(current_year_month) > latest_contracts_year_month:\r\n",
+					"    current_year_month = latest_contracts_year_month"
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"%run PagoPA/quarter_trx/process_quarter_trx_common"
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#function call to the external notebook\r\n",
+					"df_trx_join_contracts, df_trx_contracts = join_trx_contracts(current_year_month, reference_year, reference_quarter)\r\n",
+					"#Create temp views\r\n",
+					"df_trx_join_contracts.createOrReplaceTempView(\"trx_join_contracts\")\r\n",
+					"df_trx_contracts.createOrReplaceTempView(\"trx_contracts\")"
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# trx without contract"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#verificare le altre colonne con il mapping\r\n",
+					"\r\n",
+					"df_trx_without_contract = spark.sql(f'''\r\n",
+					"SELECT \r\n",
+					"    count(*) AS transactions, \r\n",
+					"    year, \r\n",
+					"    quarter, \r\n",
+					"    psp_id, \r\n",
+					"    psp_name, \r\n",
+					"    psp_channel_id AS identificativo_canale, --nella tabella siapositive_tran è identificativo_canale\r\n",
+					"    membership_id,\r\n",
+					"    year_quarter\r\n",
+					"FROM trx_join_contracts \r\n",
+					"WHERE membership_id is NULL\r\n",
+					"GROUP BY year, quarter, psp_id, psp_name, psp_channel_id, membership_id, year_quarter\r\n",
+					"''')"
+				],
+				"execution_count": 10
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Insert NULL row if the dataframe is empty in order to overwrite the partition\r\n",
+					"if df_trx_without_contract.isEmpty():\r\n",
+					"    # Get the schema of df_trx_without_contract\r\n",
+					"    schema = df_trx_without_contract.schema\r\n",
+					"    # Create a row with all null values except for transactions(=0) and year_quarter(=reference_year_quarter)\r\n",
+					"    row_data = [0] + ([None] * (len(schema.fields) - 2)) + [reference_year_quarter]\r\n",
+					"    new_row = spark.createDataFrame([tuple(row_data)], schema)\r\n",
+					"    # Add null row to df_trx_without_contract\r\n",
+					"    df_trx_without_contract = df_trx_without_contract.union(new_row)"
+				],
+				"execution_count": 11
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Trx Quarter"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# df_trx_quarter = spark.sql(f'''\r\n",
+					"# SELECT \r\n",
+					"#     year, \r\n",
+					"#     quarter, \r\n",
+					"#     month, \r\n",
+					"#     abi, \r\n",
+					"#     category,\r\n",
+					"#     recipient_id,\r\n",
+					"#     contract_type,\r\n",
+					"#     provider_id,\r\n",
+					"#     count(*) AS n_transactions,\r\n",
+					"#     psp_id, --nella tabella siapositive_tran è cf_psp\r\n",
+					"#     psp_name , --nella tabella siapositive_tran è psp\r\n",
+					"#     year_quarter\r\n",
+					"# FROM trx_contracts\r\n",
+					"# GROUP BY year, quarter, month, abi, category, recipient_id, contract_type, provider_id, psp_id, psp_name, year_quarter\r\n",
+					"# ''')"
+				],
+				"execution_count": 12
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_trx_quarter = spark.sql(f'''\r\n",
+					"SELECT \r\n",
+					"    year, \r\n",
+					"    quarter, \r\n",
+					"    month,\r\n",
+					"    abi, \r\n",
+					"    category,\r\n",
+					"    recipient_id,\r\n",
+					"    contract_type,\r\n",
+					"    provider_id,\r\n",
+					"    count(*) AS n_transactions,\r\n",
+					"    psp_id,\r\n",
+					"    psp_unique_name as psp_name,\r\n",
+					"    year_quarter\r\n",
+					"    FROM (select *, FIRST(psp_name, TRUE) OVER(partition by psp_id) as psp_unique_name from trx_contracts)\r\n",
+					"GROUP BY year, quarter, month, abi, category, recipient_id, contract_type, provider_id, psp_id, psp_unique_name, year_quarter\r\n",
+					"''')"
+				],
+				"execution_count": 13
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# trx_without_contract to Delta Lake"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"partition_key = \"year_quarter\"\r\n",
+					"table = \"pagopa.trx_without_contract\"\r\n",
+					"\r\n",
+					"df_trx_without_contract\\\r\n",
+					"    .repartition(partition_key)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .format(\"delta\")\\\r\n",
+					"    .partitionBy(partition_key)\\\r\n",
+					"    .saveAsTable(table)"
+				],
+				"execution_count": 27
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#### trx_without_contract to history table"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"%run /quarter_trx_tables_history"
+				],
+				"execution_count": 75
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"add_to_history_table(df_trx_without_contract, table, today_date)"
+				],
+				"execution_count": 77
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# trx_quarter to Delta Lake"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"partition_key = \"year_quarter\"\r\n",
+					"table = \"pagopa.trx_quarter\"\r\n",
+					"\r\n",
+					"df_trx_quarter\\\r\n",
+					"    .repartition(partition_key)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .format(\"delta\")\\\r\n",
+					"    .partitionBy(partition_key)\\\r\n",
+					"    .saveAsTable(table)"
+				],
+				"execution_count": 56
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#### trx_without_contract to history table"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"add_to_history_table(df_trx_quarter, table, today_date)"
+				],
+				"execution_count": 79
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"mssparkutils.notebook.exit(f\"{current_year_month},{reference_year_quarter}\")"
+				],
+				"execution_count": 68
+			}
+		]
+	}
+}

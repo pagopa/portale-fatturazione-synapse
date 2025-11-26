@@ -1,0 +1,269 @@
+{
+	"name": "CopyToFatPublic",
+	"properties": {
+		"activities": [
+			{
+				"name": "GetTableFolders",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "fat_binaryFile",
+						"type": "DatasetReference",
+						"parameters": {
+							"tableName": " ",
+							"containerName": {
+								"value": "@pipeline().parameters.containerName",
+								"type": "Expression"
+							},
+							"floderName": {
+								"value": "@pipeline().parameters.folderName",
+								"type": "Expression"
+							}
+						}
+					},
+					"fieldList": [
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "AzureBlobFSReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "BinaryReadSettings"
+					}
+				}
+			},
+			{
+				"name": "ForEachTable",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "getFolders",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('getFolders').output.Value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "getFileData",
+							"type": "GetMetadata",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "fat_binaryFile",
+									"type": "DatasetReference",
+									"parameters": {
+										"tableName": " ",
+										"containerName": "@pipeline().parameters.containerName",
+										"floderName": {
+											"value": "@concat(pipeline().parameters.folderName,'/',item().Name)",
+											"type": "Expression"
+										}
+									}
+								},
+								"fieldList": [
+									"childItems",
+									"itemName",
+									"itemType"
+								],
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "BinaryReadSettings"
+								}
+							}
+						},
+						{
+							"name": "If Condition1",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "FilterCSV",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(activity('FilterCSV').output.FilteredItemsCount,1)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "copyToPublicStorage",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 3,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "BinarySource",
+												"storeSettings": {
+													"type": "AzureBlobFSReadSettings",
+													"recursive": true,
+													"wildcardFolderPath": {
+														"value": "@concat(pipeline().parameters.folderName,'/',item().name)",
+														"type": "Expression"
+													},
+													"wildcardFileName": {
+														"value": "@pipeline().parameters.wildcard",
+														"type": "Expression"
+													},
+													"deleteFilesAfterCompletion": false
+												},
+												"formatSettings": {
+													"type": "BinaryReadSettings"
+												}
+											},
+											"sink": {
+												"type": "BinarySink",
+												"storeSettings": {
+													"type": "AzureBlobStorageWriteSettings",
+													"copyBehavior": "PreserveHierarchy"
+												}
+											},
+											"enableStaging": false
+										},
+										"inputs": [
+											{
+												"referenceName": "fat_binaryFile",
+												"type": "DatasetReference",
+												"parameters": {
+													"tableName": {
+														"value": "@item().name",
+														"type": "Expression"
+													},
+													"containerName": {
+														"value": "@pipeline().parameters.containerName",
+														"type": "Expression"
+													},
+													"floderName": {
+														"value": "@pipeline().parameters.folderName",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "fatpublic_binary",
+												"type": "DatasetReference",
+												"parameters": {
+													"foldername": "@item().name"
+												}
+											}
+										]
+									}
+								]
+							}
+						},
+						{
+							"name": "FilterCSV",
+							"type": "Filter",
+							"dependsOn": [
+								{
+									"activity": "getFileData",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"items": {
+									"value": "@activity('getFileData').output.childItems",
+									"type": "Expression"
+								},
+								"condition": {
+									"value": "@endswith(item().name,pipeline().parameters.wildcard)",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "getFolders",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "GetTableFolders",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('GetTableFolders').output.childItems",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@equals(item().type,'Folder')",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"tableName": {
+				"type": "string"
+			},
+			"containerName": {
+				"type": "string",
+				"defaultValue": "pagopa"
+			},
+			"folderName": {
+				"type": "string",
+				"defaultValue": "invoices"
+			},
+			"wildcard": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "PagoPA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-01-30T13:36:15Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

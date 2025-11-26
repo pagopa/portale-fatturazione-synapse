@@ -1,0 +1,283 @@
+{
+	"name": "process_quarter_inv_reports",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/quarter_invoice"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "0c42ff81-4929-4d4c-9685-51a5f4dea4bf"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net",
+					"authHeader": null
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Process Quarter Invoice Reports"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from datetime import datetime, date, timedelta\r\n",
+					"from time import time"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"current_year_month = '202412'\r\n",
+					"reference_year_quarter = '2024_4'\r\n",
+					"container_path = ''"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"reference_year = reference_year_quarter[:4]\r\n",
+					"reference_quarter = reference_year_quarter[5:]\r\n",
+					"\r\n",
+					"print(f\"Current year_month: {current_year_month}\\nReference year_quarter: {reference_year_quarter}\")"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### KPMG Report to csv"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_kpmg_report = spark.sql(f\"select * from pagopa.kpmg_import where year_quarter = '{reference_year_quarter}'\")\r\n",
+					"\r\n",
+					"#df_kpmg_report = df_kpmg_report.drop(\"year_quarter\")"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"path = f'{container_path}/KPMG_report/{reference_year_quarter}/'\r\n",
+					"\r\n",
+					"df_kpmg_report\\\r\n",
+					"    .coalesce(1)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .option(\"header\",\"true\")\\\r\n",
+					"    .csv(path)"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"filename = str(reference_year) + \"-q\" + str(reference_quarter) + \"-kpmg-import.csv\"\r\n",
+					"\r\n",
+					"for file in mssparkutils.fs.ls(path):\r\n",
+					"    if file.name == '_SUCCESS':\r\n",
+					"        mssparkutils.fs.rm(file.path)\r\n",
+					"    else:\r\n",
+					"        mssparkutils.fs.mv(file.path, path+filename)"
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Financial Report to csv"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_financial_report = spark.sql(f\"select * from pagopa.financial_report where year_quarter = '{reference_year_quarter}'\")\r\n",
+					"\r\n",
+					"#df_financial_report = df_financial_report.drop(\"year_quarter\")"
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"path = f'{container_path}/FinancialReport/{reference_year_quarter}/'\r\n",
+					"\r\n",
+					"df_financial_report\\\r\n",
+					"    .coalesce(1)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .option(\"header\",\"true\")\\\r\n",
+					"    .csv(path)"
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"filename = str(reference_year) + \"-q\" + str(reference_quarter) + \"-financial-report.csv\"\r\n",
+					"\r\n",
+					"for file in mssparkutils.fs.ls(path):\r\n",
+					"    if file.name == '_SUCCESS':\r\n",
+					"        mssparkutils.fs.rm(file.path)\r\n",
+					"    else:\r\n",
+					"        mssparkutils.fs.mv(file.path, path+filename)"
+				],
+				"execution_count": 10
+			}
+		]
+	}
+}

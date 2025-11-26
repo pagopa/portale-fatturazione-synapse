@@ -1,0 +1,302 @@
+{
+	"name": "Process_quarter_invoices",
+	"properties": {
+		"activities": [
+			{
+				"name": "quarter_inv_tables",
+				"type": "SynapseNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "process_quarter_inv_tables",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"reference_year_quarter": {
+							"value": {
+								"value": "@pipeline().parameters.year_quarter",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"current_year_month": {
+							"value": {
+								"value": "@pipeline().parameters.year_month",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"import_trimestrale": {
+							"value": {
+								"value": "@pipeline().parameters.import_trimestrale",
+								"type": "Expression"
+							},
+							"type": "bool"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": true
+					},
+					"driverSize": "Small"
+				}
+			},
+			{
+				"name": "quarter_inv_reports",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "quarter_inv_tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "process_quarter_inv_reports",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"reference_year_quarter": {
+							"value": {
+								"value": "@pipeline().parameters.year_quarter",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"container_path": {
+							"value": {
+								"value": "@pipeline().parameters.container_path",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"current_year_month": {
+							"value": {
+								"value": "@pipeline().parameters.year_month",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": true
+					},
+					"driverSize": "Small"
+				}
+			},
+			{
+				"name": "quarter_inv_dashboard",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "quarter_inv_reports",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "process_quarter_inv_dashboard",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"reference_year_quarter": {
+							"value": {
+								"value": "@pipeline().parameters.year_quarter",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"container_path": {
+							"value": {
+								"value": "@pipeline().parameters.container_path",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"current_year_month": {
+							"value": {
+								"value": "@pipeline().parameters.year_month",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": true
+					},
+					"driverSize": "Small"
+				}
+			},
+			{
+				"name": "ContractsToSql",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "quarter_inv_dashboard",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "DeltaToSQL",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TabToExport": "contracts_raw",
+						"MonthFilter": {
+							"value": "@pipeline().parameters.year_month",
+							"type": "Expression"
+						},
+						"QuarterFilter": {
+							"value": "@pipeline().parameters.year_quarter",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "KPMGToSql",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "quarter_inv_dashboard",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "DeltaToSQL",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TabToExport": "kpmg_import",
+						"QuarterFilter": {
+							"value": "@pipeline().parameters.year_quarter",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "FinancialReportToSql",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "quarter_inv_dashboard",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "DeltaToSQL",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TabToExport": "financial_report",
+						"QuarterFilter": {
+							"value": "@pipeline().parameters.year_quarter",
+							"type": "Expression"
+						}
+					}
+				}
+			}
+		],
+		"parameters": {
+			"year_quarter": {
+				"type": "string"
+			},
+			"container_path": {
+				"type": "string"
+			},
+			"year_month": {
+				"type": "string"
+			},
+			"import_trimestrale": {
+				"type": "bool"
+			}
+		},
+		"variables": {
+			"ContainerPath": {
+				"type": "String"
+			},
+			"year_month": {
+				"type": "String"
+			},
+			"year_quarter": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "PagoPA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-02-24T09:15:56Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

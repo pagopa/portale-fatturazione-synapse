@@ -1,0 +1,1323 @@
+{
+	"name": "process_quarter_invoice",
+	"properties": {
+		"folder": {
+			"name": "CESTINO"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "f659e23e-ec76-4c0d-a767-06bc396fec9e"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"language_info": {
+				"name": "python"
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"spark.conf.set(\"spark.sql.sources.partitionOverwriteMode\", \"dynamic\")"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.types import StructType, StructField, IntegerType, ArrayType, DoubleType, FloatType, StringType #TimestampType \r\n",
+					"from pyspark.sql.functions import *\r\n",
+					"from pyspark.sql import Window\r\n",
+					"from datetime import datetime, date, timedelta\r\n",
+					"import pytz\r\n",
+					"import jsonschema\r\n",
+					"from time import time\r\n",
+					"from math import floor\r\n",
+					"import json"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"def evaluateAmount(trx):\r\n",
+					"    dictFasce = {\r\n",
+					"        0:[0,1500000],\r\n",
+					"        1:[1500000,4500000],\r\n",
+					"        2:[4500000,9000000],\r\n",
+					"        3:[9000000,14500000],\r\n",
+					"        4:[14500000,23500000],\r\n",
+					"        5:[23500000,38500000],\r\n",
+					"        6:[38500000,62000000],\r\n",
+					"        7:[62000000,100000000]\r\n",
+					"    }\r\n",
+					"    leftTrx = trx\r\n",
+					"    trxFasce =[]\r\n",
+					"    for f in range(0,8):\r\n",
+					"        #if math.floor(trx/dictFasce[f][1]):\r\n",
+					"        if trx > dictFasce[f][1]:\r\n",
+					"            trxInFascia = dictFasce[f][1]-dictFasce[f][0]\r\n",
+					"        else:\r\n",
+					"            trxInFascia = leftTrx\r\n",
+					"    \r\n",
+					"        trxFasce.append(trxInFascia)\r\n",
+					"        leftTrx = leftTrx - trxInFascia\r\n",
+					"  \r\n",
+					"    trxFasce.append(leftTrx)\r\n",
+					"    return trxFasce\r\n",
+					"\r\n",
+					"def Diff(arr1,arr2):\r\n",
+					"    res=[]\r\n",
+					"    for e in arr1:\r\n",
+					"        res.append(e-arr2[arr1.index(e)])\r\n",
+					"    return res\r\n",
+					"    \r\n",
+					"def MyevaluateCurrentBasket(current_trx,previous_trx):\r\n",
+					"    total_basket= evaluateAmount(float(current_trx+previous_trx))\r\n",
+					"    previous_basket = evaluateAmount(previous_trx)\r\n",
+					"    return Diff(total_basket,previous_basket)\r\n",
+					"    # return total_basket\r\n",
+					"    \r\n",
+					"def _groupTrxValue(trx,fasciaIdx):\r\n",
+					"    fascia_value=[0.0850,0.0723,0.0679,0.0638,0.0575,0.0563,0.0552,0.0541,0.0530]\r\n",
+					"    return float(trx) * fascia_value[fasciaIdx]\r\n",
+					"\r\n",
+					"def _b1TrxValue(trx):\r\n",
+					"    return float(trx) * 0.04\r\n",
+					"\r\n",
+					"def _b2TrxValue(trx):\r\n",
+					"    return float(trx) * 0.04\r\n",
+					"\r\n",
+					"def _a1TrxValue(trx):\r\n",
+					"    return float(trx) * 0.025\r\n",
+					"\r\n",
+					"def _new_basketValue(trx,basketId):\r\n",
+					"    fascia_value=[0.0850,0.0723,0.0679,0.0638,0.0575,0.0563,0.0552,0.0541,0.0530]\r\n",
+					"    return trx * fascia_value[basketId]\r\n",
+					"\r\n",
+					"def MycodiceArticolo(category,x):\r\n",
+					"    group_choices= {\r\n",
+					"        0:\"A.1\",\r\n",
+					"        1:\"A.2\",\r\n",
+					"        2:\"A.3\",\r\n",
+					"        3:\"A.4\",\r\n",
+					"        4:\"A.5\",\r\n",
+					"        5:\"A.6\",\r\n",
+					"        6:\"A.7\",\r\n",
+					"        7:\"A.8\",\r\n",
+					"        8:\"A.9\"\r\n",
+					"    }\r\n",
+					"    category_choices = {\r\n",
+					"        \"A1\":\"B.3\",\r\n",
+					"        \"B1\":\"B.1\",\r\n",
+					"        \"B2\":\"B.2\"\r\n",
+					"    }\r\n",
+					"    if ( category.startswith (\"G\") ) :\r\n",
+					"        result = group_choices.get(x,\"A.9\")\r\n",
+					"    else:\r\n",
+					"        result = category_choices.get(category)\r\n",
+					"    return result\r\n",
+					"\r\n",
+					"def MynumeroFattura(abi):\r\n",
+					"    return abi +\"-Q\"+str(reference_quarter)+\"-\"+str(reference_year)\r\n",
+					"\r\n",
+					"# UDFs\r\n",
+					"\r\n",
+					"numeroFattura = udf(MynumeroFattura,StringType())\r\n",
+					"evaluateCurrentBasket = udf(MyevaluateCurrentBasket, ArrayType(DoubleType()))  \r\n",
+					"b1TrxValue = udf(_b1TrxValue,FloatType())\r\n",
+					"b2TrxValue = udf(_b2TrxValue,FloatType())\r\n",
+					"a1TrxValue = udf(_a1TrxValue,FloatType())\r\n",
+					"groupTrxValue = udf(_groupTrxValue,FloatType())\r\n",
+					"new_basketValue = udf(_new_basketValue,FloatType())\r\n",
+					"codiceArticolo = udf(MycodiceArticolo, StringType())  "
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Reference time indicators\r\n",
+					"\r\n",
+					"In this section, the invoce period is set.\\\r\n",
+					"The reference date is 5 days before the current date.\\\r\n",
+					"The current date is by default the day on which the job runs.\\\r\n",
+					"However, this can be overwritten by uncommenting the next cell of code and inserting the year, month, and day of choice."
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#manual_date = date(yyyy, m, d)"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Set condition\r\n",
+					"if \"manual_date\" in locals():\r\n",
+					"    current_date = manual_date\r\n",
+					"else: \r\n",
+					"    current_date = date.today()\r\n",
+					"\r\n",
+					"# Define time variables\r\n",
+					"current_year_month = str(current_date.year) + str(current_date.month).zfill(2)\r\n",
+					"reference_date = current_date - timedelta(5)\r\n",
+					"reference_quarter = ((reference_date.month - 1) // 3 + 1)\r\n",
+					"reference_year = reference_date.year\r\n",
+					"reference_year_quarter = str(reference_year) + \"_\" + str(reference_quarter)\r\n",
+					"\r\n",
+					"print(\r\n",
+					"    \"Current_date:\", current_date,\r\n",
+					"    \"\\nReference date:\", reference_date,\r\n",
+					"    \"\\nReference year:\", reference_year,\r\n",
+					"    \"\\nReference quarter:\", reference_quarter,\r\n",
+					")"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#temp\r\n",
+					"reference_year = 2024\r\n",
+					"reference_quarter = 3\r\n",
+					"current_year_month = 2024_10\r\n",
+					"current_date = date.today()\r\n",
+					"reference_date = current_date - timedelta(5)\r\n",
+					"reference_year_quarter = str(reference_year) + \"_\" + str(reference_quarter)"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Read contracts_crm\r\n",
+					"df_contracts_current = spark.sql(f'''\r\n",
+					"    SELECT\r\n",
+					"        contract_id,\r\n",
+					"        document_name,\r\n",
+					"        provider_names,\r\n",
+					"        signed_date,\r\n",
+					"        contract_type,\r\n",
+					"        name,\r\n",
+					"        abi,\r\n",
+					"        tax_code,\r\n",
+					"        vat_code,\r\n",
+					"        vat_group,\r\n",
+					"        pec_mail,\r\n",
+					"        courtesy_mail,\r\n",
+					"        referentefattura_mail,\r\n",
+					"        sdd,\r\n",
+					"        sdi_code,\r\n",
+					"        membership_id,\r\n",
+					"        recipient_id,\r\n",
+					"        year_month\r\n",
+					"    FROM fat_delta.contracts_raw\r\n",
+					"    WHERE year_month = {current_year_month}\r\n",
+					"''')\r\n",
+					"\r\n",
+					"# cast fields (\"vat_group\" and \"sdd\") as boolean\r\n",
+					"# create field \"is_sdd\" and add zeros to \"abi\" code\r\n",
+					"df_contracts = df_contracts_current\\\r\n",
+					"    .withColumn(\"vat_group\", col(\"vat_group\").cast(\"double\").cast(\"boolean\"))\\\r\n",
+					"    .withColumn(\"sdd\", col(\"sdd\").cast(\"boolean\"))\\\r\n",
+					"    .withColumn(\"abi\", lpad(col(\"abi\"), 5, \"0\"))\r\n",
+					"\r\n",
+					"# check for null values in sdd field\r\n",
+					"if df_contracts.where(\"sdd is null\").count() != 0:\r\n",
+					"    raise Exception(\"Sdd has null values\")\r\n",
+					"    \r\n",
+					"# list of contract ids with SDD enabled\r\n",
+					"sdd_list = df_contracts.filter(col(\"sdd\") == True).select(\"contract_id\").collect() #REMINDER collect potrebbe far esplodere il cluster\r\n",
+					"sdd_l = []\r\n",
+					"for l in sdd_list:\r\n",
+					"    sdd_l.append(l.contract_id)"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Read all transactions of the year\r\n",
+					"df_all_correct_transactions = spark.sql(f'''\r\n",
+					"    SELECT \r\n",
+					"        year,\r\n",
+					"        quarter,\r\n",
+					"        month,\r\n",
+					"        abi,\r\n",
+					"        category,\r\n",
+					"        recipient_id,\r\n",
+					"        contract_type,\r\n",
+					"        provider_id,\r\n",
+					"        CAST(n_transactions AS STRING),\r\n",
+					"        cf_psp,\r\n",
+					"        psp,\r\n",
+					"        year_quarter\r\n",
+					"    FROM trx_quarter\r\n",
+					"    WHERE year = {reference_year}\r\n",
+					"''')"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# # Get all transactions to be corrected\r\n",
+					"df_transactions_correction = spark.sql(f'''\r\n",
+					"    SELECT \r\n",
+					"        year_quarter,\r\n",
+					"        year,\r\n",
+					"        quarter,\r\n",
+					"        month,\r\n",
+					"        abi,\r\n",
+					"        category,\r\n",
+					"        recipient_id,\r\n",
+					"        contract_type,\r\n",
+					"        provider_id,\r\n",
+					"        (n_transactions * correction) AS n_transactions,\r\n",
+					"        cf_psp,\r\n",
+					"        psp\r\n",
+					"    FROM missed_trx_quarter\r\n",
+					"    WHERE year = {reference_year}\r\n",
+					"''')\r\n",
+					"\r\n",
+					"# # Add corrected transactions\r\n",
+					"df_all_transactions = df_all_correct_transactions.unionByName(df_transactions_correction)\r\n",
+					"df_all_transactions.createOrReplaceTempView(\"all_transactions\")"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#temp to replace!!!!\r\n",
+					"# df_all_correct_transactions.createOrReplaceTempView(\"all_transactions\")"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Current and previous transactions"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Sum of transactions grouped by category for current quarter\r\n",
+					"current_membership_value = spark.sql(f'''\r\n",
+					"    SELECT \r\n",
+					"        year,\r\n",
+					"        quarter,\r\n",
+					"        category,\r\n",
+					"        sum(n_transactions) AS current_total \r\n",
+					"    FROM all_transactions \r\n",
+					"    WHERE quarter == {reference_quarter}\r\n",
+					"    AND year == {reference_year}\r\n",
+					"    GROUP BY \r\n",
+					"        year,\r\n",
+					"        quarter,\r\n",
+					"        category\r\n",
+					"''')\r\n",
+					"\r\n",
+					"# Sum of transactions grouped by category for previous quarters\r\n",
+					"previous_transactions_by_category = spark.sql(f'''\r\n",
+					"    SELECT \r\n",
+					"        category, \r\n",
+					"        SUM(n_transactions) AS history_transactions \r\n",
+					"    FROM all_transactions \r\n",
+					"    WHERE quarter < {reference_quarter} \r\n",
+					"    AND year = {reference_year} \r\n",
+					"    GROUP BY category\r\n",
+					"''')\r\n",
+					"\r\n",
+					"# Left join between current transactions and previous transactions\r\n",
+					"current_membership_basket_value = current_membership_value\\\r\n",
+					"    .join(previous_transactions_by_category, on = \"category\", how = \"left\")\\\r\n",
+					"    .fillna(0)\\\r\n",
+					"    .withColumn(\"currentBasket\", evaluateCurrentBasket(col(\"current_total\"), col(\"history_transactions\")))\\\r\n",
+					"    .select(\"category\", \"current_total\", \"currentBasket\")"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# df = spark.read.parquet(f'abfss://test@fatddls.dfs.core.windows.net/contracts_2024_10.snappy.parquet')\r\n",
+					"# df = df.withColumn(\"LastModified\",  lit(datetime.now()))\r\n",
+					"# df = df.withColumn(\"SourceFile\",  lit('abfss://test@fatddls.dfs.core.windows.net/contracts_2024_10.snappy.parquet'))\r\n",
+					"# df.write.format(\"delta\").mode(\"append\").saveAsTable('fat_delta.contracts_raw')"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Transactions value per category"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Sum of current transactions grouped by category and id\r\n",
+					"current_invoice_df = spark.sql(f'''\r\n",
+					"    SELECT\r\n",
+					"        year,\r\n",
+					"        quarter,\r\n",
+					"        category,\r\n",
+					"        recipient_id,\r\n",
+					"        SUM(n_transactions) AS n_transactions\r\n",
+					"    FROM all_transactions\r\n",
+					"    WHERE quarter == {reference_quarter}\r\n",
+					"    AND year == {reference_year}\r\n",
+					"    GROUP BY\r\n",
+					"        year,\r\n",
+					"        quarter,\r\n",
+					"        category,\r\n",
+					"        recipient_id\r\n",
+					"''')"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Evaluate value for fixed costs\r\n",
+					"\r\n",
+					"# A1 transactions\r\n",
+					"current_a1_invoice = current_invoice_df\\\r\n",
+					"    .filter(col(\"category\").startswith(\"A1\"))\\\r\n",
+					"    .withColumnRenamed(\"n_transactions\", \"current_trx\")\\\r\n",
+					"    .withColumn(\"value\", a1TrxValue(col(\"current_trx\").cast(\"float\")))\\\r\n",
+					"    .withColumn(\"Codice_Articolo\", codiceArticolo(col(\"category\"), lit(\"0\")))\\\r\n",
+					"    .select(\"category\", \"recipient_id\", \"current_trx\", \"value\", \"Codice_articolo\")\r\n",
+					"\r\n",
+					"# B1 transactions\r\n",
+					"current_b1_invoice = current_invoice_df\\\r\n",
+					"    .filter(col(\"category\").startswith(\"B1\"))\\\r\n",
+					"    .withColumnRenamed(\"n_transactions\", \"current_trx\")\\\r\n",
+					"    .withColumn(\"value\", b1TrxValue(col(\"current_trx\").cast(\"float\")))\\\r\n",
+					"    .withColumn(\"Codice_Articolo\", codiceArticolo(col(\"category\"), lit(\"0\")))\\\r\n",
+					"    .select(\"category\", \"recipient_id\", \"current_trx\", \"value\", \"Codice_articolo\")\r\n",
+					"\r\n",
+					"# B2 transactions\r\n",
+					"current_b2_invoice = current_invoice_df\\\r\n",
+					"    .filter(col(\"category\").startswith(\"B2\"))\\\r\n",
+					"    .withColumnRenamed(\"n_transactions\", \"current_trx\")\\\r\n",
+					"    .withColumn(\"value\", b2TrxValue(col(\"current_trx\").cast(\"float\")))\\\r\n",
+					"    .withColumn(\"Codice_Articolo\", codiceArticolo(col(\"category\"), lit(\"0\")))\\\r\n",
+					"    .select(\"category\", \"recipient_id\", \"current_trx\", \"value\", \"Codice_articolo\")\r\n",
+					"\r\n",
+					"# Basket transactions\r\n",
+					"current_basket_invoice = current_invoice_df\\\r\n",
+					"    .filter(col(\"category\").startswith(\"G_\"))\\\r\n",
+					"    .join(current_membership_basket_value, on = \"category\", how = \"left\")\\\r\n",
+					"    .withColumn(\"perc_trx\", col(\"n_transactions\") / col(\"current_total\"))\\\r\n",
+					"    .select(\"category\", \"recipient_id\",\"perc_trx\", posexplode(\"currentBasket\"))\\\r\n",
+					"    .fillna(0)\\\r\n",
+					"    .withColumn(\"current_trx\", col(\"col\") * col(\"perc_trx\"))\\\r\n",
+					"    .withColumn(\"value\", new_basketValue(col(\"current_trx\"), col(\"pos\")))\\\r\n",
+					"    .withColumn(\"Codice_articolo\", codiceArticolo(col(\"category\"), col(\"pos\")))\\\r\n",
+					"    .select(\"category\", \"recipient_id\", \"current_trx\", \"value\", \"Codice_articolo\")\\\r\n",
+					"    .filter(col(\"value\") > 0)\r\n",
+					"\r\n",
+					"# Unite all categories of transactions \r\n",
+					"current_invoice = current_basket_invoice\\\r\n",
+					"    .union(current_a1_invoice)\\\r\n",
+					"    .union(current_b1_invoice)\\\r\n",
+					"    .union(current_b2_invoice)"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Contracts with invoices information"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Link contracts information with transactions value\r\n",
+					"contracts_info = df_contracts.select(\"contract_id\", \"abi\", \"tax_code\", \"vat_code\", \"vat_group\", \"name\")\r\n",
+					"df_invoices_contracts = current_invoice.join(contracts_info, current_invoice.recipient_id == contracts_info.contract_id, how = \"inner\")\r\n",
+					"df_invoices_contracts.createOrReplaceTempView(\"invoices_contracts\")"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Container information\r\n",
+					"\r\n",
+					"report_name = str(reference_year) + \"-q\" + str(reference_quarter) + \"-DetailedReport.csv\"\r\n",
+					"agent_name = str(reference_year) + \"-q\" + str(reference_quarter) + \"-AgentQuarterReport.csv\"\r\n",
+					"public_endpoint = \"https://public.pdnd.pagopa.it/apps/public\"\r\n",
+					"\r\n",
+					"container_recipient_list_df = df_invoices_contracts\\\r\n",
+					"    .select(\"recipient_id\", \"contract_id\", \"abi\", \"tax_code\", \"vat_code\", \"vat_group\", \"name\")\\\r\n",
+					"    .distinct()\r\n",
+					"\r\n",
+					"container_list = []\r\n",
+					"for row in container_recipient_list_df.rdd.toLocalIterator():\r\n",
+					"    recipient_container_name = \"I link per accedere ai dettagli delle transazioni sono : \" + \\\r\n",
+					"                                public_endpoint + \"/invoices/\" + row.recipient_id + \"/\" + report_name + \\\r\n",
+					"                                \" oppure \" + \\\r\n",
+					"                                public_endpoint + \"/invoices/\" + row.recipient_id + \"/\" + agent_name\r\n",
+					"    container_list.append(\r\n",
+					"        [\"container_text\", row.recipient_id, 1, float(0), \"\", row.contract_id, row.abi, row.tax_code, row.vat_code, row.vat_group, row.name, recipient_container_name]\r\n",
+					"    )\r\n",
+					"\r\n",
+					"df_container_elements = spark.createDataFrame(container_list)"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Bollo information (only for value > 77.47)\r\n",
+					"\r\n",
+					"bollo_recipient_list_df = df_invoices_contracts\\\r\n",
+					"    .filter(col(\"value\") > 77.47)\\\r\n",
+					"    .select(\"recipient_id\", \"contract_id\", \"abi\", \"tax_code\", \"vat_code\", \"vat_group\", \"name\")\\\r\n",
+					"    .distinct()\r\n",
+					"\r\n",
+					"bollo_list = []\r\n",
+					"for row in bollo_recipient_list_df.rdd.toLocalIterator():\r\n",
+					"    bollo_list.append(\r\n",
+					"        [\"bollo\", row.recipient_id , 1, float(2), \"BOLLO\", row.contract_id, row.abi, row.tax_code, row.vat_code, row.vat_group, row.name, \"\"]\r\n",
+					"    )\r\n",
+					"\r\n",
+					"df_bollo_elements = spark.createDataFrame(bollo_list)"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Add an empty field to match the number of columns\r\n",
+					"# Unite transactions information with bollo and container\r\n",
+					"df_all_invoices_elements = df_invoices_contracts\\\r\n",
+					"    .withColumn(\"Descrizione_riga\", lit(\"\"))\\\r\n",
+					"    .union(df_container_elements)\\\r\n",
+					"    .union(df_bollo_elements)   "
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### KPMG Report"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Add info for kpmg report\r\n",
+					"\r\n",
+					"df_kpmg_invoices = df_all_invoices_elements\\\r\n",
+					"    .withColumn(\"Numero\", numeroFattura(col(\"abi\")))\\\r\n",
+					"    .withColumnRenamed(\"tax_code\", \"CODICE_AGGIUNTIVO\")\\\r\n",
+					"    .withColumnRenamed(\"value\", \"Importo\")      \r\n",
+					"\r\n",
+					"df_id_invoices = df_kpmg_invoices\\\r\n",
+					"    .select(\"Numero\")\\\r\n",
+					"    .distinct()\\\r\n",
+					"    .withColumn(\"idx\", row_number().over(Window.orderBy(\"Numero\")))\r\n",
+					"\r\n",
+					"df_kpmg_invoices_enriched = df_kpmg_invoices\\\r\n",
+					"    .join(df_id_invoices, \"Numero\", how = \"inner\")\\\r\n",
+					"    .withColumn(\"Progressivo_Riga\", row_number().over(Window.partitionBy(\"Numero\").orderBy(\"Codice_articolo\", \"current_trx\")))\\\r\n",
+					"    .withColumn(\"Tipo_doc\", lit(\"TD01\"))\\\r\n",
+					"    .withColumn(\"Condizioni\", when(col(\"contract_id\").isin(sdd_l), lit(\"414\")).otherwise(lit(\"409\")))\\\r\n",
+					"    .withColumn(\"sezionale\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Denominazione_destinatario\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"indirizzo\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Citta\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Prov\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"CAP\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Stato\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Cod_fisc\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Valuta\", lit(\"EUR\"))\\\r\n",
+					"    .withColumn(\"Data\", lit(current_date.strftime(\"%Y-%m-%d\")))\\\r\n",
+					"    .withColumn(\"Bollo\", lit(\"SI\"))\\\r\n",
+					"    .withColumn(\"CODIFICA_ART\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Prezzo_unit\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Cod_iva\",when(col(\"category\")==\"bollo\", lit(\"EB\")).otherwise(lit(\"E10\")))\\\r\n",
+					"    .withColumn(\"Percent_IVA\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"IVA\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"CAUSALE\", lit(\"IMPG\"))\\\r\n",
+					"    .withColumn(\"ind_tipo_riga\", when(col(\"category\") == \"container_text\", lit(\"2\")).otherwise(lit(\"0\")))\\\r\n",
+					"    .withColumn(\"Codice_SDI\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"NUM_DOC_RIF\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"DATA_DOC_RIF\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"TIPO_DOC_RIF\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Tipo_dato\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Riferimento_testo\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Riferimento_numero\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Riferimento_data\", lit(reference_date.strftime(\"%Y-%m-%d\")))\\\r\n",
+					"    .withColumn(\"Anno\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Rif_Fattura\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Sconto\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Data_limite_pagamento\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Banca\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"Iban_riferimento_per_pagamento\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"CIG\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"indirizzo_pec\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"CUP\", lit(\"\"))\\\r\n",
+					"    .withColumn(\"TIPO_DOC_RIF1\", lit(\"\"))\r\n",
+					"\r\n",
+					"df_kpmg_invoices_enriched.createOrReplaceTempView(\"kpmg_invoices_enriched\")"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_kpmg_report = spark.sql(f'''\r\n",
+					"     SELECT \r\n",
+					"         recipient_id AS contract_id,\r\n",
+					"         Tipo_doc, \r\n",
+					"         sezionale,\r\n",
+					"         CODICE_AGGIUNTIVO,\r\n",
+					"         Denominazione_destinatario, \r\n",
+					"         indirizzo,\r\n",
+					"         Citta,\r\n",
+					"         Prov,\r\n",
+					"         CAP,\r\n",
+					"         Stato,\r\n",
+					"         vat_code,\r\n",
+					"         Cod_fisc,\r\n",
+					"         Valuta,\r\n",
+					"         idx AS ID,\r\n",
+					"         Numero,\r\n",
+					"         Data,\r\n",
+					"         Bollo,\r\n",
+					"         CODIFICA_ART,\r\n",
+					"         Progressivo_Riga,\r\n",
+					"         Codice_articolo,\r\n",
+					"         Descrizione_riga,\r\n",
+					"         Prezzo_unit,\r\n",
+					"         CAST(ROUND(current_trx) AS INTEGER) AS Q_ta,\r\n",
+					"         Importo,\r\n",
+					"         Cod_iva,\r\n",
+					"         Percent_IVA,\r\n",
+					"         IVA,\r\n",
+					"         Condizioni,\r\n",
+					"         CAUSALE,\r\n",
+					"         ind_tipo_riga,\r\n",
+					"         Codice_SDI,\r\n",
+					"         NUM_DOC_RIF,\r\n",
+					"         DATA_DOC_RIF,\r\n",
+					"         TIPO_DOC_RIF,\r\n",
+					"         Tipo_dato,\r\n",
+					"         Riferimento_testo,\r\n",
+					"         Riferimento_numero,\r\n",
+					"         Riferimento_data,\r\n",
+					"         Anno,\r\n",
+					"         Rif_Fattura,\r\n",
+					"         Sconto,\r\n",
+					"         Data_limite_pagamento,\r\n",
+					"         Banca,\r\n",
+					"         Iban_riferimento_per_pagamento,\r\n",
+					"         CIG,\r\n",
+					"         indirizzo_pec,\r\n",
+					"         CUP,\r\n",
+					"         TIPO_DOC_RIF1\r\n",
+					"     FROM kpmg_invoices_enriched\r\n",
+					"     ORDER BY \r\n",
+					"         Numero,\r\n",
+					"         Progressivo_Riga\r\n",
+					"''')"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Financial Report"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_financial_report = spark.sql(f'''\r\n",
+					"    SELECT \r\n",
+					"        abi,\r\n",
+					"        recipient_id,\r\n",
+					"        name,\r\n",
+					"        category,\r\n",
+					"        CAST(ROUND(current_trx) AS INTEGER) AS current_trx,\r\n",
+					"        CAST(value AS DOUBLE) AS value,\r\n",
+					"        Codice_articolo\r\n",
+					"    FROM invoices_contracts \r\n",
+					"    ORDER BY \r\n",
+					"        recipient_id, \r\n",
+					"        category\r\n",
+					"''')"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### KPMG Report to csv"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"path = f'abfss://test@fatddls.dfs.core.windows.net/KPMG_report/{reference_year_quarter}/'\r\n",
+					"\r\n",
+					"df_kpmg_report\\\r\n",
+					"    .coalesce(1)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .option(\"header\",\"true\")\\\r\n",
+					"    .csv(path)"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"filename = str(reference_year) + \"-q\" + str(reference_quarter) + \"-kpmg-import.csv\"\r\n",
+					"\r\n",
+					"for file in mssparkutils.fs.ls(path):\r\n",
+					"    if file.name == '_SUCCESS':\r\n",
+					"        mssparkutils.fs.rm(file.path)\r\n",
+					"    else:\r\n",
+					"        mssparkutils.fs.mv(file.path, path+filename)"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### KPMG Report to DeltaLake"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Add year_quarter field for partitioning\r\n",
+					"df_kpmg_report_write = df_kpmg_report.withColumn(\"year_quarter\", lit(reference_year_quarter))"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Create partition and write data or overwrite data if partition already exists\r\n",
+					"\r\n",
+					"partition_key = \"year_quarter\"\r\n",
+					"table = \"kpmg_import\"\r\n",
+					"\r\n",
+					"df_kpmg_report_write\\\r\n",
+					"    .repartition(partition_key)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .format(\"delta\")\\\r\n",
+					"    .partitionBy(partition_key)\\\r\n",
+					"    .saveAsTable(table)"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Financial Report to csv"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"path = f'abfss://test@fatddls.dfs.core.windows.net/FinancialReport/{reference_year_quarter}/'\r\n",
+					"\r\n",
+					"df_financial_report\\\r\n",
+					"    .coalesce(1)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .option(\"header\",\"true\")\\\r\n",
+					"    .csv(path)"
+				],
+				"execution_count": 57
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"filename = str(reference_year) + \"-q\" + str(reference_quarter) + \"-financial-report.csv\"\r\n",
+					"\r\n",
+					"for file in mssparkutils.fs.ls(path):\r\n",
+					"    if file.name == '_SUCCESS':\r\n",
+					"        mssparkutils.fs.rm(file.path)\r\n",
+					"    else:\r\n",
+					"        mssparkutils.fs.mv(file.path, path+filename)"
+				],
+				"execution_count": 58
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Financial Report to DeltaLake"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_financial_report_write = df_financial_report.withColumn(\"year_quarter\", lit(reference_year_quarter))"
+				],
+				"execution_count": 59
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"partition_key = \"year_quarter\"\r\n",
+					"table = \"financial_report\"\r\n",
+					"\r\n",
+					"df_financial_report_write\\\r\n",
+					"    .repartition(partition_key)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .format(\"delta\")\\\r\n",
+					"    .partitionBy(partition_key)\\\r\n",
+					"    .saveAsTable(table)"
+				],
+				"execution_count": 60
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Write: Dashboard export"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# daily\r\n",
+					"utc = pytz.timezone(\"UTC\")\r\n",
+					"current_time = utc.localize(datetime.now())\r\n",
+					"daily = current_time.strftime(\"%Y%m%d\")\r\n",
+					"\r\n",
+					"# daily_utc\r\n",
+					"local_tz = pytz.timezone(\"Europe/Rome\")\r\n",
+					"local_time = local_tz.localize(datetime.now())\r\n",
+					"daily_midnight = local_time.strftime(\"%d/%m/%Y 00:00:00%z\")\r\n",
+					"my_local = datetime.strptime(daily_midnight, \"%d/%m/%Y 00:00:00%z\")\r\n",
+					"utc_time = my_local.astimezone(tz = utc)\r\n",
+					"daily_utc = utc_time.strftime(\"%s\")\r\n",
+					"\r\n",
+					"# Add daily and daily_utc to dashboard\r\n",
+					"dashboard_export = df_financial_report_write\\\r\n",
+					"    .withColumn(\"daily\", lit(daily))\\\r\n",
+					"    .withColumn(\"daily_epoch\", lit(daily_utc))"
+				],
+				"execution_count": 61
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dashboard_export_pd = dashboard_export.toPandas()\r\n",
+					"\r\n",
+					"current_time = datetime.now()\r\n",
+					"daily = current_time.strftime(\"%Y%m%d\")\r\n",
+					"last_run = floor(time())\r\n",
+					"\r\n",
+					"\r\n",
+					"out = {\r\n",
+					"    \"last_run\": last_run,\r\n",
+					"    \"trx_by_psp\" : json.loads(dashboard_export_pd.to_json(orient = \"records\"))\r\n",
+					"}"
+				],
+				"execution_count": 62
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"path = f'abfss://test@fatddls.dfs.core.windows.net/invoice-dashboard/history/export_{daily}.json'\r\n",
+					"\r\n",
+					"\r\n",
+					"result = json.dumps(out, ensure_ascii=False).encode('utf8')\r\n",
+					"mssparkutils.fs.put(path, result.decode(), overwrite = True)"
+				],
+				"execution_count": 63
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Write: Table for invoices daily history"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Read dashboard export\r\n",
+					"all_dashboard_export = spark.read.json('abfss://test@fatddls.dfs.core.windows.net/invoice-dashboard/history/')\r\n",
+					"\r\n",
+					"# Explode and select columns, filter on current daily\r\n",
+					"dashboard_daily_history = all_dashboard_export\\\r\n",
+					"    .select(all_dashboard_export.last_run, explode(all_dashboard_export.trx_by_psp).alias(\"tmp_col\"))\\\r\n",
+					"    .select(\"last_run\", \"tmp_col.*\")\\\r\n",
+					"    .where(\"year_quarter is not null\")\\\r\n",
+					"    .select(\"last_run\", \"codice_articolo\", \"abi\", \"category\", \"current_trx\", \"daily_epoch\", \"name\", \"recipient_id\", \"value\", \"year_quarter\",\"daily\")\\\r\n",
+					"    .where(f\"daily={daily}\")"
+				],
+				"execution_count": 64
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Write dashboard daily history\r\n",
+					"\r\n",
+					"table = \"invoices_history\"\r\n",
+					"\r\n",
+					"dashboard_daily_history\\\r\n",
+					"    .repartition(\"year_quarter\", \"daily\")\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .format(\"delta\")\\\r\n",
+					"    .partitionBy(\"year_quarter\", \"daily\")\\\r\n",
+					"    .saveAsTable(table)"
+				],
+				"execution_count": 65
+			}
+		]
+	}
+}

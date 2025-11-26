@@ -1,0 +1,157 @@
+{
+	"name": "IngestCount",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/IngestRaw"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "6dadc1b3-1df7-4218-8c1d-d8d24f4daf5b"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net",
+					"authHeader": null
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"tableName = 'pagopa.count_transactions'\r\n",
+					"\r\n",
+					"sourcefile = 'abfss://filequadrature@fatpdls.dfs.core.windows.net/count_privati/'\r\n",
+					"\r\n",
+					"import_date = '2025-03-28'"
+				],
+				"execution_count": 20
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql import functions as F\r\n",
+					"from delta.tables import *\r\n",
+					"from pyspark.sql.functions import max\r\n",
+					"from datetime import datetime,date,timedelta\r\n",
+					"import pandas as pd"
+				],
+				"execution_count": 21
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Define time variables\r\n",
+					"date_format = \"%Y-%m-%d\"\r\n",
+					"\r\n",
+					"current_date = datetime.strptime(import_date, date_format)\r\n",
+					"\r\n",
+					"current_year_month = str(current_date.year) + str(current_date.month).zfill(2)\r\n",
+					"reference_date = current_date - timedelta(10)\r\n",
+					"reference_quarter = ((reference_date.month - 1) // 3 + 1)\r\n",
+					"reference_year = reference_date.year\r\n",
+					"reference_year_quarter = str(reference_year) + \"_\" + str(reference_quarter)"
+				],
+				"execution_count": 22
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfNewFile = spark.read.format(\"parquet\").load(sourcefile)\r\n",
+					"actualTimeStamp = datetime.now()\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"LastModified\",  F.lit(actualTimeStamp))\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"SourceFile\",  F.lit(sourcefile))\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"year_quarter\",  F.lit(reference_year_quarter))"
+				],
+				"execution_count": 23
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# dfNewFile = dfNewFile.withColumn(\"year_quarter\",  F.concat(F.col(\"year\"),F.lit(\"_\"),((F.col(\"month\") - 1) / 3).cast(\"int\") + 1))"
+				],
+				"execution_count": 30
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfNewFile.write.format(\"delta\").mode(\"append\").saveAsTable(tableName)"
+				]
+			}
+		]
+	}
+}

@@ -1,0 +1,531 @@
+{
+	"name": "ControlloCount",
+	"properties": {
+		"folder": {
+			"name": "Ingestion"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "6222e478-9dd6-47c7-992f-884560e9d274"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1",
+				"state": {
+					"6996efa6-cc8f-4ed6-b663-71e339979551": {
+						"type": "Synapse.DataFrame",
+						"sync_state": {
+							"table": {
+								"rows": [],
+								"schema": [
+									{
+										"key": "0",
+										"name": "paid",
+										"type": "string"
+									},
+									{
+										"key": "1",
+										"name": "daily",
+										"type": "string"
+									},
+									{
+										"key": "2",
+										"name": "year",
+										"type": "string"
+									},
+									{
+										"key": "3",
+										"name": "month",
+										"type": "string"
+									},
+									{
+										"key": "4",
+										"name": "count(1)",
+										"type": "bigint"
+									},
+									{
+										"key": "5",
+										"name": "dl_processed_tms",
+										"type": "int"
+									},
+									{
+										"key": "6",
+										"name": "count",
+										"type": "bigint"
+									},
+									{
+										"key": "7",
+										"name": "stato",
+										"type": "string"
+									}
+								],
+								"truncated": false
+							},
+							"isSummary": false,
+							"language": "scala",
+							"wranglerEntryContext": {
+								"dataframeType": "pyspark"
+							}
+						},
+						"persist_state": {
+							"view": {
+								"type": "details",
+								"chartOptions": {
+									"chartType": "bar",
+									"aggregationType": "sum",
+									"categoryFieldKeys": [
+										"0"
+									],
+									"seriesFieldKeys": [
+										"4"
+									],
+									"isStacked": false
+								}
+							}
+						}
+					},
+					"227368b7-493b-46bf-a60d-eb803d9fe8d6": {
+						"type": "Synapse.DataFrame",
+						"sync_state": {
+							"table": {
+								"rows": [],
+								"schema": [
+									{
+										"key": "0",
+										"name": "senderpaid",
+										"type": "string"
+									},
+									{
+										"key": "1",
+										"name": "daily",
+										"type": "string"
+									},
+									{
+										"key": "2",
+										"name": "year",
+										"type": "string"
+									},
+									{
+										"key": "3",
+										"name": "month",
+										"type": "string"
+									},
+									{
+										"key": "4",
+										"name": "count(1)",
+										"type": "bigint"
+									},
+									{
+										"key": "5",
+										"name": "dl_processed_tms",
+										"type": "int"
+									},
+									{
+										"key": "6",
+										"name": "count",
+										"type": "bigint"
+									},
+									{
+										"key": "7",
+										"name": "stato",
+										"type": "string"
+									}
+								],
+								"truncated": false
+							},
+							"isSummary": false,
+							"language": "scala",
+							"wranglerEntryContext": {
+								"dataframeType": "pyspark"
+							}
+						},
+						"persist_state": {
+							"view": {
+								"type": "details",
+								"chartOptions": {
+									"chartType": "bar",
+									"aggregationType": "sum",
+									"categoryFieldKeys": [
+										"0"
+									],
+									"seriesFieldKeys": [
+										"4"
+									],
+									"isStacked": false
+								}
+							}
+						}
+					},
+					"ea245a62-e414-4776-b8c7-0c87fe331037": {
+						"type": "Synapse.DataFrame",
+						"sync_state": {
+							"table": {
+								"rows": [],
+								"schema": [
+									{
+										"key": "0",
+										"name": "paid",
+										"type": "string"
+									},
+									{
+										"key": "1",
+										"name": "daily",
+										"type": "string"
+									},
+									{
+										"key": "2",
+										"name": "year",
+										"type": "string"
+									},
+									{
+										"key": "3",
+										"name": "month",
+										"type": "string"
+									},
+									{
+										"key": "4",
+										"name": "count(1)",
+										"type": "bigint"
+									},
+									{
+										"key": "5",
+										"name": "dl_processed_tms",
+										"type": "int"
+									},
+									{
+										"key": "6",
+										"name": "count",
+										"type": "bigint"
+									},
+									{
+										"key": "7",
+										"name": "stato",
+										"type": "string"
+									}
+								],
+								"truncated": false
+							},
+							"isSummary": false,
+							"language": "scala",
+							"wranglerEntryContext": {
+								"dataframeType": "pyspark"
+							}
+						},
+						"persist_state": {
+							"view": {
+								"type": "details",
+								"chartOptions": {
+									"chartType": "bar",
+									"aggregationType": "sum",
+									"categoryFieldKeys": [
+										"0"
+									],
+									"seriesFieldKeys": [
+										"4"
+									],
+									"isStacked": false
+								}
+							}
+						}
+					}
+				}
+			},
+			"enableDebugMode": false,
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net",
+					"authHeader": null
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"from datetime import datetime, timedelta\n",
+					"from dateutil.relativedelta import relativedelta\n",
+					"from pyspark.sql import functions as F"
+				],
+				"execution_count": 46
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"reference_day = datetime.now()-relativedelta(months=1)\n",
+					"reference_next_month = '%02d' % (datetime.now().month)\n",
+					"reference_month = '%02d' % reference_day.month\n",
+					"reference_year = reference_day.year\n",
+					"reference_yearmonth = f\"{reference_year}{reference_month}\"\n",
+					"print(f\"\"\"reference_day : {reference_day}\n",
+					"reference_month : {reference_month}\n",
+					"reference_next_month : {reference_next_month}\n",
+					"reference_yearmonth : {reference_yearmonth}\n",
+					"\"\"\")"
+				],
+				"execution_count": 47
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"semaforo = \"\""
+				],
+				"execution_count": 48
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Quadratura Invoicing timeline"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": true
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# sourcefile1 = f'abfss://raw@fatpdls.dfs.core.windows.net/send/2025/{reference_month}/*/invoicing_timeline/*'\n",
+					"# sourcefile2 = f'abfss://raw@fatpdls.dfs.core.windows.net/send/2025/{reference_next_month}/*/invoicing_timeline/*'\n",
+					"\n",
+					"# df1 = spark.read.format(\"parquet\").load(sourcefile1)\n",
+					"# df2 = spark.read.format(\"parquet\").load(sourcefile2)\n",
+					"\n",
+					"# df = df1.where(f\"daily like '{reference_yearmonth}%'\").unionAll(df2.where(f\"daily like '{reference_yearmonth}%'\"))"
+				],
+				"execution_count": 49
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df = spark.sql(f\"select * from fat_delta.invoicing_timeline where daily like '{reference_yearmonth}%'\")\n",
+					"grouped = df.groupBy(\"paid\",\"daily\").count().orderBy(\"paid\", \"daily\")"
+				],
+				"execution_count": 50
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# count = spark.sql(f\"select * from fat_delta.invoicing_timeline_count where daily like '{reference_yearmonth}'\")\n",
+					"\n",
+					"sourcefile = f'abfss://raw@fatpdls.dfs.core.windows.net/send/count/silver_invoicing_timeline/{reference_year}/{reference_month}/'\n",
+					"\n",
+					"count = spark.read.format(\"parquet\").load(sourcefile)\n",
+					""
+				],
+				"execution_count": 51
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"final = count.join(grouped, how='inner', on=[\"paid\", \"daily\"]).withColumn(\"stato\", F.when(F.col(\"count\") == F.col(\"count(1)\"),\"OK\").otherwise(\"KO\"))"
+				],
+				"execution_count": 52
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"display(final.where(\"stato != 'OK'\"))#.select(\"daily\").distinct())"
+				],
+				"execution_count": 53
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"squadrature = final.where(\"stato != 'OK'\")\n",
+					"\n",
+					"if squadrature.count() != 0:\n",
+					"    semaforo += \" invoicing timeline \""
+				],
+				"execution_count": 54
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## quadratura notification"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false
+					},
+					"collapsed": false
+				},
+				"source": [
+					"not_df = spark.sql(f\"select * from fat_delta.notification where daily like '{reference_yearmonth}%'\")\n",
+					"grouped_not = not_df.groupBy(\"senderpaid\",\"daily\").count().orderBy(\"senderpaid\", \"daily\")"
+				],
+				"execution_count": 55
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"sourcefile = f'abfss://raw@fatpdls.dfs.core.windows.net/send/count/silver_notification/{reference_year}/{reference_month}/'\n",
+					"\n",
+					"count_not = spark.read.format(\"parquet\").load(sourcefile)"
+				],
+				"execution_count": 56
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# count_not = spark.sql(f\"select * from fat_delta.notification_count where daily like '{reference_yearmonth}'\")\n",
+					"final_not = count_not.join(grouped_not, how='inner', on=[\"senderpaid\", \"daily\"]).withColumn(\"stato\", F.when(F.col(\"count\") == F.col(\"count(1)\"),\"OK\").otherwise(\"KO\"))"
+				],
+				"execution_count": 57
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"display(final_not.where(\"stato != 'OK'\"))"
+				],
+				"execution_count": 58
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"squadrature_not = final_not.where(\"stato != 'OK'\")\n",
+					"\n",
+					"if squadrature_not.count() != 0:\n",
+					"    semaforo += \" notification \""
+				],
+				"execution_count": 59
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## verifica pn_timeline"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false
+					},
+					"collapsed": false
+				},
+				"source": [
+					"pntim_df = spark.sql(f\"select * from fat_delta.pn_timeline where daily like '{reference_yearmonth}%'\")\n",
+					"grouped_pn = pntim_df.groupBy(\"paid\",\"daily\").count().orderBy(\"paid\", \"daily\")"
+				],
+				"execution_count": 60
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"sourcefile = f'abfss://raw@fatpdls.dfs.core.windows.net/send/count/silver_timeline/{reference_year}/{reference_month}/'\n",
+					"\n",
+					"count_pn = spark.read.format(\"parquet\").load(sourcefile)"
+				],
+				"execution_count": 61
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false
+					}
+				},
+				"source": [
+					"# count_pn = spark.sql(f\"select * from fat_delta.pn_timeline_count where daily like '{reference_yearmonth}'\")\n",
+					"final_pn = count_pn.join(grouped_pn, how='inner', on=[\"paid\", \"daily\"]).withColumn(\"stato\", F.when(F.col(\"count\") == F.col(\"count(1)\"),\"OK\").otherwise(\"KO\"))"
+				],
+				"execution_count": 62
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"display(final_pn.where(\"stato != 'OK'\"))"
+				],
+				"execution_count": 63
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"squadrature_pn = final_pn.where(\"stato != 'OK'\")\n",
+					"\n",
+					"if squadrature_pn.count() != 0:\n",
+					"    semaforo += \" pn_timeline \""
+				],
+				"execution_count": 64
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"if len(semaforo) > 0:\n",
+					"    messaggio = semaforo\n",
+					"else:\n",
+					"    messaggio = \"Correct\"\n",
+					"\n",
+					"mssparkutils.notebook.exit(messaggio)"
+				],
+				"execution_count": 65
+			}
+		]
+	}
+}

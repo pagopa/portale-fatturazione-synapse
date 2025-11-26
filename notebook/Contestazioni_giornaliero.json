@@ -1,0 +1,181 @@
+{
+	"name": "Contestazioni_giornaliero",
+	"properties": {
+		"folder": {
+			"name": "CRM_export"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "003e988b-62ee-4508-aab8-18be4f0b9051"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"from pyspark.sql.functions import * # collect_list, struct, explode, col,schema_of_json, from_json, to_json\n",
+					"from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient\n",
+					"import datetime\n",
+					"import pyspark.sql.functions as F\n",
+					"from pyspark.sql import SparkSession\n",
+					"from pyspark.sql.window import Window\n",
+					"from pyspark.sql import Row\n",
+					"import pandas as pd\n",
+					"import json"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# get the function to retrieve sql properties\n",
+					"%run Utility/getSQLConnectionString\n",
+					"\n",
+					"# retrieve sql connection_string and connection_properties\n",
+					"jdbcUrl,conn_Prop = getSQLConnectionString()"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"current_date = datetime.datetime.now()\n",
+					"\n",
+					"# Sottrai due mesi\n",
+					"if current_date.month > 2:\n",
+					"    anno_calcolato = current_date.year\n",
+					"    mese_calcolato = current_date.month - 2\n",
+					"else:\n",
+					"    anno_calcolato = current_date.year - 1\n",
+					"    mese_calcolato = current_date.month + 10  # Per gestire il passaggio d'anno (gennaio -> novembre, febbraio -> dicembre)\n",
+					"\n",
+					"query_scadenziario=f\"\"\"(select * from pfw.ContestazioniCalendario\n",
+					"                       where AnnoContestazione={anno_calcolato} and MeseContestazione={mese_calcolato}\n",
+					"                       and DataFine+1=GETDATE()) as scadenziario\"\"\"\n",
+					"\n",
+					"spark.read.jdbc(url=jdbcUrl, table=query_scadenziario, properties=conn_Prop).createOrReplaceTempView(\"scadenziario\")\n",
+					"    \n",
+					"pandas_df = spark.sql(f\"\"\"select * from scadenziario\"\"\")\n",
+					"\n",
+					"if pandas_df.count() != 0:\n",
+					"    query_contratti=f\"\"\"(select distinct b.internalistitutionid, onboardingtokenid\n",
+					"                         from pfd.Contratti a, pfd.Enti b\n",
+					"                         where a.internalistitutionid = b.internalistitutionid) as Contratti\"\"\"\n",
+					"\n",
+					"    spark.read.jdbc(url=jdbcUrl, table=query_contratti, properties=conn_Prop).createOrReplaceTempView(\"Contratti\")\n",
+					"    \n",
+					"    query_digitali=f\"\"\"(select e.internalistitutionid, COUNT(b.idContestazione) as numeroContestazioni\n",
+					"                         from pfd.Notifiche a, pfw.Contestazioni b, pfd.Contratti e, pfd.Enti f\n",
+					"                         where b.FkIdNotifica = a.event_id \n",
+					"                        and e.internalistitutionid = f.internalistitutionid\n",
+					"                         and e.onboardingtokenid=a.contract_id\n",
+					"                         and anno={anno_calcolato} \n",
+					"                        and mese={mese_calcolato} \n",
+					"                         and UPPER(a.notificationType) like '%DIGITALE%' \n",
+					"                         group by e.internalistitutionid) as NotificheDigitali\"\"\"\n",
+					"\n",
+					"    spark.read.jdbc(url=jdbcUrl, table=query_digitali, properties=conn_Prop).createOrReplaceTempView(\"NotificheDigitali\")\n",
+					"\n",
+					"    query_analogiche=f\"\"\"(select e.internalistitutionid, COUNT(b.idContestazione) as numeroContestazioni\n",
+					"                         from pfd.Notifiche a, pfw.Contestazioni b, pfd.Contratti e, pfd.Enti f\n",
+					"                         where b.FkIdNotifica = a.event_id \n",
+					"                        and e.internalistitutionid = f.internalistitutionid\n",
+					"                         and e.onboardingtokenid=a.contract_id\n",
+					"                         and anno={anno_calcolato} \n",
+					"                        and mese={mese_calcolato} \n",
+					"                         and UPPER(a.notificationType) like '%ANAL%' \n",
+					"                         group by e.internalistitutionid) as NotificheAnalogiche\"\"\"\n",
+					"\n",
+					"    spark.read.jdbc(url=jdbcUrl, table=query_analogiche, properties=conn_Prop).createOrReplaceTempView(\"NotificheAnalogiche\")\n",
+					"\n",
+					"    pandas_df = spark.sql(f\"\"\"select '{anno_calcolato}' as anno, '{mese_calcolato}' as mese, \n",
+					"                            c.internalistitutionid, \n",
+					"                            NVL(a.numeroContestazioni, 0) as numeroContestazioniAnalogiche, \n",
+					"                            NVL(d.numeroContestazioni, 0) as numeroContestazioniDigitali    \n",
+					"                            from Contratti c \n",
+					"                            left join NotificheAnalogiche a on c.internalistitutionid = a.internalistitutionid\n",
+					"                            left join NotificheDigitali d on c.internalistitutionid = d.internalistitutionid\n",
+					"                            where (a.numeroContestazioni  is not null OR d.numeroContestazioni is not null)\"\"\")\n",
+					"\n",
+					"    json_rdd = pandas_df.toJSON().collect()  \n",
+					"    json  = \"[\" + \",\".join(json_rdd) + \"]\" \n",
+					"\n",
+					"    display(\"Avvio il caricamento\")\n",
+					"\n",
+					"    blob_name = \"contestazioni_\"+current_date.strftime(\"%Y-%m-%d_%H-%M\")+\".json\"\n",
+					"    url = \"https://crmpdatast.blob.core.windows.net\"\n",
+					"    shared_access_key = mssparkutils.credentials.getConnectionStringOrCreds(LinkedServiceNameBlobStorageCRM)\n",
+					"    container_name = \"data\"\n",
+					"\n",
+					"    try:\n",
+					"        blob_service_client = BlobServiceClient(url, credential=shared_access_key)\n",
+					"        \n",
+					"        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)\n",
+					"        \n",
+					"        blob_client.upload_blob(json, overwrite=True)\n",
+					"        \n",
+					"        print(f\"I dati sono stati salvati con successo in {blob_name} nel container {container_name}.\")\n",
+					"\n",
+					"    except Exception as e:\n",
+					"        print(f\"Errore durante il caricamento di {blob_name}: {e}\")\n",
+					"else:\n",
+					"    print(\"E' ancora possibile caricare le contestazioni, riprovo domani\")"
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

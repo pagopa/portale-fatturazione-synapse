@@ -1,0 +1,197 @@
+{
+	"name": "Get year_quarter",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/IngestPipe"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "c5771f63-224b-4331-8ee9-20dc1cc66bfc"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net",
+					"authHeader": null
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"today_date = '2025-03-28'\r\n",
+					"export_trimestrale = False\r\n",
+					"tab_to_import = 'gold_invoicing_payments'"
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from datetime import date, timedelta, datetime"
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"date_format = \"%Y-%m-%d\"\r\n",
+					"\r\n",
+					"current_date = datetime.strptime(today_date, date_format)\r\n",
+					"\r\n",
+					"# Define time variables\r\n",
+					"current_year_month = str(current_date.year) + str(current_date.month).zfill(2)"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"if export_trimestrale == True:\r\n",
+					"    reference_date = current_date - timedelta(10)\r\n",
+					"    reference_quarter = f\"/q{((reference_date.month - 1) // 3 + 1)}\"\r\n",
+					"    reference_year = reference_date.year\r\n",
+					"    reference_year_quarter = str(reference_year) + \"_\" + str(reference_quarter)\r\n",
+					"elif export_trimestrale == False:\r\n",
+					"    reference_date = current_date - timedelta(1)\r\n",
+					"    reference_quarter = f\"/q{((reference_date.month - 1) // 3 + 1)}\"\r\n",
+					"    reference_year = reference_date.year\r\n",
+					"    reference_year_quarter = str(reference_year) + \"_\" + str(reference_quarter)"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# if tab_to_import == 'count':\r\n",
+					"#     path = f\"pagopa/gold_invoicing_payments/{reference_year}{reference_quarter}/count/\"\r\n",
+					"#     mssparkutils.notebook.exit(path)\r\n",
+					"# elif tab_to_import == 'acquirers':\r\n",
+					"#     reference_quarter = \"\""
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"path = f\"pagopa/{tab_to_import}/{reference_year}{reference_quarter}/\""
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"mssparkutils.notebook.exit(path)"
+				],
+				"execution_count": 8
+			}
+		]
+	}
+}

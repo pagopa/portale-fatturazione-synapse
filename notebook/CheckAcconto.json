@@ -1,0 +1,236 @@
+{
+	"name": "CheckAcconto",
+	"properties": {
+		"folder": {
+			"name": "Invoicing"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "0a04f9d3-08a3-4a8c-a4dc-06753fd1b6d5"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": true,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"anno_ref = 2025\n",
+					"mese_ref = 03"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# get the function to retrieve sql properties\n",
+					"%run Utility/getSQLConnectionString\n",
+					"\n",
+					"# retrieve sql connection_string and connection_properties\n",
+					"jdbcUrl,conn_Prop = getSQLConnectionString()"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Controllo Contratto PAC"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"\"\"(SELECT FT.*,TC.Descrizione as TipoContratto FROM pfd.FattureTestata FT \n",
+					"            INNER JOIN pfd.Contratti C on FT.CodiceContratto = C.onboardingtokenid\n",
+					"            INNER JOIN pfw.TipoContratto TC on C.FkIdTipoContratto = TC.IdTipoContratto\n",
+					"        WHERE AnnoRiferimento = {anno_ref} and MeseRiferimento = {mese_ref} and FkTipologiaFattura = 'ACCONTO') as tb\"\"\""
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop).createOrReplaceTempView(\"FattureTestata\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"display(spark.sql(\"SELECT FkIdEnte, count(FkIdEnte), COLLECT_LIST(IdFattura) FROM FattureTestata GROUP BY FkIdEnte\"))"
+				],
+				"execution_count": 16
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"display(spark.sql(\"SELECT FkIdEnte FROM FattureTestata WHERE TipoContratto = 'PAC'\"))"
+				],
+				"execution_count": 17
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Controllo Importo Fattura"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"\"\"WITH FiltroEntiPAC AS (SELECT FkIdEnte FROM pfd.FattureTestata\n",
+					"            WHERE AnnoRiferimento = {anno_ref} AND MeseRiferimento = {mese_ref} AND TipologiaFattura = 'ACCONTO'\n",
+					"                SELECT ROUND((SUM([cost_eurocent]) / 100.00 ) * 0.7\n",
+					"            -- ( SELECT [PercentualeAnticipo] / 100.00 FROM [pfw].[FatturaTestataConfig] a \n",
+					"            -- inner join [pfw].[TipoContratto] b on a.FKIdTipoContratto = b.IdTipoContratto \n",
+					"            -- where b.Descrizione = 'PAC' and FkTipologiaFattura = 'ACCONTO'),2) as [Total Value]\n",
+					"            FROM pfd.Notifiche\n",
+					"            GROUP BY InternalOrganizationId\n",
+					"            HAVING year = {anno_ref} AND month = {mese_ref} AND InternalOrganizationId in FiltroEntiPAC\n",
+					"        \"\"\""
+				],
+				"execution_count": 25
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop).createOrReplaceTempView(\"FattureAntAcc\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"\"\"(SELECT * FROM pfd.FattureTestata INNER JOIN pfd.FattureRighe on IdFattura = FkIdFattura\n",
+					"            WHERE MeseRiferimento = {mese_ref} AND AnnoRiferimento = {anno_ref} AND FkTipologiaFattura IN ('ANTICIPO','ACCONTO')) as tb\"\"\""
+				],
+				"execution_count": 18
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop).createOrReplaceTempView(\"FattureAntAcc\")"
+				],
+				"execution_count": 19
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Controllo Presenza Anticipo e relativo storno"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"display(spark.sql(\"\"\"\n",
+					"            WITH FiltroEntiPAC as\n",
+					"                (SELECT FAA.* from FattureAntAcc FAA INNER JOIN FattureTestata FT on FAA.FkIdEnte = FT.FkIdEnte),\n",
+					"            Acconto as\n",
+					"                (SELECT * FROM FiltroEntiPAC WHERE FkTipologiaFattura = 'ACCONTO'),\n",
+					"            Anticipo as\n",
+					"                (SELECT * FROM FiltroEntiPAC WHERE FkTipologiaFattura = 'ANTICIPO')\n",
+					"            SELECT \n",
+					"                AN.FkIdEnte, AN.CodiceMateriale,An.PrezzoUnitario, AC.CodiceMateriale,AC.PrezzoUnitario\n",
+					"            FROM Anticipo AN LEFT JOIN Acconto AC\n",
+					"            ON AC.FkIdEnte = AN.FkIdEnte\n",
+					"            AND AN.PrezzoUnitario/2 = AC.PrezzoUnitario \"\"\"))"
+				],
+				"execution_count": 21
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Controllo Codice Materiale"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					""
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

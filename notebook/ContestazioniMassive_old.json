@@ -1,0 +1,1596 @@
+{
+	"name": "ContestazioniMassive_old",
+	"properties": {
+		"folder": {
+			"name": "Contestazioni"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "35c7a580-f0c0-45f6-b661-64f681fe9a34"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"link = \"contestazioni/00a07094-6b35-417c-aee5-4b207a334a74/4403335a-4b15-4310-ab29-e193f36bb2d6/e4e59654-d7f6-4df7-ad1e-2d0d95cd8da4\"\n",
+					"annomese = '202412'\n",
+					"id_ente = 'dba89a46-56d6-4260-b411-43ca98c5f5f2'\n",
+					"id_contratto = '4403335a-4b15-4310-ab29-e193f36bb2d6'\n",
+					"report_id = 10087\n",
+					"tipo_report = \"15\"\n",
+					"# nomeDocumento = 'Notifiche _Comune di Bisceglie_12 _2024.csv'"
+				],
+				"execution_count": 55
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"year = annomese[:4]\n",
+					"month = annomese[4:]"
+				],
+				"execution_count": 56
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"import datetime\n",
+					"from pyspark.sql import functions as F\n",
+					"from pyspark.sql import Row\n",
+					"from pyspark.sql.types import StructType, StructField, StringType, ArrayType"
+				],
+				"execution_count": 57
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false
+					}
+				},
+				"source": [
+					"df_file = spark.read.format(\"csv\").option(\"delimiter\", \";\").option(\"header\",\"True\").load(f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/\")"
+				],
+				"execution_count": 58
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# get the function to retrieve sql properties\n",
+					"%run Utility/getSQLConnectionString\n",
+					"\n",
+					"# retrieve sql connection_string and connection_properties\n",
+					"jdbcUrl,conn_Prop = getSQLConnectionString()"
+				],
+				"execution_count": 59
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"(select * from pfd.ReportContestazioniStep) as tb\"\n",
+					"stepContest = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop)\n",
+					"stepContest.cache()"
+				],
+				"execution_count": 61
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"default_schema = ['contract_id',\n",
+					" 'tax_code',\n",
+					" 'vat_number',\n",
+					" 'zip_code',\n",
+					" 'foreign_state',\n",
+					" 'number_of_pages',\n",
+					" 'g_envelope_weight',\n",
+					" 'cost_eurocent',\n",
+					" 'timeline_category',\n",
+					" 'paper_product_type',\n",
+					" 'notification_type',\n",
+					" 'event_id',\n",
+					" 'iun',\n",
+					" 'consolidatore',\n",
+					" 'recapitista',\n",
+					" 'notification_sent_at',\n",
+					" 'internal_organization_id',\n",
+					" 'description',\n",
+					" 'event_timestamp',\n",
+					" 'recipient_index',\n",
+					" 'recipient_type',\n",
+					" 'recipient_id',\n",
+					" 'year',\n",
+					" 'month',\n",
+					" 'daily',\n",
+					" 'item_code',\n",
+					" 'notification_request_id',\n",
+					" 'recipient_tax_id',\n",
+					" 'Note Ente',\n",
+					" 'Risposta Ente',\n",
+					" 'Risposta Send',\n",
+					" 'Risposta Recapitista',\n",
+					" 'Risposta Consolidatore',\n",
+					" 'Tipo Contestazione',\n",
+					" 'Id Tipo Contestazione',\n",
+					" 'Contestazione',\n",
+					" 'Stato contestazione',\n",
+					" 'Tipologia Fattura',\n",
+					" 'Codice Oggetto']"
+				],
+				"execution_count": 62
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"if tipo_report == '16':\n",
+					"    default_schema.remove('Codice Oggetto')"
+				],
+				"execution_count": 63
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"if set(df_file.columns) != set(default_schema):\n",
+					"\n",
+					"    schema = StructType([StructField(\"Campi Mancanti\", StringType(), True)])\n",
+					"\n",
+					"    fields_missing = []\n",
+					"\n",
+					"    for field in default_schema:\n",
+					"        if field not in df_file.columns:\n",
+					"            fields_missing.append(field)\n",
+					"\n",
+					"    df = spark.createDataFrame([(field,) for field in fields_missing], schema)\n",
+					"\n",
+					"    file_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/Campi_missing\"\n",
+					"\n",
+					"    df.repartition(1).write.options(header = True, delimiter = ',').mode('overwrite').csv(file_path)\n",
+					"\n",
+					"    for folder in mssparkutils.fs.ls(file_path[:73+len(id_ente)+len(str(report_id))]):\n",
+					"        for file in mssparkutils.fs.ls(folder.path):\n",
+					"            if file.name == '_SUCCESS':\n",
+					"                mssparkutils.fs.rm(file.path)\n",
+					"            else:\n",
+					"                mssparkutils.fs.mv(file.path, f\"{folder.path}.csv\", True)\n",
+					"                mssparkutils.fs.rm(folder.path)\n",
+					"\n",
+					"    query = f\"(select top(1) * from pfd.ReportContestazioniRighe) as tb\"\n",
+					"    pd = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop)\n",
+					"\n",
+					"    file_err = stepContest.where(\"descrizione = 'Errore formato file contestazioni'\").collect()[0][0]\n",
+					"\n",
+					"    step0 = Row(\n",
+					"    report_id=report_id,\n",
+					"    step=file_err,\n",
+					"    TotaleNotificheAnalogicheAR=None,\n",
+					"    TotaleNotificheAnalogiche890=None,\n",
+					"    TotaleNotificheDigitali=None,\n",
+					"    TotaleNotifiche=None,\n",
+					"    Link=link,\n",
+					"    NonContestataAnnullata=None,\n",
+					"    ContestataEnte=None,\n",
+					"    RispostaEnte = None,\n",
+					"    Accettata=None,\n",
+					"    RispostaSend=None,\n",
+					"    RispostaRecapitista=None,\n",
+					"    RispostaConsolidatore=None,\n",
+					"    Rifiutata=None,\n",
+					"    NonFatturabile=None,\n",
+					"    Fatturabile=None,\n",
+					"    Storage=\"fatppublic\",\n",
+					"    NomeDocumento=\"Campi_missing.csv\",\n",
+					"    DataCompletamento=datetime.datetime.now(),\n",
+					"    TotaleNotificheAnalogicheARNazionali_AR=None,\n",
+					"    TotaleNotificheAnalogicheARInternazionali_RIR=None,\n",
+					"    TotaleNotificheAnalogicheRSNazionali_RS=None,\n",
+					"    TotaleNotificheAnalogicheRSInternazionali_RIS=None\n",
+					"    )\n",
+					"\n",
+					"    righe_report = spark.createDataFrame([step0], pd.schema)\n",
+					"\n",
+					"    righe_report.write.format(\"delta\").mode(\"append\").saveAsTable(\"fat_delta.reportContestazioniRighe\")\n",
+					"\n",
+					"    mssparkutils.notebook.exit(file_err) #stato 1"
+				],
+				"execution_count": 64
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_file = df_file.withColumn(\"Id Tipo Contestazione new\",\\\n",
+					"                F.when(F.col(\"Id Tipo Contestazione\").isin([\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\"]), F.col(\"Id Tipo Contestazione\")).otherwise(\"10\"))\\\n",
+					"                .drop(\"Id Tipo Contestazione\")\\\n",
+					"                .withColumnRenamed(\"Id Tipo Contestazione new\",\"Id Tipo Contestazione\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query2 = \"(select * from pfd.Notifiche) as tb\"\n",
+					"df_sql = spark.read.jdbc(url=jdbcUrl, table=query2, properties=conn_Prop)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# query3 = \"(select * FROM pfw.TipoContestazione) as tb\"\n",
+					"# df_tipo_contestazione = spark.read.jdbc(url=jdbcUrl, table=query3, properties=conn_Prop)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# df_file = df_file.join(df_tipo_contestazione, how=\"inner\", on=df_file[\"Tipo Contestazione\"]==df_tipo_contestazione[\"TipoContestazione\"])\\\n",
+					"#     .drop(\"TipoContestazione\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_file = df_file.alias(\"df_file\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Leggo schema tabella righe report contestazioni"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"(select top(1) * from pfd.ReportContestazioniRighe) as tb\"\n",
+					"pd = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#### Contestazioni in elaborazione"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"TotAR = df_file.where(\"notification_type = 'AR'\").count()\n",
+					"Tot890 = df_file.where(\"notification_type = '890'\").count()\n",
+					"TotDigital = df_file.where(\"notification_type = 'DIG'\").count()\n",
+					"TotRIR = df_file.where(\"notification_type = 'RIR'\").count()\n",
+					"TotRS = df_file.where(\"notification_type = 'RS'\").count()\n",
+					"TotRIS = df_file.where(\"notification_type = 'RIS'\").count()\n",
+					"TotNotifiche = df_file.count()\n",
+					"\n",
+					"step1 = Row(\n",
+					"    report_id=report_id,\n",
+					"    step=stepContest.where(\"descrizione = 'Contestazioni in elaborazione'\").select(\"step\").collect()[0][0],\n",
+					"    TotaleNotificheAnalogiche890=Tot890,\n",
+					"    TotaleNotificheDigitali=TotDigital,\n",
+					"    TotaleNotifiche=TotNotifiche,\n",
+					"    Link=\"\",\n",
+					"    NonContestataAnnullata=None,\n",
+					"    ContestataEnte=None,\n",
+					"    RispostaEnte = None,\n",
+					"    Accettata=None,\n",
+					"    RispostaSend=None,\n",
+					"    RispostaRecapitista=None,\n",
+					"    RispostaConsolidatore=None,\n",
+					"    Rifiutata=None,\n",
+					"    NonFatturabile=None,\n",
+					"    Fatturabile=None,\n",
+					"    Storage=\"fatppublic\",\n",
+					"    NomeDocumento=None,\n",
+					"    DataCompletamento=datetime.datetime.now(),\n",
+					"    TotaleNotificheAnalogicheARNazionali_AR=TotAR,\n",
+					"    TotaleNotificheAnalogicheARInternazionali_RIR=TotRIR,\n",
+					"    TotaleNotificheAnalogicheRSNazionali_RS=TotRS,\n",
+					"    TotaleNotificheAnalogicheRSInternazionali_RIS=TotRIS\n",
+					")\n",
+					"\n",
+					"righe_report = spark.createDataFrame([step1], pd.schema)\n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#### Notifiche irrilevanti"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"not_irr = df_file.where(\"`Stato contestazione` = '1'\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_processing = df_file.where(\"`Stato contestazione` != '1'\")"
+				],
+				"execution_count": 20
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"not_irr.cache()\n",
+					"\n",
+					"irr_count = not_irr.count()\n",
+					"\n",
+					"if irr_count != 0:\n",
+					"\n",
+					"    file_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/Notifiche invariate\"\n",
+					"    not_irr.repartition(1).write.options(header = True, delimiter = ',').mode('overwrite').csv(file_path)\n",
+					"    NomeDocumento = \"Notifiche invariate.csv\"\n",
+					"else:\n",
+					"    NomeDocumento = None\n",
+					"\n",
+					"TotAR = not_irr.where(\"notification_type = 'AR'\").count()\n",
+					"Tot890 = not_irr.where(\"notification_type = '890'\").count()\n",
+					"TotDigital = not_irr.where(\"notification_type = 'DIG'\").count()\n",
+					"TotRIR = not_irr.where(\"notification_type = 'RIR'\").count()\n",
+					"TotRS = not_irr.where(\"notification_type = 'RS'\").count()\n",
+					"TotRIS = not_irr.where(\"notification_type = 'RIS'\").count()\n",
+					"\n",
+					"step2row = Row(\n",
+					"    report_id=report_id,\n",
+					"    step=stepContest.where(\"descrizione = 'Notifiche invariate'\").select(\"step\").collect()[0][0],\n",
+					"    TotaleNotificheAnalogiche890=Tot890,\n",
+					"    TotaleNotificheDigitali=TotDigital,\n",
+					"    TotaleNotifiche=irr_count,\n",
+					"    Link=link,\n",
+					"    NonContestataAnnullata=None,\n",
+					"    ContestataEnte=None,\n",
+					"    RispostaEnte = None,\n",
+					"    Accettata=None,\n",
+					"    RispostaSend=None,\n",
+					"    RispostaRecapitista=None,\n",
+					"    RispostaConsolidatore=None,\n",
+					"    Rifiutata=None,\n",
+					"    NonFatturabile=None,\n",
+					"    Fatturabile=None,\n",
+					"    Storage=\"fatppublic\",\n",
+					"    NomeDocumento=NomeDocumento,\n",
+					"    DataCompletamento=datetime.datetime.now(),\n",
+					"    TotaleNotificheAnalogicheARNazionali_AR=TotAR,\n",
+					"    TotaleNotificheAnalogicheARInternazionali_RIR=TotRIR,\n",
+					"    TotaleNotificheAnalogicheRSNazionali_RS=TotRS,\n",
+					"    TotaleNotificheAnalogicheRSInternazionali_RIS=TotRIS\n",
+					")\n",
+					"\n",
+					"step2 = spark.createDataFrame([step2row], pd.schema)\n",
+					"\n",
+					"righe_report = righe_report.union(step2)\n",
+					"\n",
+					"not_irr.unpersist()"
+				],
+				"execution_count": 21
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# righe_reports = df_file.select(\"event_id\", \"paper_product_type\")\\\n",
+					"#                         .withColumn(\"description\",F.lit(\"Contestazioni in elaborazione\"))\\\n",
+					"#                         .withColumn(\"DataCompletamento\",F.lit(datetime.datetime.now()))\\\n",
+					"#                         .withColumn(\"NomeDocumento\", F.lit(None))"
+				],
+				"execution_count": 22
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"stopper = False"
+				],
+				"execution_count": 23
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Notifiche Missing"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_missing = notifiche_processing.join(df_sql, how=\"left_anti\", on=\"event_id\")"
+				],
+				"execution_count": 24
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_processing = notifiche_processing.join(df_sql, how=\"inner\", on=\"event_id\").select(\"df_file.*\")"
+				],
+				"execution_count": 25
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_missing.cache()\n",
+					"\n",
+					"missing_count = notifiche_missing.count()\n",
+					"if missing_count != 0:\n",
+					"    stopper = True\n",
+					"    file_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/Notifiche_missed\"\n",
+					"    notifiche_missing.repartition(1).write.options(header = True, delimiter = ',').mode('overwrite').csv(file_path)\n",
+					"    NomeDocumento = \"Notifiche_missed.csv\"\n",
+					"else:\n",
+					"    NomeDocumento = None\n",
+					"\n",
+					"TotAR = notifiche_missing.where(\"notification_type = 'AR'\").count()\n",
+					"Tot890 = notifiche_missing.where(\"notification_type = '890'\").count()\n",
+					"TotDigital = notifiche_missing.where(\"notification_type = 'DIG'\").count()\n",
+					"TotRIR = notifiche_missing.where(\"notification_type = 'RIR'\").count()\n",
+					"TotRS = notifiche_missing.where(\"notification_type = 'RS'\").count()\n",
+					"TotRIS = notifiche_missing.where(\"notification_type = 'RIS'\").count()\n",
+					"\n",
+					"step3row = Row(\n",
+					"    report_id=report_id,\n",
+					"    step=stepContest.where(\"descrizione = 'Notifiche inesistenti'\").select(\"step\").collect()[0][0],\n",
+					"    TotaleNotificheAnalogiche890=Tot890,\n",
+					"    TotaleNotificheDigitali=TotDigital,\n",
+					"    TotaleNotifiche=missing_count,\n",
+					"    Link=link,\n",
+					"    NonContestataAnnullata=None,\n",
+					"    ContestataEnte=None,\n",
+					"    RispostaEnte = None,\n",
+					"    Accettata=None,\n",
+					"    RispostaSend=None,\n",
+					"    RispostaRecapitista=None,\n",
+					"    RispostaConsolidatore=None,\n",
+					"    Rifiutata=None,\n",
+					"    NonFatturabile=None,\n",
+					"    Fatturabile=None,\n",
+					"    Storage=\"fatppublic\",\n",
+					"    NomeDocumento=NomeDocumento,\n",
+					"    DataCompletamento=datetime.datetime.now(),\n",
+					"    TotaleNotificheAnalogicheARNazionali_AR=TotAR,\n",
+					"    TotaleNotificheAnalogicheARInternazionali_RIR=TotRIR,\n",
+					"    TotaleNotificheAnalogicheRSNazionali_RS=TotRS,\n",
+					"    TotaleNotificheAnalogicheRSInternazionali_RIS=TotRIS\n",
+					")\n",
+					"\n",
+					"\n",
+					"step3 = spark.createDataFrame([step3row], pd.schema)\n",
+					"\n",
+					"righe_report = righe_report.union(step3)\n",
+					"\n",
+					"notifiche_missing.unpersist()"
+				],
+				"execution_count": 26
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# notifiche_missing = notifiche_missing.select(\"event_id\", \"paper_product_type\")\\\n",
+					"#                                      .withColumn(\"description\",F.lit(\"Notifiche inesistenti\"))\\\n",
+					"#                                      .withColumn(\"DataCompletamento\",F.lit(datetime.datetime.now()))\\\n",
+					"#                                      .withColumn(\"NomeDocumento\", F.lit(NomeDocumento))\n",
+					"# righe_reports = righe_reports.union(notifiche_missing)"
+				],
+				"execution_count": 27
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Notifiche non associate all'ente"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"(select * from pfd.Notifiche where internal_organization_id = '{id_ente}') as tb\"\n",
+					"df_sql_filtered = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop)"
+				],
+				"execution_count": 28
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_noente = notifiche_processing.join(df_sql_filtered, how=\"left_anti\", on=[\"event_id\",\"internal_organization_id\"])"
+				],
+				"execution_count": 29
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_processing = notifiche_processing.join(df_sql_filtered, how=\"inner\", on=[\"event_id\",\"internal_organization_id\"]).select(\"df_file.*\")"
+				],
+				"execution_count": 30
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_noente.cache()\n",
+					"\n",
+					"noente_count = notifiche_noente.count()\n",
+					"if  noente_count != 0:\n",
+					"    stopper = True\n",
+					"    file_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/Notifiche_missed_id\"\n",
+					"    notifiche_noente.repartition(1).write.options(header=True, delimiter=',').mode('overwrite').csv(file_path)\n",
+					"    NomeDocumento = \"Notifiche_missed_id.csv\"\n",
+					"else:\n",
+					"    NomeDocumento = None\n",
+					"\n",
+					"TotAR = notifiche_noente.where(\"notification_type = 'AR'\").count()\n",
+					"Tot890 = notifiche_noente.where(\"notification_type = '890'\").count()\n",
+					"TotDigital = notifiche_noente.where(\"notification_type = 'DIG'\").count()\n",
+					"TotRIR = notifiche_noente.where(\"notification_type = 'RIR'\").count()\n",
+					"TotRS = notifiche_noente.where(\"notification_type = 'RS'\").count()\n",
+					"TotRIS = notifiche_noente.where(\"notification_type = 'RIS'\").count()\n",
+					"\n",
+					"step4row = Row(\n",
+					"    report_id=report_id,\n",
+					"    step=stepContest.where(\"descrizione = 'Notifiche non associate all\\\\'Ente'\").select(\"step\").collect()[0][0],\n",
+					"    TotaleNotificheAnalogiche890=Tot890,\n",
+					"    TotaleNotificheDigitali=TotDigital,\n",
+					"    TotaleNotifiche=noente_count,\n",
+					"    Link=link,\n",
+					"    NonContestataAnnullata=None,\n",
+					"    ContestataEnte=None,\n",
+					"    RispostaEnte = None,\n",
+					"    Accettata=None,\n",
+					"    RispostaSend=None,\n",
+					"    RispostaRecapitista=None,\n",
+					"    RispostaConsolidatore=None,\n",
+					"    Rifiutata=None,\n",
+					"    NonFatturabile=None,\n",
+					"    Fatturabile=None,\n",
+					"    Storage=\"fatppublic\",\n",
+					"    NomeDocumento=NomeDocumento,\n",
+					"    DataCompletamento=datetime.datetime.now(),\n",
+					"    TotaleNotificheAnalogicheARNazionali_AR=TotAR,\n",
+					"    TotaleNotificheAnalogicheARInternazionali_RIR=TotRIR,\n",
+					"    TotaleNotificheAnalogicheRSNazionali_RS=TotRS,\n",
+					"    TotaleNotificheAnalogicheRSInternazionali_RIS=TotRIS\n",
+					")\n",
+					"\n",
+					"\n",
+					"step4 = spark.createDataFrame([step4row], pd.schema)\n",
+					"\n",
+					"righe_report = righe_report.union(step4)\n",
+					"\n",
+					"notifiche_noente.unpersist()"
+				],
+				"execution_count": 31
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# notifiche_noente = notifiche_noente.select(\"event_id\", \"paper_product_type\")\\\n",
+					"#                                      .withColumn(\"description\",F.lit(\"Notifiche non associate all'Ente\"))\\\n",
+					"#                                      .withColumn(\"DataCompletamento\",F.lit(datetime.datetime.now()))\\\n",
+					"#                                      .withColumn(\"NomeDocumento\", F.lit(NomeDocumento))\n",
+					"# righe_reports = righe_reports.union(notifiche_noente)"
+				],
+				"execution_count": 32
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Notifiche non associate al contratto"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# notifiche_nocontratto = notifiche_processing.join(df_sql_filtered, how=\"left_anti\", on=[\"event_id\",\"contract_id\"])\n",
+					"\n",
+					"notifiche_nocontratto = notifiche_processing.where(f\"contract_id != '{id_contratto}'\")"
+				],
+				"execution_count": 33
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# notifiche_processing = notifiche_processing.join(df_sql_filtered, how=\"inner\", on=[\"event_id\",\"contract_id\"]).select(\"df_file.*\")ù\n",
+					"\n",
+					"notifiche_processing = notifiche_processing.where(f\"contract_id = '{id_contratto}'\")"
+				],
+				"execution_count": 34
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_nocontratto.cache()\n",
+					"\n",
+					"nocontratto_count = notifiche_nocontratto.count()\n",
+					"if nocontratto_count != 0:\n",
+					"    stopper = True\n",
+					"    file_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/Notifiche_missed_cid\"\n",
+					"    notifiche_nocontratto.repartition(1).write.options(header=True, delimiter=',').mode('overwrite').csv(file_path)\n",
+					"    NomeDocumento=\"Notifiche_missed_cid.csv\"\n",
+					"else:\n",
+					"    NomeDocumento = None\n",
+					"\n",
+					"TotAR = notifiche_nocontratto.where(\"notification_type = 'AR'\").count()\n",
+					"Tot890 = notifiche_nocontratto.where(\"notification_type = '890'\").count()\n",
+					"TotDigital = notifiche_nocontratto.where(\"notification_type = 'DIG'\").count()\n",
+					"TotRIR = notifiche_nocontratto.where(\"notification_type = 'RIR'\").count()\n",
+					"TotRS = notifiche_nocontratto.where(\"notification_type = 'RS'\").count()\n",
+					"TotRIS = notifiche_nocontratto.where(\"notification_type = 'RIS'\").count()\n",
+					"\n",
+					"step5row = Row(\n",
+					"    report_id=report_id,\n",
+					"    step=stepContest.where(\"descrizione = 'Notifiche dell\\\\'Ente con contratto diverso'\").select(\"step\").collect()[0][0],\n",
+					"    TotaleNotificheAnalogiche890=Tot890,\n",
+					"    TotaleNotificheDigitali=TotDigital,\n",
+					"    TotaleNotifiche=nocontratto_count,\n",
+					"    Link=link,\n",
+					"    NonContestataAnnullata=None,\n",
+					"    ContestataEnte=None,\n",
+					"    RispostaEnte = None,\n",
+					"    Accettata=None,\n",
+					"    RispostaSend=None,\n",
+					"    RispostaRecapitista=None,\n",
+					"    RispostaConsolidatore=None,\n",
+					"    Rifiutata=None,\n",
+					"    NonFatturabile=None,\n",
+					"    Fatturabile=None,\n",
+					"    Storage=\"fatppublic\",\n",
+					"    NomeDocumento=NomeDocumento,\n",
+					"    DataCompletamento=datetime.datetime.now(),\n",
+					"    TotaleNotificheAnalogicheARNazionali_AR=TotAR,\n",
+					"    TotaleNotificheAnalogicheARInternazionali_RIR=TotRIR,\n",
+					"    TotaleNotificheAnalogicheRSNazionali_RS=TotRS,\n",
+					"    TotaleNotificheAnalogicheRSInternazionali_RIS=TotRIS\n",
+					")\n",
+					"\n",
+					"step5 = spark.createDataFrame([step5row], pd.schema)\n",
+					"\n",
+					"righe_report = righe_report.union(step5)\n",
+					"\n",
+					"notifiche_nocontratto.unpersist()"
+				],
+				"execution_count": 35
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# notifiche_nocontratto = notifiche_nocontratto.select(\"event_id\", \"paper_product_type\") \\\n",
+					"#                                              .withColumn(\"description\", F.lit(\"Notifiche dell'Ente con contratto diverso\")) \\\n",
+					"#                                              .withColumn(\"DataCompletamento\", F.lit(datetime.datetime.now()))\\\n",
+					"#                                              .withColumn(\"NomeDocumento\", F.lit(NomeDocumento))\n",
+					"# righe_reports = righe_reports.union(notifiche_nocontratto)"
+				],
+				"execution_count": 36
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Notifiche riferite al periodo sbagliato"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_wrongperiod = notifiche_processing.where(f\"month != {month} or year != {year}\")"
+				],
+				"execution_count": 37
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_processing = notifiche_processing.where(f\"month = {month} and year = {year}\")"
+				],
+				"execution_count": 38
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_wrongperiod.cache()\n",
+					"\n",
+					"wrongperiod_count = notifiche_wrongperiod.count()\n",
+					"if wrongperiod_count != 0:\n",
+					"    stopper = True\n",
+					"    file_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/Notifiche_missed_date\"\n",
+					"    notifiche_wrongperiod.repartition(1).write.options(header=True, delimiter=',').mode('overwrite').csv(file_path)\n",
+					"    NomeDocumento=\"Notifiche_missed_date.csv\"\n",
+					"else:\n",
+					"    NomeDocumento = None\n",
+					"\n",
+					"TotAR = notifiche_wrongperiod.where(\"notification_type = 'AR'\").count()\n",
+					"Tot890 = notifiche_wrongperiod.where(\"notification_type = '890'\").count()\n",
+					"TotDigital = notifiche_wrongperiod.where(\"notification_type = 'DIG'\").count()\n",
+					"TotRIR = notifiche_wrongperiod.where(\"notification_type = 'RIR'\").count()\n",
+					"TotRS = notifiche_wrongperiod.where(\"notification_type = 'RS'\").count()\n",
+					"TotRIS = notifiche_wrongperiod.where(\"notification_type = 'RIS'\").count()\n",
+					"\n",
+					"step6row = Row(\n",
+					"    report_id=report_id,\n",
+					"    step=stepContest.where(\"descrizione = 'Notifiche non nello stesso periodo di riferimento'\").select(\"step\").collect()[0][0],\n",
+					"    TotaleNotificheAnalogiche890=Tot890,\n",
+					"    TotaleNotificheDigitali=TotDigital,\n",
+					"    TotaleNotifiche=wrongperiod_count,\n",
+					"    Link=link,\n",
+					"    NonContestataAnnullata=None,\n",
+					"    ContestataEnte=None,\n",
+					"    RispostaEnte = None,\n",
+					"    Accettata=None,\n",
+					"    RispostaSend=None,\n",
+					"    RispostaRecapitista=None,\n",
+					"    RispostaConsolidatore=None,\n",
+					"    Rifiutata=None,\n",
+					"    NonFatturabile=None,\n",
+					"    Fatturabile=None,\n",
+					"    Storage=\"fatppublic\",\n",
+					"    NomeDocumento=NomeDocumento,\n",
+					"    DataCompletamento=datetime.datetime.now(),\n",
+					"    TotaleNotificheAnalogicheARNazionali_AR=TotAR,\n",
+					"    TotaleNotificheAnalogicheARInternazionali_RIR=TotRIR,\n",
+					"    TotaleNotificheAnalogicheRSNazionali_RS=TotRS,\n",
+					"    TotaleNotificheAnalogicheRSInternazionali_RIS=TotRIS\n",
+					")\n",
+					"\n",
+					"step6 = spark.createDataFrame([step6row], pd.schema)\n",
+					"\n",
+					"righe_report = righe_report.union(step6)\n",
+					"\n",
+					"notifiche_wrongperiod.unpersist()"
+				],
+				"execution_count": 39
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# notifiche_wrongperiod = notifiche_wrongperiod.select(\"event_id\", \"paper_product_type\") \\\n",
+					"#                                              .withColumn(\"description\", F.lit(\"Notifiche non nello stesso periodo di riferimento\")) \\\n",
+					"#                                              .withColumn(\"DataCompletamento\", F.lit(datetime.datetime.now()))\\\n",
+					"#                                              .withColumn(\"NomeDocumento\", F.lit(NomeDocumento))\n",
+					"\n",
+					"# righe_reports = righe_reports.union(notifiche_wrongperiod)"
+				],
+				"execution_count": 40
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Notifiche già asseverate o fatturate"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_perfezionate = notifiche_processing.where(\"TipologiaFattura IN ('PRIMO SALDO', 'ASSEVERAZIONE', 'SECONDO SALDO', 'VAR. SEMESTRALE')\")"
+				],
+				"execution_count": 41
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_processing = notifiche_processing.where(\"TipologiaFattura IS NULL OR TipologiaFattura NOT IN ('PRIMO SALDO', 'ASSEVERAZIONE', 'SECONDO SALDO', 'VAR. SEMESTRALE')\")"
+				],
+				"execution_count": 42
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_perfezionate.cache()\n",
+					"\n",
+					"perfezionate_count = notifiche_perfezionate.count()\n",
+					"if perfezionate_count != 0:\n",
+					"    stopper = True\n",
+					"    file_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/Notifiche_fatturazione\"\n",
+					"    notifiche_perfezionate.repartition(1).write.options(header=True, delimiter=',').mode('overwrite').csv(file_path)\n",
+					"    NomeDocumento=\"Notifiche_fatturazione.csv\"\n",
+					"else:\n",
+					"    NomeDocumento = None\n",
+					"\n",
+					"TotAR = notifiche_perfezionate.where(\"notification_type = 'AR'\").count()\n",
+					"Tot890 = notifiche_perfezionate.where(\"notification_type = '890'\").count()\n",
+					"TotDigital = notifiche_perfezionate.where(\"notification_type = 'DIG'\").count()\n",
+					"TotRIR = notifiche_perfezionate.where(\"notification_type = 'RIR'\").count()\n",
+					"TotRS = notifiche_perfezionate.where(\"notification_type = 'RS'\").count()\n",
+					"TotRIS = notifiche_perfezionate.where(\"notification_type = 'RIS'\").count()\n",
+					"\n",
+					"step7row = Row(\n",
+					"    report_id=report_id,\n",
+					"    step=stepContest.where(\"descrizione = 'Notifiche già fatturate o asseverate'\").select(\"step\").collect()[0][0],\n",
+					"    TotaleNotificheAnalogiche890=Tot890,\n",
+					"    TotaleNotificheDigitali=TotDigital,\n",
+					"    TotaleNotifiche=perfezionate_count,\n",
+					"    Link=link,\n",
+					"    NonContestataAnnullata=None,\n",
+					"    ContestataEnte=None,\n",
+					"    RispostaEnte = None,\n",
+					"    Accettata=None,\n",
+					"    RispostaSend=None,\n",
+					"    RispostaRecapitista=None,\n",
+					"    RispostaConsolidatore=None,\n",
+					"    Rifiutata=None,\n",
+					"    NonFatturabile=None,\n",
+					"    Fatturabile=None,\n",
+					"    Storage=\"fatppublic\",\n",
+					"    NomeDocumento=NomeDocumento,\n",
+					"    DataCompletamento=datetime.datetime.now(),\n",
+					"    TotaleNotificheAnalogicheARNazionali_AR=TotAR,\n",
+					"    TotaleNotificheAnalogicheARInternazionali_RIR=TotRIR,\n",
+					"    TotaleNotificheAnalogicheRSNazionali_RS=TotRS,\n",
+					"    TotaleNotificheAnalogicheRSInternazionali_RIS=TotRIS\n",
+					")\n",
+					"\n",
+					"step7 = spark.createDataFrame([step7row], pd.schema)\n",
+					"\n",
+					"righe_report = righe_report.union(step7)\n",
+					"\n",
+					"notifiche_perfezionate.unpersist()"
+				],
+				"execution_count": 43
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# notifiche_perfezionate = notifiche_perfezionate.select(\"event_id\", \"paper_product_type\") \\\n",
+					"#                                                .withColumn(\"description\", F.lit(\"Notifiche già fatturate o asseverate\")) \\\n",
+					"#                                                .withColumn(\"DataCompletamento\", F.lit(datetime.datetime.now())) \\\n",
+					"#                                                .withColumn(\"NomeDocumento\", F.lit(NomeDocumento))\n",
+					"\n",
+					"# righe_reports = righe_reports.union(notifiche_perfezionate)"
+				],
+				"execution_count": 44
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Scrittura notifications_missed"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"(select c.* from pfw.Contestazioni c inner join pfd.Notifiche on fkidnotifica = event_id where internal_organization_id = '{id_ente}') as tb\"\n",
+					"contestazioni_sql = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop)"
+				],
+				"execution_count": 45
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"\n",
+					"# schema = StructType([\n",
+					"#     StructField(\"stato_contestazione\", StringType(), True),\n",
+					"#     StructField(\"stati_attesi\", ArrayType(StringType()), True),\n",
+					"#     StructField(\"errore\", StringType(), True),\n",
+					"#     StructField(\"TipoReport\", StringType(), True)\n",
+					"\n",
+					"# ])\n",
+					"\n",
+					"# # Definisci i dati\n",
+					"# data = [\n",
+					"#     (\"1\", [], \"Notifiche che non si possono contestare\", \"AzureAD\"),\n",
+					"#     (\"2\", [\"3\"], \"Notifiche che non si possono annullare\", \"AzureAD\"),\n",
+					"#     (\"3\", [\"1\", \"2\", \"3\"], \"Notifiche che non si possono contestare\", \"AzureAD\"),\n",
+					"#     (\"4\", [\"3\"], \"Notifiche che non si possono contestare\", \"AzureAD\"),\n",
+					"#     (\"5\", [\"3\", \"5\"], \"Notifiche che non si possono contestare\", \"AzureAD\"),\n",
+					"#     (\"6\", [\"3\", \"6\"], \"Notifiche che non si possono contestare\", \"AzureAD\"),\n",
+					"#     (\"7\", [\"4\", \"5\", \"6\"], \"Notifiche che non si possono contestare\", \"AzureAD\"),\n",
+					"#     (\"8\", [\"3\", \"4\", \"5\", \"6\", \"7\", \"8\", \"9\"], \"Notifiche che non si possono accettare\", \"AzureAD\"),\n",
+					"#     (\"9\", [\"3\", \"4\", \"5\", \"6\", \"7\", \"8\", \"9\"], \"Notifiche che non si possono rifiutare\", \"AzureAD\")\n",
+					"# ]\n",
+					"\n",
+					"# data2 = [\n",
+					"#     (\"1\", [], \"Notifiche che non si possono contestare\", \"Ente\"),\n",
+					"#     (\"2\", [\"3\"], \"Notifiche che non si possono annullare\", \"Ente\"),\n",
+					"#     (\"3\", [\"1\", \"2\", \"3\"], \"Notifiche che non si possono contestare\", \"Ente\"),\n",
+					"#     (\"4\", [], \"Notifiche che non si possono contestare\", \"Ente\"),\n",
+					"#     (\"5\", [], \"Notifiche che non si possono contestare\", \"Ente\"),\n",
+					"#     (\"6\", [], \"Notifiche che non si possono contestare\", \"Ente\"),\n",
+					"#     (\"7\", [\"4\", \"5\", \"6\"], \"Notifiche che non si possono contestare\", \"Ente\"),\n",
+					"#     (\"8\", [], \"Notifiche che non si possono accettare\", \"Ente\"),\n",
+					"#     (\"9\", [\"3\", \"4\", \"5\", \"6\", \"7\", \"9\"], \"Notifiche che non si possono rifiutare\", \"Ente\")\n",
+					"# ]\n",
+					"\n",
+					"# # Crea il DataFrame\n",
+					"# df_stati = spark.createDataFrame(data, schema)\n",
+					"# df_stati2 = spark.createDataFrame(data2, schema)\n",
+					"# df_stati_tot = df_stati.union(df_stati2)\n",
+					"# df_stati_tot.write.format(\"delta\").saveAsTable(\"fat_delta.contestazioni_stati\")\n",
+					"\n",
+					"\n",
+					"# # # Mostra il DataFrame\n",
+					"# # display(df_stati_tot)\n",
+					"# # display(df_stati2)"
+				],
+				"execution_count": 49
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"if tipo_report == \"15\":\n",
+					"    tipo_r = \"AzureAD\"\n",
+					"elif tipo_report == \"16\":\n",
+					"    tipo_r = \"Ente\"\n",
+					"\n",
+					"df_stati = spark.sql(f\"\"\"SELECT stato_contestazione,stati_attesi,errore FROM fat_delta.contestazioni_stati \n",
+					"                        WHERE TipoReport = '{tipo_r}'\"\"\")"
+				],
+				"execution_count": 53
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"controllo_stati = notifiche_processing\\\n",
+					"                .join(df_stati, how=\"inner\", on=df_stati[\"stato_contestazione\"]==notifiche_processing[\"Stato Contestazione\"])\\\n",
+					"                .join(contestazioni_sql, how=\"left\", on=F.col(\"fkidnotifica\")==F.col(\"event_id\"))\n",
+					""
+				],
+				"execution_count": 47
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"columns_to_filter = df_file.columns\n",
+					"columns_to_filter.append(\"Semaforo\")\n",
+					"\n",
+					"controllo_stati = controllo_stati.fillna({'FkIdFlagContestazione':1})\\\n",
+					"                .withColumn(\"Semaforo\",F.when(F.array_contains(F.col(\"stati_attesi\"),F.col(\"fkIdFlagContestazione\").cast(StringType())),notifiche_processing[\"Stato Contestazione\"])\\\n",
+					"                .otherwise(F.col(\"errore\"))).select(columns_to_filter)"
+				],
+				"execution_count": 48
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"run_control": {
+						"frozen": true
+					},
+					"editable": false,
+					"collapsed": false
+				},
+				"source": [
+					"display(controllo_stati.select(\"statocontestazione\",\"stati_attesi\",\"fkidflagcontestazione\",\"semaforo\"))"
+				],
+				"execution_count": 125
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_step8 = controllo_stati.where(\"Semaforo = 'Notifiche che non si possono annullare'\").drop(\"semaforo\")\n",
+					"notifiche_step9 = controllo_stati.where(\"Semaforo = 'Notifiche che non si possono contestare'\").drop(\"semaforo\")\n",
+					"notifiche_step10 = controllo_stati.where(\"Semaforo = 'Notifiche che non si possono accettare'\").drop(\"semaforo\")\n",
+					"notifiche_step11 = controllo_stati.where(\"Semaforo = 'Notifiche che non si possono rifiutare'\").drop(\"semaforo\")\n",
+					"notifiche_step12 = controllo_stati.filter(controllo_stati[\"Semaforo\"] == controllo_stati[\"Stato Contestazione\"])"
+				],
+				"execution_count": 50
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_step8.cache()\n",
+					"\n",
+					"step8count = notifiche_step8.count()\n",
+					"if step8count != 0:\n",
+					"    stopper = True\n",
+					"    file_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/Notifiche_non_annullabili\"\n",
+					"    notifiche_step8.repartition(1).write.options(header=True, delimiter=',').mode('overwrite').csv(file_path)\n",
+					"    NomeDocumento=\"Notifiche_non_annullabili.csv\"\n",
+					"else:\n",
+					"    NomeDocumento = None\n",
+					"\n",
+					"TotAR = notifiche_step8.where(\"notification_type = 'AR'\").count()\n",
+					"Tot890 = notifiche_step8.where(\"notification_type = '890'\").count()\n",
+					"TotDigital = notifiche_step8.where(\"notification_type = 'DIG'\").count()\n",
+					"TotRIR = notifiche_step8.where(\"notification_type = 'RIR'\").count()\n",
+					"TotRS = notifiche_step8.where(\"notification_type = 'RS'\").count()\n",
+					"TotRIS = notifiche_step8.where(\"notification_type = 'RIS'\").count()\n",
+					"\n",
+					"step8row = Row(\n",
+					"    report_id=report_id,\n",
+					"    step=stepContest.where(\"descrizione = 'Notifiche che non si possono annullare.'\").select(\"step\").collect()[0][0],\n",
+					"    TotaleNotificheAnalogiche890=Tot890,\n",
+					"    TotaleNotificheDigitali=TotDigital,\n",
+					"    TotaleNotifiche=step8count,\n",
+					"    Link=link,\n",
+					"    NonContestataAnnullata=None,\n",
+					"    ContestataEnte=None,\n",
+					"    RispostaEnte = None,\n",
+					"    Accettata=None,\n",
+					"    RispostaSend=None,\n",
+					"    RispostaRecapitista=None,\n",
+					"    RispostaConsolidatore=None,\n",
+					"    Rifiutata=None,\n",
+					"    NonFatturabile=None,\n",
+					"    Fatturabile=None,\n",
+					"    Storage=\"fatppublic\",\n",
+					"    NomeDocumento=NomeDocumento,\n",
+					"    DataCompletamento=datetime.datetime.now(),\n",
+					"    TotaleNotificheAnalogicheARNazionali_AR=TotAR,\n",
+					"    TotaleNotificheAnalogicheARInternazionali_RIR=TotRIR,\n",
+					"    TotaleNotificheAnalogicheRSNazionali_RS=TotRS,\n",
+					"    TotaleNotificheAnalogicheRSInternazionali_RIS=TotRIS\n",
+					")\n",
+					"\n",
+					"step8 = spark.createDataFrame([step8row], pd.schema)\n",
+					"\n",
+					"righe_report = righe_report.union(step8)\n",
+					"\n",
+					"notifiche_step8.unpersist()"
+				],
+				"execution_count": 52
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# notifiche_step8 = notifiche_step8.select(\"event_id\", \"paper_product_type\") \\\n",
+					"#                                  .withColumn(\"description\", F.lit(\"Notifiche che non si possono annullare.\")) \\\n",
+					"#                                  .withColumn(\"DataCompletamento\", F.lit(datetime.datetime.now()))\\\n",
+					"#                                  .withColumn(\"NomeDocumento\", F.lit(NomeDocumento))\n",
+					"\n",
+					"# righe_reports = righe_reports.union(notifiche_step8)"
+				],
+				"execution_count": 53
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_step9.cache()\n",
+					"\n",
+					"step9count = notifiche_step9.count()\n",
+					"if step9count != 0:\n",
+					"    stopper = True\n",
+					"    file_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/Notifiche_non_contestabili\"\n",
+					"    notifiche_step9.repartition(1).write.options(header=True, delimiter=',').mode('overwrite').csv(file_path)\n",
+					"    NomeDocumento=\"Notifiche_non_contestabili.csv\"\n",
+					"else:\n",
+					"    NomeDocumento = None\n",
+					"\n",
+					"TotAR = notifiche_step9.where(\"notification_type = 'AR'\").count()\n",
+					"Tot890 = notifiche_step9.where(\"notification_type = '890'\").count()\n",
+					"TotDigital = notifiche_step9.where(\"notification_type = 'DIG'\").count()\n",
+					"TotRIR = notifiche_step9.where(\"notification_type = 'RIR'\").count()\n",
+					"TotRS = notifiche_step9.where(\"notification_type = 'RS'\").count()\n",
+					"TotRIS = notifiche_step9.where(\"notification_type = 'RIS'\").count()\n",
+					"\n",
+					"step9row = Row(\n",
+					"    report_id=report_id,\n",
+					"    step=stepContest.where(\"descrizione = 'Notifiche che non si possono contestare'\").select(\"step\").collect()[0][0],\n",
+					"    TotaleNotificheAnalogiche890=Tot890,\n",
+					"    TotaleNotificheDigitali=TotDigital,\n",
+					"    TotaleNotifiche=step9count,\n",
+					"    Link=link,\n",
+					"    NonContestataAnnullata=None,\n",
+					"    ContestataEnte=None,\n",
+					"    RispostaEnte = None,\n",
+					"    Accettata=None,\n",
+					"    RispostaSend=None,\n",
+					"    RispostaRecapitista=None,\n",
+					"    RispostaConsolidatore=None,\n",
+					"    Rifiutata=None,\n",
+					"    NonFatturabile=None,\n",
+					"    Fatturabile=None,\n",
+					"    Storage=\"fatppublic\",\n",
+					"    NomeDocumento=NomeDocumento,\n",
+					"    DataCompletamento=datetime.datetime.now(),\n",
+					"    TotaleNotificheAnalogicheARNazionali_AR=TotAR,\n",
+					"    TotaleNotificheAnalogicheARInternazionali_RIR=TotRIR,\n",
+					"    TotaleNotificheAnalogicheRSNazionali_RS=TotRS,\n",
+					"    TotaleNotificheAnalogicheRSInternazionali_RIS=TotRIS\n",
+					")\n",
+					"\n",
+					"step9 = spark.createDataFrame([step9row], pd.schema)\n",
+					"\n",
+					"righe_report = righe_report.union(step9)\n",
+					"\n",
+					"notifiche_step9.unpersist()"
+				],
+				"execution_count": 54
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# notifiche_step9 = notifiche_step9.select(\"event_id\", \"paper_product_type\") \\\n",
+					"#                                  .withColumn(\"description\", F.lit(\"Notifiche che non si possono contestare\")) \\\n",
+					"#                                  .withColumn(\"DataCompletamento\", F.lit(datetime.datetime.now()))\\\n",
+					"#                                  .withColumn(\"NomeDocumento\", F.lit(NomeDocumento))\n",
+					"\n",
+					"# righe_reports = righe_reports.union(notifiche_step9)"
+				],
+				"execution_count": 55
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_step10.cache()\n",
+					"\n",
+					"step10count = notifiche_step10.count()\n",
+					"if step10count != 0:\n",
+					"    stopper = True\n",
+					"    file_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/Notifiche_non_accettabili\"\n",
+					"    notifiche_step10.repartition(1).write.options(header=True, delimiter=',').mode('overwrite').csv(file_path)\n",
+					"    NomeDocumento=\"Notifiche_non_accettabili.csv\"\n",
+					"else:\n",
+					"    NomeDocumento = None\n",
+					"\n",
+					"TotAR = notifiche_step10.where(\"notification_type = 'AR'\").count()\n",
+					"Tot890 = notifiche_step10.where(\"notification_type = '890'\").count()\n",
+					"TotDigital = notifiche_step10.where(\"notification_type = 'DIG'\").count()\n",
+					"TotRIR = notifiche_step10.where(\"notification_type = 'RIR'\").count()\n",
+					"TotRS = notifiche_step10.where(\"notification_type = 'RS'\").count()\n",
+					"TotRIS = notifiche_step10.where(\"notification_type = 'RIS'\").count()\n",
+					"\n",
+					"step10row = Row(\n",
+					"    report_id=report_id,\n",
+					"    step=stepContest.where(\"descrizione = 'Notifiche che non si possono accettare'\").select(\"step\").collect()[0][0],\n",
+					"    TotaleNotificheAnalogiche890=Tot890,\n",
+					"    TotaleNotificheDigitali=TotDigital,\n",
+					"    TotaleNotifiche=step10count,\n",
+					"    Link=link,\n",
+					"    NonContestataAnnullata=None,\n",
+					"    ContestataEnte=None,\n",
+					"    RispostaEnte = None,\n",
+					"    Accettata=None,\n",
+					"    RispostaSend=None,\n",
+					"    RispostaRecapitista=None,\n",
+					"    RispostaConsolidatore=None,\n",
+					"    Rifiutata=None,\n",
+					"    NonFatturabile=None,\n",
+					"    Fatturabile=None,\n",
+					"    Storage=\"fatppublic\",\n",
+					"    NomeDocumento=NomeDocumento,\n",
+					"    DataCompletamento=datetime.datetime.now(),\n",
+					"    TotaleNotificheAnalogicheARNazionali_AR=TotAR,\n",
+					"    TotaleNotificheAnalogicheARInternazionali_RIR=TotRIR,\n",
+					"    TotaleNotificheAnalogicheRSNazionali_RS=TotRS,\n",
+					"    TotaleNotificheAnalogicheRSInternazionali_RIS=TotRIS\n",
+					")\n",
+					"\n",
+					"step10 = spark.createDataFrame([step10row], pd.schema)\n",
+					"\n",
+					"righe_report = righe_report.union(step10)\n",
+					"\n",
+					"notifiche_step10.unpersist()"
+				],
+				"execution_count": 56
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# notifiche_step10 = notifiche_step10.select(\"event_id\", \"paper_product_type\") \\\n",
+					"#                                    .withColumn(\"description\", F.lit(\"Notifiche che non si possono accettare\")) \\\n",
+					"#                                    .withColumn(\"DataCompletamento\", F.lit(datetime.datetime.now()))\\\n",
+					"#                                    .withColumn(\"NomeDocumento\", F.lit(NomeDocumento))\n",
+					"\n",
+					"# righe_reports = righe_reports.union(notifiche_step10)"
+				],
+				"execution_count": 57
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_step11.cache()\n",
+					"\n",
+					"step11count = notifiche_step11.count()\n",
+					"if step11count != 0:\n",
+					"    stopper = True\n",
+					"    file_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/Notifiche_non_rifiutabili\"\n",
+					"    notifiche_step11.repartition(1).write.options(header=True, delimiter=',').mode('overwrite').csv(file_path)\n",
+					"    NomeDocumento=\"Notifiche_non_rifiutabili.csv\"\n",
+					"else:\n",
+					"    NomeDocumento = None\n",
+					"\n",
+					"TotAR = notifiche_step11.where(\"notification_type = 'AR'\").count()\n",
+					"Tot890 = notifiche_step11.where(\"notification_type = '890'\").count()\n",
+					"TotDigital = notifiche_step11.where(\"notification_type = 'DIG'\").count()\n",
+					"TotRIR = notifiche_step11.where(\"notification_type = 'RIR'\").count()\n",
+					"TotRS = notifiche_step11.where(\"notification_type = 'RS'\").count()\n",
+					"TotRIS = notifiche_step11.where(\"notification_type = 'RIS'\").count()\n",
+					"\n",
+					"step11row = Row(\n",
+					"    report_id=report_id,\n",
+					"    step=stepContest.where(\"descrizione = 'Notifiche che non si possono rifiutare'\").select(\"step\").collect()[0][0],\n",
+					"    TotaleNotificheAnalogiche890=Tot890,\n",
+					"    TotaleNotificheDigitali=TotDigital,\n",
+					"    TotaleNotifiche=step11count,\n",
+					"    Link=link,\n",
+					"    NonContestataAnnullata=None,\n",
+					"    ContestataEnte=None,\n",
+					"    RispostaEnte = None,\n",
+					"    Accettata=None,\n",
+					"    RispostaSend=None,\n",
+					"    RispostaRecapitista=None,\n",
+					"    RispostaConsolidatore=None,\n",
+					"    Rifiutata=None,\n",
+					"    NonFatturabile=None,\n",
+					"    Fatturabile=None,\n",
+					"    Storage=\"fatppublic\",\n",
+					"    NomeDocumento=NomeDocumento,\n",
+					"    DataCompletamento=datetime.datetime.now(),\n",
+					"    TotaleNotificheAnalogicheARNazionali_AR=TotAR,\n",
+					"    TotaleNotificheAnalogicheARInternazionali_RIR=TotRIR,\n",
+					"    TotaleNotificheAnalogicheRSNazionali_RS=TotRS,\n",
+					"    TotaleNotificheAnalogicheRSInternazionali_RIS=TotRIS\n",
+					")\n",
+					"\n",
+					"step11 = spark.createDataFrame([step11row], pd.schema)\n",
+					"\n",
+					"righe_report = righe_report.union(step11)\n",
+					"\n",
+					"notifiche_step11.unpersist()"
+				],
+				"execution_count": 58
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# notifiche_step11 = notifiche_step11.select(\"event_id\", \"paper_product_type\") \\\n",
+					"#                                    .withColumn(\"description\", F.lit(\"Notifiche che non si possono rifiutare\")) \\\n",
+					"#                                    .withColumn(\"DataCompletamento\", F.lit(datetime.datetime.now()))\\\n",
+					"#                                    .withColumn(\"NomeDocumento\", F.lit(NomeDocumento))\n",
+					"\n",
+					"# righe_reports = righe_reports.union(notifiche_step11)"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"notifiche_step12.cache()\n",
+					"\n",
+					"step12count = notifiche_step12.count()\n",
+					"\n",
+					"if notifiche_step12.count() != 0:\n",
+					"    file_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/Notifiche_diff_no_fatturate\"\n",
+					"    notifiche_step12.drop(\"Semaforo\").repartition(1).write.options(header=True, delimiter=',').mode('overwrite').csv(file_path)\n",
+					"    NomeDocumento=\"Notifiche_diff_no_fatturate.csv\"\n",
+					"else:\n",
+					"    NomeDocumento = None\n",
+					"\n",
+					"if stopper == False:\n",
+					"\n",
+					"    TotAR = notifiche_step12.where(\"notification_type = 'AR'\").count()\n",
+					"    Tot890 = notifiche_step12.where(\"notification_type = '890'\").count()\n",
+					"    TotDigital = notifiche_step12.where(\"notification_type = 'DIG'\").count()\n",
+					"    TotRIR = notifiche_step12.where(\"notification_type = 'RIR'\").count()\n",
+					"    TotRS = notifiche_step12.where(\"notification_type = 'RS'\").count()\n",
+					"    TotRIS = notifiche_step12.where(\"notification_type = 'RIS'\").count()\n",
+					"    totAnnullate = notifiche_step12.where(\"Semaforo = 2\").count()\n",
+					"    totContestate = notifiche_step12.where(\"Semaforo = 3\").count()\n",
+					"    totAccettata = notifiche_step12.where(\"Semaforo = 8\").count()\n",
+					"    totRispostaEnte = notifiche_step12.where(\"Semaforo = 7\").count()\n",
+					"    totRispostaSend = notifiche_step12.where(\"Semaforo = 4\").count()\n",
+					"    totRispostaRecapitista = notifiche_step12.where(\"Semaforo = 5\").count()\n",
+					"    totRispostaConsolidatore = notifiche_step12.where(\"Semaforo = 6\").count()\n",
+					"    totRifiutate = notifiche_step12.where(\"Semaforo = 9\").count()\n",
+					"    totNonFatturabili = notifiche_step12.where(\"Semaforo in (3,4,5,6,7,8)\").count()\n",
+					"    totFatturabili = notifiche_step12.where(\"Semaforo in (2,9)\").count()\n",
+					"\n",
+					"\n",
+					"    step12row = Row(\n",
+					"        report_id=report_id,\n",
+					"        step=stepContest.where(\"descrizione = 'Processo completato'\").select(\"step\").collect()[0][0],\n",
+					"        TotaleNotificheAnalogiche890=Tot890,\n",
+					"        TotaleNotificheDigitali=TotDigital,\n",
+					"        TotaleNotifiche=step12count,\n",
+					"        Link=link,\n",
+					"        NonContestataAnnullata=totAnnullate,\n",
+					"        ContestataEnte=totContestate,\n",
+					"        RispostaEnte = totRispostaEnte,\n",
+					"        Accettata=totAccettata,\n",
+					"        RispostaSend=totRispostaSend,\n",
+					"        RispostaRecapitista=totRispostaRecapitista,\n",
+					"        RispostaConsolidatore=totRispostaConsolidatore,\n",
+					"        Rifiutata=totRifiutate,\n",
+					"        NonFatturabile=totNonFatturabili,\n",
+					"        Fatturabile=totFatturabili,\n",
+					"        Storage=\"fatppublic\",\n",
+					"        NomeDocumento=NomeDocumento,\n",
+					"        DataCompletamento=datetime.datetime.now(),\n",
+					"        TotaleNotificheAnalogicheARNazionali_AR=TotAR,\n",
+					"        TotaleNotificheAnalogicheARInternazionali_RIR=TotRIR,\n",
+					"        TotaleNotificheAnalogicheRSNazionali_RS=TotRS,\n",
+					"        TotaleNotificheAnalogicheRSInternazionali_RIS=TotRIS\n",
+					"    )\n",
+					"\n",
+					"    step12 = spark.createDataFrame([step12row], pd.schema)\n",
+					"\n",
+					"    righe_report = righe_report.union(step12)\n",
+					"else:\n",
+					"    TotAR = notifiche_step12.where(\"notification_type = 'AR'\").count()\n",
+					"    Tot890 = notifiche_step12.where(\"notification_type = '890'\").count()\n",
+					"    TotDigital = notifiche_step12.where(\"notification_type = 'DIG'\").count()\n",
+					"    TotRIR = notifiche_step12.where(\"notification_type = 'RIR'\").count()\n",
+					"    TotRS = notifiche_step12.where(\"notification_type = 'RS'\").count()\n",
+					"    TotRIS = notifiche_step12.where(\"notification_type = 'RIS'\").count()\n",
+					"\n",
+					"    step98row = Row(\n",
+					"        report_id=report_id,\n",
+					"        step=stepContest.where(\"descrizione = 'Contestazioni valide'\").select(\"step\").collect()[0][0],\n",
+					"        TotaleNotificheAnalogiche890=Tot890,\n",
+					"        TotaleNotificheDigitali=TotDigital,\n",
+					"        TotaleNotifiche=step12count,\n",
+					"        Link=None,\n",
+					"        NonContestataAnnullata=None,\n",
+					"        ContestataEnte=None,\n",
+					"        RispostaEnte = None,\n",
+					"        Accettata=None,\n",
+					"        RispostaSend=None,\n",
+					"        RispostaRecapitista=None,\n",
+					"        RispostaConsolidatore=None,\n",
+					"        Rifiutata=None,\n",
+					"        NonFatturabile=None,\n",
+					"        Fatturabile=None,\n",
+					"        Storage=\"fatppublic\",\n",
+					"        NomeDocumento=NomeDocumento,\n",
+					"        DataCompletamento=datetime.datetime.now(),\n",
+					"        TotaleNotificheAnalogicheARNazionali_AR=TotAR,\n",
+					"        TotaleNotificheAnalogicheARInternazionali_RIR=TotRIR,\n",
+					"        TotaleNotificheAnalogicheRSNazionali_RS=TotRS,\n",
+					"        TotaleNotificheAnalogicheRSInternazionali_RIS=TotRIS\n",
+					"    )\n",
+					"    step101row = Row(\n",
+					"        report_id=report_id,\n",
+					"        step=stepContest.where(\"descrizione = 'Non è possibile completare la contestazione'\").select(\"step\").collect()[0][0],\n",
+					"        TotaleNotificheAnalogiche890=None,\n",
+					"        TotaleNotificheDigitali=None,\n",
+					"        TotaleNotifiche=None,\n",
+					"        Link=None,\n",
+					"        NonContestataAnnullata=None,\n",
+					"        ContestataEnte=None,\n",
+					"        RispostaEnte = None,\n",
+					"        Accettata=None,\n",
+					"        RispostaSend=None,\n",
+					"        RispostaRecapitista=None,\n",
+					"        RispostaConsolidatore=None,\n",
+					"        Rifiutata=None,\n",
+					"        NonFatturabile=None,\n",
+					"        Fatturabile=None,\n",
+					"        Storage=\"fatppublic\",\n",
+					"        NomeDocumento=None,\n",
+					"        DataCompletamento=datetime.datetime.now(),\n",
+					"        TotaleNotificheAnalogicheARNazionali_AR=None,\n",
+					"        TotaleNotificheAnalogicheARInternazionali_RIR=None,\n",
+					"        TotaleNotificheAnalogicheRSNazionali_RS=None,\n",
+					"        TotaleNotificheAnalogicheRSInternazionali_RIS=None\n",
+					"    )\n",
+					"\n",
+					"    step98 = spark.createDataFrame([step98row], pd.schema)\n",
+					"\n",
+					"    step101 = spark.createDataFrame([step101row], pd.schema)\n",
+					"\n",
+					"    righe_report = righe_report.union(step98).union(step101)"
+				],
+				"execution_count": 60
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# notifiche_step12 = notifiche_step12.select(\"event_id\", \"paper_product_type\",\"Semaforo\") \\\n",
+					"#                                    .withColumn(\"description\", F.lit(\"Notifiche Contestate\")) \\\n",
+					"#                                    .withColumn(\"DataCompletamento\", F.lit(datetime.datetime.now()))\\\n",
+					"#                                    .withColumn(\"NomeDocumento\", F.lit(NomeDocumento))\n",
+					"# notifiche_step12 = notifiche_step12.select(\"event_id\", \"paper_product_type\",\"description\",\"DataCompletamento\",\"NomeDocumento\",\"Semaforo\")\n",
+					"\n",
+					"# righe_reports.withColumn(\"Semaforo\", F.lit(None)).union(notifiche_step12).createOrReplaceTempView(\"righe_reports\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# righe_reportss = spark.sql(\"\"\"\n",
+					"#     WITH rows AS (\n",
+					"#         SELECT\n",
+					"#             COUNT(CASE WHEN paper_product_type = 'Analog. A/R' THEN 1 END) AS TotaleNotificheAnalogicheAR,\n",
+					"#             COUNT(CASE WHEN paper_product_type = 'Analog. L. 890/82' THEN 1 END) AS TotaleNotificheAnalogiche890,\n",
+					"#             COUNT(CASE WHEN paper_product_type = 'Digitale' THEN 1 END) AS TotaleNotificheDigitali,\n",
+					"#             COUNT(1) AS TotaleNotifiche,\n",
+					"#             COUNT(CASE WHEN Semaforo = 2 THEN 1 END) AS TotaleAnnullate,\n",
+					"#             COUNT(CASE WHEN Semaforo = 3 THEN 1 END) AS TotaleContestate,\n",
+					"#             COUNT(CASE WHEN Semaforo = 8 THEN 1 END) AS TotaleAccettata,\n",
+					"#             COUNT(CASE WHEN Semaforo = 4 THEN 1 END) AS TotaleRispostaSend,\n",
+					"#             COUNT(CASE WHEN Semaforo = 5 THEN 1 END) AS TotaleRispostaRecapitista,\n",
+					"#             COUNT(CASE WHEN Semaforo = 6 THEN 1 END) AS TotaleRispostaConsolidatore,\n",
+					"#             COUNT(CASE WHEN Semaforo = 9 THEN 1 END) AS TotaleRifiutate,\n",
+					"#             COUNT(CASE WHEN Semaforo IN (3, 4, 5, 6, 7, 8) THEN 1 END) AS TotaleNonFatturabili,\n",
+					"#             COUNT(CASE WHEN Semaforo IN (2, 9) THEN 1 END) AS TotaleFatturabili,\n",
+					"#             Description\n",
+					"#         FROM righe_reports\n",
+					"#         group by Description\n",
+					"#     )\n",
+					"#     SELECT * FROM rows\n",
+					"# \"\"\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": true
+					}
+				},
+				"source": [
+					"for folder in mssparkutils.fs.ls(file_path[:73+len(id_ente)+len(str(report_id))]):\n",
+					"    for file in mssparkutils.fs.ls(folder.path):\n",
+					"        #print(folder.path)\n",
+					"        if file.name == '_SUCCESS':\n",
+					"            # print(file.path)\n",
+					"            mssparkutils.fs.rm(file.path)\n",
+					"        else:\n",
+					"            # print(folder.path)\n",
+					"            mssparkutils.fs.mv(file.path, f\"{folder.path}.csv\", True)\n",
+					"            mssparkutils.fs.rm(folder.path)"
+				],
+				"execution_count": 64
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"righe_report.write.format(\"delta\").mode(\"append\").saveAsTable(\"fat_delta.reportContestazioniRighe\")"
+				],
+				"execution_count": 65
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"if stopper == True:\n",
+					"    mssparkutils.notebook.exit(\"101\")"
+				],
+				"execution_count": 66
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"selected_fields = [\n",
+					"    \"event_id\", \"year\", \"month\",\"Note Ente\",\"Risposta Ente\", \"Risposta Send\", \"Risposta Recapitista\", \"Risposta Consolidatore\",\n",
+					"    \"Id Tipo Contestazione\", \"Stato Contestazione\", \"Tipologia Fattura\", \"Semaforo\"\n",
+					"]"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_final = notifiche_step12\\\n",
+					"    .select(selected_fields)\\\n",
+					"    .withColumn(\"ReportId\", F.lit(report_id))\\\n",
+					"    .withColumnRenamed(\"Stato Contestazione\", \"StatoContestazione\")\\\n",
+					"    .withColumnRenamed(\"Tipologia Fattura\", \"TipologiaFattura\")\\\n",
+					"    .withColumnRenamed(\"Note Ente\", \"NoteEnte\") \\\n",
+					"    .withColumnRenamed(\"Risposta Ente\", \"RispostaEnte\") \\\n",
+					"    .withColumnRenamed(\"Risposta Send\", \"NoteSend\") \\\n",
+					"    .withColumnRenamed(\"Risposta Recapitista\", \"NoteRecapitista\") \\\n",
+					"    .withColumnRenamed(\"Risposta Consolidatore\", \"NoteConsolidatore\") \\\n",
+					"    .withColumnRenamed(\"Id Tipo Contestazione\", \"TipoContestazione\") \\\n",
+					"    .withColumnRenamed(\"Semaforo\", \"FkIdFlagContestazione\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_final.write.jdbc(url=jdbcUrl, table=\"stg.contestazioni_massive\", mode = 'append', properties=conn_Prop)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"mssparkutils.notebook.exit(\"OK\")"
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

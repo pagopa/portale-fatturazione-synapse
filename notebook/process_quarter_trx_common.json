@@ -1,0 +1,201 @@
+{
+	"name": "process_quarter_trx_common",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/quarter_trx"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "939ac9a4-1068-4492-aeac-fd0cf6c70955"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Trx_quarter_common"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.types import StructType, StructField, IntegerType\r\n",
+					"from datetime import date, timedelta, datetime\r\n",
+					"from pyspark.sql.functions import *\r\n",
+					"from py4j.protocol import Py4JJavaError\r\n",
+					"import pandas as pd"
+				],
+				"execution_count": 127
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Read input data"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"def read_input(current_year_month, reference_year, reference_quarter):\r\n",
+					"\r\n",
+					"    #Contratti\r\n",
+					"\r\n",
+					"    df_contracts = spark.sql(f\"SELECT * FROM pagopa.contracts_raw WHERE year_month= '{current_year_month}'\")\r\n",
+					"    \r\n",
+					"    df_contracts_providers = df_contracts\\\r\n",
+					"                                .withColumn(\"provider_list\", split(col(\"provider_names\"), \",\"))\\\r\n",
+					"                                .withColumn(\"provider_id\", explode(col(\"provider_list\")))\r\n",
+					"    \r\n",
+					"    #Acquirers\r\n",
+					"\r\n",
+					"    df_acquirers = spark.sql(\"SELECT acquirers FROM pagopa.acquirers_raw\")\r\n",
+					"    \r\n",
+					"    acquirers = df_acquirers.rdd.map(lambda r: r.acquirers).collect()\r\n",
+					"\r\n",
+					"    #Transactions\r\n",
+					"\r\n",
+					"    df_transactions = spark.sql(f\"SELECT * FROM pagopa.transaction_raw WHERE payment_id IS NOT NULL AND year='{reference_year}' AND quarter='{reference_quarter}'\")\r\n",
+					"\r\n",
+					"    return df_contracts_providers, df_transactions, acquirers\r\n",
+					""
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Join between transactions and contracts\r\n",
+					"\r\n",
+					"A left join is performed bewteen transactions and contracts on provider_id.\r\n",
+					"\r\n",
+					"A filter is applied to select only the transactions associated with a membership_id.\r\n",
+					"Additionally, the \"category\" field is added to the new dataframe. This field's values depend on several conditions:\r\n",
+					"- A1: contract_type = A; payment_model = posFisico\r\n",
+					"- B1: contract_type = B; importo_versato < 5000; clientId IN (IO CHECKOUT CHECKOUT_CART WISP) \r\n",
+					"- G_ + membership_id: otherwise"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"def join_trx_contracts(current_year_month, reference_year, reference_quarter):\r\n",
+					"\r\n",
+					"    df_contracts_providers, df_transactions, acquirers = read_input(current_year_month, reference_year, reference_quarter)\r\n",
+					"\r\n",
+					"    # Left join bewteen transactions and contracts on provider_id\r\n",
+					"    df_trx_join_contracts = df_transactions.join(df_contracts_providers, df_transactions.psp_id == df_contracts_providers.provider_id, \"left\")\r\n",
+					"    # df_trx_join_contracts.createOrReplaceTempView(\"trx_join_contracts\")\r\n",
+					"\r\n",
+					"    clientIdLst = [\"IO\",\"CHECKOUT\", \"CHECKOUT_CART\", \"WISP\"]\r\n",
+					"\r\n",
+					"    # Filter transactions with a membership_id associated\r\n",
+					"    # Add category field\r\n",
+					"    df_trx_contracts = df_trx_join_contracts\\\r\n",
+					"        .filter(col(\"membership_id\").isNotNull())\\\r\n",
+					"        .withColumn(\"category\", when((col(\"contract_type\") == \"A\") & (col(\"isPosFisico\")==True), \"A1\")\r\n",
+					"                    .when((col(\"contract_type\") == \"B\") & (col(\"total_amount\") < 5000) & col(\"client_id\").isin(clientIdLst), \"B1\")\r\n",
+					"                    .otherwise(concat(lit(\"G_\"), col(\"membership_id\")))\r\n",
+					"                )\r\n",
+					"    return df_trx_join_contracts, df_trx_contracts"
+				],
+				"execution_count": 47
+			}
+		]
+	}
+}

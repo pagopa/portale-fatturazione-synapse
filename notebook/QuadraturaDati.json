@@ -1,0 +1,222 @@
+{
+	"name": "QuadraturaDati",
+	"properties": {
+		"folder": {
+			"name": "CESTINO"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "81729873-c214-4651-a08c-af25e06ff87d"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"language_info": {
+				"name": "python"
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# display(spark.sql(\"describe detail pagopa.transaction_raw\"))"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# from pyspark.sql import SparkSession\r\n",
+					"# from pyspark.sql.functions import col, date_format\r\n",
+					"# delta_table_path = \"abfss://synapse@fatddls.dfs.core.windows.net/synapse/workspaces/fat-d-synw/warehouse/pagopa.db/transaction_raw\"\r\n",
+					"\r\n",
+					"# # Load the existing Delta table\r\n",
+					"# df = spark.read.format(\"delta\").load(delta_table_path)\r\n",
+					"\r\n",
+					"# # Change the format of the existing date column\r\n",
+					"# df = df.withColumn(\"giorno\", date_format(col(\"payment_date_time\"), \"yyyyMMdd\"))\r\n",
+					"\r\n",
+					"# # # Write back to the Delta table\r\n",
+					"# df.write.format(\"delta\").mode(\"overwrite\").option(\"overwriteSchema\", \"true\").save(delta_table_path)"
+				],
+				"execution_count": 10
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Read tabella PagoPA"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_ppa = spark.read.option(\"header\", \"true\").format(\"csv\").load(\"abfss://test@fatddls.dfs.core.windows.net/2024-q3-DetailedReport.csv\")\r\n",
+					"df_ppa = df_ppa.withColumnRenamed(\"cf_psp\",\"psp_id\").withColumnRenamed(\"psp\",\"psp_name\")"
+				],
+				"execution_count": 25
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_ppa.count()\r\n",
+					"#q1 13562350\r\n",
+					"#q2 13943680\r\n",
+					"#q3 13605126"
+				],
+				"execution_count": 26
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Read Tabella PortaleFatturazione"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_pf = spark.read.option(\"header\", \"true\").format(\"csv\").load(\"abfss://test@fatddls.dfs.core.windows.net/invoices/pagopa-psp-382/2024-q3-DetailedReport.csv\")"
+				],
+				"execution_count": 27
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_pf.count()\r\n",
+					"#q1 13562350\r\n",
+					"#q2 13943680\r\n",
+					"#q3 13605126"
+				],
+				"execution_count": 28
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Compare"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(df_ppa.exceptAll(df_pf))"
+				],
+				"execution_count": 29
+			}
+		]
+	}
+}

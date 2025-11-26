@@ -1,0 +1,139 @@
+{
+	"name": "IngestCountSend",
+	"properties": {
+		"folder": {
+			"name": "Ingestion"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "d96d5d19-6254-42e8-9a5f-e17f33c66111"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net",
+					"authHeader": null
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"from pyspark.sql import functions as F\n",
+					"from delta.tables import *\n",
+					"from pyspark.sql.functions import max\n",
+					"from datetime import datetime\n",
+					"import pandas as pd"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"reference_day = datetime.now()-relativedelta(months=1)\n",
+					"reference_next_month = '%02d' % (datetime.now().month)\n",
+					"reference_month = '%02d' % reference_day.month\n",
+					"reference_year = reference_day.year\n",
+					"reference_year_month = f\"{reference_year}{reference_month}\""
+				],
+				"execution_count": 30
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# /<prodotto>/count/<tabella>/<anno>/<periodo_di_fatturazione>/<dataExport_epochTms>/<random_name>.snappy.parquet"
+				],
+				"execution_count": 36
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# \"abfss://raw@fatpdls.dfs.core.windows.net/send/count/invoicing_timeline/2025/02/*\""
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"sourcefile = f\"abfss://pfstage@fatpsa.dfs.core.windows.net/send/count/notification/{reference_year}/{reference_month}/*\"\n",
+					"tablename = \"fat_delta.notification_count\"\n",
+					"\n",
+					"dfNewFile_notification = spark.read.format(\"parquet\").load(sourcefile)\n",
+					"dfNewFile_notification = dfNewFile_notification.withColumn(\"SourceFile\",  F.lit(sourcefile))\n",
+					"\n",
+					"\n",
+					"dfNewFile_notification.write.format(\"delta\").mode(\"append\").saveAsTable(tablename)\n",
+					"print(sourcefile)\n",
+					"print(tablename)"
+				],
+				"execution_count": 31
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"sourcefile_it = f\"abfss://pfstage@fatpsa.dfs.core.windows.net/send/count/invoicing_timeline/{reference_year}/{reference_month}/*\"\n",
+					"tablename_it = \"fat_delta.invoicing_timeline_count\"\n",
+					"\n",
+					"dfNewFile_invoicing_timeline = spark.read.format(\"parquet\").load(sourcefile_it)\n",
+					"dfNewFile_invoicing_timeline = dfNewFile_invoicing_timeline.withColumn(\"SourceFile\",  F.lit(sourcefile_it))\n",
+					"\n",
+					"\n",
+					"dfNewFile_invoicing_timeline.write.format(\"delta\").mode(\"append\").saveAsTable(tablename_it)\n",
+					"print(sourcefile_it)\n",
+					"print(tablename_it)"
+				],
+				"execution_count": 34
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"sourcefile_pn = f\"abfss://pfstage@fatpsa.dfs.core.windows.net/send/count/pn_timeline/{reference_year}/{reference_month}/*\"\n",
+					"tablename_pn = \"fat_delta.pn_timeline_count\"\n",
+					"\n",
+					"dfNewFile_pn_timeline = spark.read.format(\"parquet\").load(sourcefile_pn)\n",
+					"dfNewFile_pn_timeline = dfNewFile_pn_timeline.withColumn(\"SourceFile\",  F.lit(sourcefile_pn))\n",
+					"\n",
+					"\n",
+					"dfNewFile_pn_timeline.write.format(\"delta\").mode(\"append\").saveAsTable(tablename_pn)\n",
+					"print(sourcefile_pn)\n",
+					"print(tablename_pn)"
+				],
+				"execution_count": 35
+			}
+		]
+	}
+}

@@ -1,0 +1,514 @@
+{
+	"name": "CheckJson",
+	"properties": {
+		"folder": {
+			"name": "CheckJson"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "1da836c6-850e-499e-86f5-2215d432131c"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"from pyspark.sql import SparkSession\n",
+					"from pyspark.sql.functions import col, lit, when, count, isnull, explode,udf, to_date\n",
+					"from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DoubleType, ArrayType, BooleanType, FloatType\n",
+					"import json\n",
+					"import pandas as pd"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"tipologiafattura = 'PRIMO SALDX'\n",
+					"mesidaprocessare = '202502'"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"fileName = f\"FatturePagoPa_{mesidaprocessare}{tipologiafattura}.json\"\n",
+					"\n",
+					"json_file_path = f\"abfss://tmpfatture@fatpdls.dfs.core.windows.net/{fileName}\""
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"errorMessages = []  \n",
+					"errorsExists = False\n",
+					"\n",
+					"def errorList (errMessage, isCritical = False):\n",
+					"    global errorMessages\n",
+					"    global errorsExists \n",
+					"    \n",
+					"    errorsExists = True\n",
+					"\n",
+					"    errorMessages.append(errMessage)\n",
+					"\n",
+					"    if isCritical:\n",
+					"        mssparkutils.notebook.exit(errMessage)\n",
+					"\n",
+					""
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Validazione file json"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"    json_text = spark.read.text(json_file_path).collect()\n",
+					"\n",
+					"    # Verifica che il contenuto sia un JSON valido\n",
+					"    try:\n",
+					"        # Unisci tutte le righe e prova a parsare come JSON\n",
+					"        full_json = \"\".join([row.value for row in json_text])\n",
+					"        json.loads(full_json)\n",
+					"        print(\"Il file è un JSON valido\")\n",
+					"    except json.JSONDecodeError as e:\n",
+					"        errorList(f\"Il file non è un JSON valido: {str(e)}\",isCritical=True)"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Validazione schema"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"expected_schema  = StructType([\n",
+					"    StructField(\"listaFatture\", ArrayType(\n",
+					"        StructType([\n",
+					"            StructField(\"fattura\", \n",
+					"                StructType([\n",
+					"                    StructField(\"numero\", StringType(), True),\n",
+					"                    StructField(\"dataFattura\", StringType(), True),\n",
+					"                    StructField(\"prodotto\", StringType(), True),\n",
+					"                    StructField(\"identificativo\", StringType(), True),\n",
+					"                    StructField(\"tipologiaFattura\", StringType(), True),\n",
+					"                    StructField(\"istitutioID\", StringType(), True),\n",
+					"                    StructField(\"onboardingTokenID\", StringType(), True),\n",
+					"                    StructField(\"tipoDocumento\", StringType(), True),\n",
+					"                    StructField(\"divisa\", StringType(), True),\n",
+					"                    StructField(\"metodoPagamento\", StringType(), True),\n",
+					"                    StructField(\"causale\", StringType(), True),\n",
+					"                    StructField(\"split\", BooleanType(), True),\n",
+					"                    StructField(\"sollecito\", StringType(), True),\n",
+					"                    StructField(\"datiGeneraliDocumento\", ArrayType(\n",
+					"                        StructType([\n",
+					"                            StructField(\"tipologia\", StringType(), True),\n",
+					"                            StructField(\"idDocumento\", StringType(), True),\n",
+					"                            StructField(\"data\", StringType(), True),\n",
+					"                            StructField(\"numItem\", StringType(), True),\n",
+					"                            StructField(\"codiceCommessaConvenzione\", StringType(), True),\n",
+					"                            StructField(\"CUP\", StringType(), True),\n",
+					"                            StructField(\"CIG\", StringType(), True)\n",
+					"                        ])\n",
+					"                    ), True),\n",
+					"                    StructField(\"posizioni\", ArrayType(\n",
+					"                        StructType([\n",
+					"                            StructField(\"numerolinea\", IntegerType(), True),\n",
+					"                            StructField(\"testo\", StringType(), True),\n",
+					"                            StructField(\"codiceMateriale\", StringType(), True),\n",
+					"                            StructField(\"quantita\", IntegerType(), True),\n",
+					"                            StructField(\"prezzoUnitario\", FloatType(), True),\n",
+					"                            StructField(\"imponibile\", FloatType(), True),\n",
+					"                            StructField(\"periodoRiferimento\", StringType(), True)\n",
+					"                        ])\n",
+					"                    ), True)\n",
+					"                ]), True)\n",
+					"        ])\n",
+					"    ), True)\n",
+					"])\n",
+					"\n",
+					"# Leggi il file JSON con validazione dello schema\n",
+					"try:\n",
+					"    df = spark.read\\\n",
+					"        .option(\"multiLine\", \"true\")\\\n",
+					"        .option(\"mode\", \"FAILFAST\")\\\n",
+					"        .json(json_file_path, schema=expected_schema)\n",
+					"    \n",
+					"    print(\"File JSON letto correttamente con validazione dello schema\")\n",
+					"    print(f\"Numero di record: {df.select(explode('listaFatture')).count()}\")\n",
+					"    #df.printSchema()\n",
+					"    \n",
+					"except Exception as e:\n",
+					"    errorList(f\"Errore durante la lettura del JSON con schema: {str(e)}\",isCritical=True)"
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Verifica univocità numero fattura"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"fatture_df = df.select(explode(\"listaFatture\").alias(\"fatture\")) \\\n",
+					"               .select(\"fatture.fattura.*\")\n",
+					"\n",
+					"numeri_duplicati = fatture_df.groupBy(\"numero\") \\\n",
+					"                             .agg(count(\"*\").alias(\"conteggio\")) \\\n",
+					"                             .filter(\"conteggio > 1\")\n",
+					"\n",
+					"if numeri_duplicati.count() > 0:\n",
+					"    errorList(f\"Trovati {numeri_duplicati.count()} numeri fattura duplicati\")\n",
+					"    for nf in numeri_duplicati.collect():\n",
+					"        errorList(f\" - fattura n. {nf['numero']}\")\n",
+					"    print(f\"Trovati {numeri_duplicati.count()} numeri fattura duplicati:\")\n",
+					"    numeri_duplicati.show(truncate=False)\n",
+					"else:\n",
+					"    print(\"Tutti i numeri fattura sono univoci\")"
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Verifica numero linea\n",
+					"per ogni fattura il numero riga deve essere progressivo (da 1 a n) e non deve essere duplicato"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"def check_line_numbers(posizioni):\n",
+					"    if not posizioni:\n",
+					"        return True\n",
+					"    \n",
+					"    # Estrai i numeri riga\n",
+					"    line_numbers = [p['numerolinea'] for p in posizioni if p and 'numerolinea' in p]\n",
+					" \n",
+					"    # Verifica che siano univoci e progressivi da 1 a n\n",
+					"    if len(line_numbers) != len(set(line_numbers)):\n",
+					"        return False\n",
+					"    \n",
+					"    expected = list(range(1, len(line_numbers)+1))\n",
+					"    return sorted(line_numbers) == expected\n",
+					"\n",
+					"check_line_numbers_udf = udf(check_line_numbers, BooleanType())"
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"line_numbers_check = fatture_df.withColumn(\"linee_valide\", check_line_numbers_udf(col(\"posizioni\")))\n",
+					"\n",
+					"fattureNonValide = line_numbers_check.filter(\"linee_valide = false\")\n",
+					"\n",
+					"if fattureNonValide.count() > 0:\n",
+					"    errorList(\"Trovate fatture con numeri linea non conformi\")\n",
+					"    for nf in fattureNonValide.collect():\n",
+					"        errorList(f\" - fattura n. {nf['numero']}\")       \n",
+					"    print(\"Trovate fatture con numeri linea non conformi\")\n",
+					"    print(fattureNonValide.select(\"numero\").show())\n",
+					"else:\n",
+					"    print(\"Tutte le fatture sono valide\")\n",
+					"\n",
+					""
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Verifica importo a zero\n",
+					"in fattura non devono essere presenti importi a zero"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"def check_imponibile_positivo(posizioni):\n",
+					"    if not posizioni:\n",
+					"        return True\n",
+					"    \n",
+					"    for pos in posizioni:\n",
+					"        if pos and 'imponibile' in pos:\n",
+					"            if pos['imponibile'] is not None and pos['imponibile'] <= 0:\n",
+					"                return False\n",
+					"    return True\n",
+					"check_imponibile_positivo_udf = udf(check_imponibile_positivo, BooleanType())"
+				],
+				"execution_count": 10
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dfCheckImponibile = fatture_df.withColumn(\"impPositivo\", check_imponibile_positivo_udf(col(\"posizioni\")))\n",
+					"dfImponibileZero = dfCheckImponibile.filter(\"impPositivo = false\").select(\"numero\")\n",
+					"\n",
+					"if dfImponibileZero.count() >0:\n",
+					"    errorList(\"Trovate fatture com importo zero\")\n",
+					"    for nf in dfImponibileZero.collect():\n",
+					"        errorList(f\" - fattura n. {nf['numero']}\")\n",
+					"    print(\"Trovate fatture com importo zero\")\n",
+					"    dfImponibileZero.show()\n",
+					"else:\n",
+					"    print(\"Tutte le fatture sono corrette\")"
+				],
+				"execution_count": 11
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Verifica formato Valuta"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"dfValuta = fatture_df.filter(\"divisa <> 'EUR'\")\n",
+					"\n",
+					"if dfValuta.count() > 0:\n",
+					"    errorList(\"Trovate fatture con valuta errata\")\n",
+					"    for nf in dfValuta.collect():\n",
+					"        errorList(f\" - fattura n. {nf['numero']}\")    \n",
+					"    print(\"Attenzione trovate fatture con valuta errata\")\n",
+					"    dfValuta.select(\"numero\", \"divisa\").show()\n",
+					"else:\n",
+					"    print(\"Tutte le fatture hanno la valuta corretta\")"
+				],
+				"execution_count": 12
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Verifica formato data"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dfTmp = fatture_df.withColumn(\"is_valid_date\",to_date(col(\"dataFattura\"), \"yyyy-MM-dd\").isNotNull())\n",
+					"\n",
+					"dfDateNonValide = dfTmp.filter(col(\"is_valid_date\") == False)\n",
+					"\n",
+					"if dfDateNonValide.count() > 0:\n",
+					"    errorList(\"Trovate fatture con data non valida\")\n",
+					"    for nf in dfDateNonValide.collect():\n",
+					"        errorList(f\" - fattura n. {nf['numero']}\")      \n",
+					"    print(\"Trovate fatture con data non valida\")\n",
+					"    dfDateNonValide.select(\"numero\").show()\n",
+					"else:\n",
+					"    print(\"Tutte le fatture hanno una data valida\")"
+				],
+				"execution_count": 13
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Verifica white list"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# get the function to retrieve sql properties\n",
+					"%run Utility/getSQLConnectionString\n",
+					"\n",
+					"# retrieve sql connection_string and connection_properties\n",
+					"jdbcUrl,conn_Prop = getSQLConnectionString()"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# verificare che nel json appena letto non siano presenti fatture per gli enti indicati nella tabella [pfd].[FattureWhiteList]\n",
+					"# nel dataframe fatture_df è stato caricato il json\n",
+					"from pyspark.sql.functions import concat_ws, lit, format_string\n",
+					"\n",
+					"# leggere tabella [pfd].[FattureWhiteList]\n",
+					"query = f\"(SELECT * FROM [pfd].[FattureWhiteList] where FkTipologiaFattura = '{tipologiafattura}' and DataFine IS NULL) as tb\"\n",
+					"\n",
+					"dfWL = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop)\n",
+					"dfWhiteList = dfWL.withColumn(\"meseanno\", concat_ws(\"/\", format_string(\"%02d\", col(\"Mese\")), col(\"Anno\")))\n",
+					"\n",
+					"\n",
+					"# display(dfWhiteList)\n",
+					"# display(fatture_df)\n",
+					"\n",
+					"fatture_in_WL = fatture_df.join(\n",
+					"    dfWhiteList,\n",
+					"    (col(\"istitutioID\") == col(\"FkIdEnte\"))  &\n",
+					"    (col(\"identificativo\") == col(\"meseanno\")),\n",
+					"    \"inner\" \n",
+					")\n",
+					"\n",
+					"#display(fatture_in_WL)\n",
+					"numero_righe = fatture_in_WL.count()\n",
+					"\n",
+					"if numero_righe > 0:\n",
+					"    errorList(\"Trovate fatture in white list\")\n",
+					"    for nf in fatture_in_WL.collect():\n",
+					"        errorList(f\" - fattura n. {nf['numero']}\")      \n",
+					"    print(\"Trovate fatture in white list\")\n",
+					"    #fatture_in_WL.select(\"numero\").show()\n",
+					"else:\n",
+					"    print(\"Nessuna fattura si trova in white list \")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# export errori"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"if errorsExists:\n",
+					"    destFile = f\"abfss://tmpfatture@fatpdls.dfs.core.windows.net/scartati/{fileName}\"\n",
+					"    errFile = f\"abfss://tmpfatture@fatpdls.dfs.core.windows.net/scartati/{fileName}.txt\"\n",
+					"    #destFile = fileName\n",
+					"    mssparkutils.fs.mv(json_file_path,destFile,True,True)\n",
+					"    output_err = \"\\n\".join(errorMessages)\n",
+					"\n",
+					"    pd.DataFrame(errorMessages).to_csv(errFile,header=False, index=False)\n",
+					"    #errToFile = sc.parallelize(errorMessages)\n",
+					"    #errToFile.coalesce(1).saveAsTextFile(errFile)\n",
+					"    \n",
+					"    mssparkutils.notebook.exit(output_err)\n",
+					"else:\n",
+					"    mssparkutils.notebook.exit(\"OK\")"
+				],
+				"execution_count": 14
+			}
+		]
+	}
+}

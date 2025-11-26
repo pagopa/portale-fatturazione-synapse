@@ -1,0 +1,425 @@
+{
+	"name": "CalcoloKpi_Psp",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/Sconto"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "33518f47-a6fc-4d14-adfd-38a995d21fef"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"from pyspark.sql.functions import col, split, explode, when, count, sum,expr, substring,lit, floor,concat,split\r\n",
+					"from datetime import date"
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.conf.set(\"spark.sql.sources.partitionOverwriteMode\", \"dynamic\")"
+				],
+				"execution_count": 10
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"year_quarter = '2025_2' #trimestre transazioni\r\n",
+					"year_month = '202506' #join con contratti -- prende il contratto più recente per evitare duplicazioni"
+				],
+				"execution_count": 11
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"actYear = int(year_quarter[:4])\r\n",
+					"actQuarter = int(year_quarter[-1])\r\n",
+					"Kpi_MaxMonth = 0\r\n",
+					"Kpi_MaxYear = 0\r\n",
+					"Kpi_MinMonth = 0\r\n",
+					"Kpi_MinYear = 0\r\n",
+					"Kpi_quarter = 0\r\n",
+					"\r\n",
+					"if actQuarter == 1:\r\n",
+					"    Kpi_MaxYear = Kpi_MinYear =  actYear-1\r\n",
+					"    Kpi_MaxMonth = 12\r\n",
+					"    Kpi_MinMonth = Kpi_MaxMonth -2\r\n",
+					"    Kpi_quarter = 4\r\n",
+					"else:\r\n",
+					"    Kpi_MaxYear = Kpi_MinYear = actYear\r\n",
+					"    Kpi_MaxMonth = (actQuarter - 1) * 3\r\n",
+					"    Kpi_MinMonth = Kpi_MaxMonth -2\r\n",
+					"    Kpi_quarter =actQuarter-1\r\n",
+					"\r\n",
+					"\r\n",
+					"YearQuarterKPI = str(Kpi_MaxYear) + \"_\" + str(Kpi_quarter)\r\n",
+					"\r\n",
+					"print(Kpi_MaxMonth, Kpi_MaxYear, Kpi_MinMonth,Kpi_MinYear)"
+				],
+				"execution_count": 12
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"kpiStartDate = date(Kpi_MinYear,Kpi_MinMonth,1)\r\n",
+					"kpiEndDate = date(Kpi_MaxYear,Kpi_MaxMonth,1)"
+				],
+				"execution_count": 13
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# stmMatrice = f\"SELECT * \\\r\n",
+					"#             FROM pagopa.matricescontipagopa_raw\\\r\n",
+					"#             WHERE (start >= '{kpiStartDate}T00:00:00Z' AND start <= '{kpiEndDate}T23:59:59Z') \\\r\n",
+					"#             AND kpi_id <> 'TPNP'\"\r\n",
+					"# dfMatrice = spark.sql(stmMatrice)\r\n",
+					""
+				],
+				"execution_count": 23
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"#Modifica del 30-5-2025 rimosso filtro tpnp\r\n",
+					"stmMatrice = f\"SELECT * \\\r\n",
+					"            FROM pagopa.matricescontipagopa_raw\\\r\n",
+					"            WHERE (start >= '{kpiStartDate}T00:00:00Z' AND start <= '{kpiEndDate}T23:59:59Z') \"\r\n",
+					"dfMatrice = spark.sql(stmMatrice)"
+				],
+				"execution_count": 14
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"dfMatriceFiltered = dfMatrice.select(\"kpi_id\",\"psp_id\",\"psp_company_name\", \"psp_broker_id\",\"psp_broker_company_name\",\"kpi_outcome\")\r\n",
+					"dfMatriceFiltered = dfMatriceFiltered.withColumn(\"KpiValue\",when(col(\"kpi_outcome\")=='OK',1).otherwise(0))\r\n",
+					"#display(dfMatriceFiltered)"
+				],
+				"execution_count": 15
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(dfMatriceFiltered)"
+				],
+				"execution_count": 26
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# dfMatriceGrouped = dfMatriceFiltered.groupBy(col(\"kpi_id\"),\\\r\n",
+					"#                                             col(\"psp_id\"),\\\r\n",
+					"#                                             col(\"psp_company_name\"),\\\r\n",
+					"#                                             col(\"psp_broker_id\"),\\\r\n",
+					"#                                             col(\"psp_broker_company_name\")).\\\r\n",
+					"#                                             agg(count(col(\"kpi_outcome\")).alias(\"countKpi\"),\\\r\n",
+					"#                                             sum(col(\"KpiValue\")).alias(\"valueKpi\")\\\r\n",
+					"#                                             )\r\n",
+					"                                            \r\n",
+					"# dfMatriceGrouped = dfMatriceGrouped.withColumn(\"year_quarter_trx\", lit(year_quarter))\r\n",
+					"# dfMatriceGrouped = dfMatriceGrouped.withColumn(\"year_quarter_kpi\", lit(YearQuarterKPI))"
+				],
+				"execution_count": 27
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfMatriceGrouped = dfMatriceFiltered.groupBy(col(\"kpi_id\"),\\\r\n",
+					"                                            col(\"psp_id\")).\\\r\n",
+					"                                            agg(count(col(\"kpi_outcome\")).alias(\"countKpi\"),\\\r\n",
+					"                                            sum(col(\"KpiValue\")).alias(\"valueKpi\")\\\r\n",
+					"                                            )\r\n",
+					"                                            \r\n",
+					"dfMatriceGrouped = dfMatriceGrouped.withColumn(\"year_quarter_trx\", lit(year_quarter))\r\n",
+					"dfMatriceGrouped = dfMatriceGrouped.withColumn(\"year_quarter_kpi\", lit(YearQuarterKPI))"
+				],
+				"execution_count": 16
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(dfMatriceGrouped)"
+				],
+				"execution_count": 29
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"dfContracts = spark.sql(f\"SELECT * FROM pagopa.contracts_raw WHERE year_month = {year_month}\")\r\n",
+					"dfContracts = dfContracts.withColumn(\"Anno\", col(\"year_month\").substr(0,4).cast(\"string\"))       \r\n",
+					"dfContracts = dfContracts.withColumn(\"Quarter\", floor((col(\"year_month\").substr(5, 2).cast(\"int\")-1)/3)+1)\r\n",
+					"\r\n",
+					"dfContracts = dfContracts.withColumn(\"Year_Quarter\",concat(col(\"Anno\").cast(\"string\"),lit(\"_\"), col(\"Quarter\").cast(\"string\")))\r\n",
+					"\r\n",
+					"\r\n",
+					"# dfContractsFiltered = dfContracts.filter(f\"Year_Quarter = '{year_quarter}'\")\\\r\n",
+					"#                         .select(\"contract_id\",\"recipient_id\",\"membership_id\",\"provider_names\",\"name\",\"abi\",\"tax_code\",\"year_quarter\")\r\n",
+					"\r\n",
+					"dfContractsFiltered = dfContracts.select(\"contract_id\",\"recipient_id\",\"membership_id\",\"provider_names\",\"name\",\"abi\",\"tax_code\",\"year_quarter\")\r\n",
+					"\r\n",
+					"dfContractsFiltered = dfContractsFiltered.withColumn(\"provider_name\", explode(split(col(\"provider_names\"),',')))\r\n",
+					"#display(dfContractsFiltered)"
+				],
+				"execution_count": 17
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(dfContractsFiltered.filter(\"provider_name = 'SELBIT2B'\"))"
+				],
+				"execution_count": 27
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"dfMatriceDef = dfMatriceGrouped.join(dfContractsFiltered,dfMatriceGrouped[\"psp_id\"]==dfContractsFiltered[\"provider_name\"],how=\"left\")\r\n",
+					"dfMatriceDef = dfMatriceDef.drop(\"provider_names\",\"name\",\"abi\",\"tax_code\",\"year_quarter\",\"provider_name\")\r\n",
+					"#display(dfMatriceDef)"
+				],
+				"execution_count": 18
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#spark.sql(\"DROP TABLE pagopa.silver_matricesconti\")"
+				],
+				"execution_count": 34
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"partition_key = \"year_quarter_trx\"\r\n",
+					"table = \"pagopa.silver_matricesconti\"\r\n",
+					"\r\n",
+					"dfMatriceDef.repartition(partition_key)\\\r\n",
+					"        .write.mode(\"overwrite\")\\\r\n",
+					"        .format(\"delta\")\\\r\n",
+					"        .partitionBy(partition_key)\\\r\n",
+					"        .saveAsTable(table)"
+				],
+				"execution_count": 19
+			}
+		]
+	}
+}

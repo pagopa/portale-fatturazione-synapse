@@ -1,0 +1,504 @@
+{
+	"name": "PPA_StageToRaw_count",
+	"properties": {
+		"activities": [
+			{
+				"name": "GetItems",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 5,
+					"retryIntervalInSeconds": 60,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "fat_stage_parquet",
+						"type": "DatasetReference",
+						"parameters": {
+							"PathFolderFile": {
+								"value": "@pipeline().parameters.SourcePath",
+								"type": "Expression"
+							}
+						}
+					},
+					"fieldList": [
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "ParquetReadSettings"
+					}
+				}
+			},
+			{
+				"name": "GetCorrectFolders",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "GetFolders",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "Get_files_to_process_count",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"files": {
+							"value": {
+								"value": "@string(activity('GetFolders').output.value)",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"import_trimestrale": {
+							"value": {
+								"value": "@pipeline().parameters.ImportTrimestrale",
+								"type": "Expression"
+							},
+							"type": "bool"
+						},
+						"tab_to_import": {
+							"value": {
+								"value": "@pipeline().parameters.TabToImport",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": null,
+						"spark.dynamicAllocation.minExecutors": null,
+						"spark.dynamicAllocation.maxExecutors": null
+					},
+					"driverSize": "Small",
+					"numExecutors": null
+				}
+			},
+			{
+				"name": "ForEachFile",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "GetCorrectFolders",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@split(activity('GetCorrectFolders').output.status.Output.result.exitValue, ', ')",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "StageToRaw",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "Set SinkPath",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "ParquetSource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": true,
+										"wildcardFolderPath": {
+											"value": "@concat(pipeline().parameters.SourcePath,item())",
+											"type": "Expression"
+										},
+										"wildcardFileName": "*.parquet",
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "ParquetReadSettings"
+									}
+								},
+								"sink": {
+									"type": "ParquetSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings",
+										"copyBehavior": "FlattenHierarchy"
+									},
+									"formatSettings": {
+										"type": "ParquetWriteSettings"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "fat_stage_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"PathFolderFile": {
+											"value": "@concat(pipeline().parameters.SourcePath,item())",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "fat_ddls_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"PathFolderSink": {
+											"value": "@concat('pagopa_raw/count/',pipeline().parameters.TabToImport,'/',substring(variables('SinkPath'),0,4),'/',substring(variables('SinkPath'),4,2), '/' ,substring(variables('SinkPath'),6,2))",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "DeleteFromStage",
+							"type": "Delete",
+							"dependsOn": [
+								{
+									"activity": "StageToRaw",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "fat_stage_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"PathFolderFile": {
+											"value": "@concat(pipeline().parameters.SourcePath,item())",
+											"type": "Expression"
+										}
+									}
+								},
+								"enableLogging": false,
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								}
+							}
+						},
+						{
+							"name": "Set SinkPath",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "SinkPath",
+								"value": {
+									"value": "@replace(replace(item(), 'fdr_', ''), 'biz_', '')",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "GetFolders",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "GetItems",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('GetItems').output.childItems",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@equals(item().type,'Folder')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "IfPathExistsAgain",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "CheckPathAgain",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(activity('CheckPathAgain').output.exists, true)",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "MoveDiscardedFolders",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "ParquetSource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": true,
+										"wildcardFolderPath": {
+											"value": "@concat(pipeline().parameters.SourcePath,'*')",
+											"type": "Expression"
+										},
+										"wildcardFileName": "*.parquet",
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "ParquetReadSettings"
+									}
+								},
+								"sink": {
+									"type": "ParquetSink",
+									"storeSettings": {
+										"type": "AzureBlobStorageWriteSettings",
+										"copyBehavior": "PreserveHierarchy"
+									},
+									"formatSettings": {
+										"type": "ParquetWriteSettings"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "fat_stage_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"PathFolderFile": {
+											"value": "@concat(pipeline().parameters.SourcePath,'*')",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "fat_stage_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"PathFolderFile": {
+											"value": "@concat('pagopa/',pipeline().parameters.TabToImport,'/scarti_doppi_invio')",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "DeleteDiscardedFromStage",
+							"type": "Delete",
+							"dependsOn": [
+								{
+									"activity": "MoveDiscardedFolders",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "fat_stage_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"PathFolderFile": {
+											"value": "@pipeline().parameters.SourcePath",
+											"type": "Expression"
+										}
+									}
+								},
+								"enableLogging": false,
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"wildcardFileName": "*",
+									"enablePartitionDiscovery": false
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "CheckPathAgain",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "ForEachFile",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 5,
+					"retryIntervalInSeconds": 60,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "fat_stage_parquet",
+						"type": "DatasetReference",
+						"parameters": {
+							"PathFolderFile": {
+								"value": "@pipeline().parameters.SourcePath",
+								"type": "Expression"
+							}
+						}
+					},
+					"fieldList": [
+						"exists"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "ParquetReadSettings"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"SourcePath": {
+				"type": "string"
+			},
+			"ImportTrimestrale": {
+				"type": "string"
+			},
+			"TabToImport": {
+				"type": "string"
+			},
+			"Container_path": {
+				"type": "string"
+			},
+			"ImportDate": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"SinkPath": {
+				"type": "String"
+			},
+			"ImportBool": {
+				"type": "Integer"
+			},
+			"ReportsPath": {
+				"type": "String"
+			},
+			"SemaforoCount": {
+				"type": "String",
+				"defaultValue": "false"
+			},
+			"SwitchKey": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "PagoPA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:19:39Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

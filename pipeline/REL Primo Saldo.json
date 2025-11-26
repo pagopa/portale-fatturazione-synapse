@@ -1,0 +1,212 @@
+{
+	"name": "REL Primo Saldo",
+	"properties": {
+		"activities": [
+			{
+				"name": "Creazione REL PrimoSaldo",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Upsert contestazioni aperte",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spUpsertPrimoSaldoRel]",
+					"storedProcedureParameters": {
+						"Recalculate": {
+							"value": {
+								"value": "@pipeline().parameters.Recalculate",
+								"type": "Expression"
+							},
+							"type": "Boolean"
+						},
+						"Year": {
+							"value": {
+								"value": "@pipeline().parameters.Anno",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"Month": {
+							"value": {
+								"value": "@pipeline().parameters.Mese",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "If Condition1",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Creazione REL PrimoSaldo",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "Upsert contestazioni aperte",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "Upsert asseverazioni",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(\n\tsubstring(\n\t\tactivity('Creazione REL PrimoSaldo').error.message,\n\t\tsub(length(activity('Creazione REL PrimoSaldo').error.message),5),\n\t\t5\n\t\t)\n\t,'00100')",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Fail1",
+							"type": "Fail",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"message": {
+									"value": "@activity('Creazione REL PrimoSaldo').error.message",
+									"type": "Expression"
+								},
+								"errorCode": "50000"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Upsert contestazioni aperte",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spUpsertPrimoSaldoConstestazioniAperte]",
+					"storedProcedureParameters": {
+						"Recalculate": {
+							"value": {
+								"value": "@pipeline().parameters.Recalculate",
+								"type": "Expression"
+							},
+							"type": "Boolean"
+						},
+						"Year": {
+							"value": {
+								"value": "@pipeline().parameters.Anno",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"Month": {
+							"value": {
+								"value": "@pipeline().parameters.Mese",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Upsert asseverazioni",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Creazione REL PrimoSaldo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[spUpsertPrimaAsseverazioneRel]",
+					"storedProcedureParameters": {
+						"Year": {
+							"value": {
+								"value": "@pipeline().parameters.Anno",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"Month": {
+							"value": {
+								"value": "@pipeline().parameters.Mese",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"Recalculate": {
+				"type": "bool",
+				"defaultValue": false
+			},
+			"Anno": {
+				"type": "int"
+			},
+			"Mese": {
+				"type": "int"
+			}
+		},
+		"variables": {
+			"ErrorMsg": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "ManageREL"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-05-09T13:40:08Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

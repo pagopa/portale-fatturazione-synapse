@@ -1,0 +1,682 @@
+{
+	"name": "00_Main_PagoPA_New",
+	"properties": {
+		"activities": [
+			{
+				"name": "SearchRawPath",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Set Date",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 5,
+					"retryIntervalInSeconds": 60,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": "select container_path from configpath where active = 1 and stored_data = 'raw'",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "pagopa_deltalake",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "SetRawPath",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "SearchRawPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "ContainerPath",
+					"value": {
+						"value": "@activity('SearchRawPath').output.firstRow.container_path",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "IngestContracts",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SetRawPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "IngestPagoPA_New",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TabToImport": "contracts_crm",
+						"ImportTrimestrale": {
+							"value": "@pipeline().parameters.ImportTrimestrale",
+							"type": "Expression"
+						},
+						"ImportDate": {
+							"value": "@variables('ImportDate')",
+							"type": "Expression"
+						},
+						"Container_path": {
+							"value": "@variables('ContainerPath')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "IngestTransactions",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SetRawPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "IngestPagoPA_New",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TabToImport": "gold_invoicing_payments",
+						"ImportTrimestrale": {
+							"value": "@pipeline().parameters.ImportTrimestrale",
+							"type": "Expression"
+						},
+						"ImportDate": {
+							"value": "@variables('ImportDate')",
+							"type": "Expression"
+						},
+						"Container_path": {
+							"value": "@variables('ContainerPath')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "IngestMatSconti",
+				"type": "ExecutePipeline",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [
+					{
+						"activity": "SetRawPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "IngestPagoPA_New",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TabToImport": "silver_kpi_pagamenti",
+						"ImportTrimestrale": {
+							"value": "@pipeline().parameters.ImportTrimestrale",
+							"type": "Expression"
+						},
+						"ImportDate": {
+							"value": "@variables('ImportDate')",
+							"type": "Expression"
+						},
+						"Container_path": {
+							"value": "@variables('ContainerPath')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Set Date",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "ImportDate",
+					"value": {
+						"value": "@if(equals(string(pipeline().parameters.ImportDate), '-'),formatDateTime(utcNow(), 'yyyy-MM-dd'),pipeline().parameters.ImportDate)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "If Ingestion happened",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "If SemaforoGreen",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(add(activity('IngestEntiPrivati').output.pipelineReturnValue.ImportBool,add(activity('IngestTransactions').output.pipelineReturnValue.ImportBool,add(activity('IngestContracts').output.pipelineReturnValue.ImportBool,activity('IngestStazioni').output.pipelineReturnValue.ImportBool))),0)",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "ProcessPagoPa",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "ProcessamentoPagopa",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"process_trimestrale": {
+										"value": "@pipeline().parameters.ImportTrimestrale",
+										"type": "Expression"
+									},
+									"ImportDate": {
+										"value": "@variables('ImportDate')",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "IngestEntiPrivati",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SetRawPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "IngestPagoPA_New",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TabToImport": "silver_contracts",
+						"ImportTrimestrale": {
+							"value": "@pipeline().parameters.ImportTrimestrale",
+							"type": "Expression"
+						},
+						"ImportDate": {
+							"value": "@variables('ImportDate')",
+							"type": "Expression"
+						},
+						"Container_path": {
+							"value": "@variables('ContainerPath')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "IngestStazioni",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SetRawPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "IngestPagoPA_New",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TabToImport": "bronze_cfg_stazioni",
+						"ImportTrimestrale": {
+							"value": "@pipeline().parameters.ImportTrimestrale",
+							"type": "Expression"
+						},
+						"ImportDate": {
+							"value": "@variables('ImportDate')",
+							"type": "Expression"
+						},
+						"Container_path": {
+							"value": "@variables('ContainerPath')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "IfImportTrimestrale",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "IngestContracts",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "IngestTransactions",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "IngestMatSconti",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "IngestEntiPrivati",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "IngestStazioni",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(pipeline().parameters.ImportTrimestrale,true)",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "SemaforoCount",
+							"type": "SynapseNotebook",
+							"dependsOn": [
+								{
+									"activity": "IngestCountTransactions",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "IngestCountEnti",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "IngestCountContratti",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "IngestCountStazioni",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"notebook": {
+									"referenceName": "QuadraturaCount",
+									"type": "NotebookReference"
+								},
+								"parameters": {
+									"today_date": {
+										"value": {
+											"value": "@variables('ImportDate')",
+											"type": "Expression"
+										},
+										"type": "string"
+									}
+								},
+								"snapshot": true,
+								"sparkPool": {
+									"referenceName": "sparkcls01",
+									"type": "BigDataPoolReference"
+								},
+								"executorSize": "Small",
+								"conf": {
+									"spark.dynamicAllocation.enabled": true
+								},
+								"driverSize": "Small"
+							}
+						},
+						{
+							"name": "IngestCountTransactions",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "IngestPagoPA_count",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"TabToImport": "gold_invoicing_payments",
+									"ImportTrimestrale": true,
+									"ImportDate": {
+										"value": "@variables('ImportDate')",
+										"type": "Expression"
+									},
+									"Container_path": {
+										"value": "@variables('ContainerPath')",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "SetSemaforoCount",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "SemaforoCount",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "SemaforoCount",
+								"value": {
+									"value": "@activity('SemaforoCount').output.status.Output.result.exitValue",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "IngestCountContratti",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "IngestPagoPA_count",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"TabToImport": "contracts_crm",
+									"ImportTrimestrale": true,
+									"ImportDate": {
+										"value": "@variables('ImportDate')",
+										"type": "Expression"
+									},
+									"Container_path": {
+										"value": "@variables('ContainerPath')",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "IngestCountEnti",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "IngestPagoPA_count",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"TabToImport": "silver_contracts",
+									"ImportTrimestrale": true,
+									"ImportDate": {
+										"value": "@variables('ImportDate')",
+										"type": "Expression"
+									},
+									"Container_path": {
+										"value": "@variables('ContainerPath')",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "IngestCountStazioni",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "IngestPagoPA_count",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"TabToImport": "bronze_cfg_stazioni",
+									"ImportTrimestrale": true,
+									"ImportDate": {
+										"value": "@variables('ImportDate')",
+										"type": "Expression"
+									},
+									"Container_path": {
+										"value": "@variables('ContainerPath')",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "If SemaforoGreen",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "IfImportTrimestrale",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@or(equals(variables('SemaforoCount'),'Correct'), equals(pipeline().parameters.ImportTrimestrale,false))",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Fail1",
+							"type": "Fail",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"message": {
+									"value": "@concat('Le count non matchano per le seguenti tabelle:',variables('SemaforoCount'))",
+									"type": "Expression"
+								},
+								"errorCode": "500"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "IfFatturazioneTrimestre",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "If Ingestion happened",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(pipeline().parameters.ImportTrimestrale, true)",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "LogProcessamentoTrimestrePagoPa",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[pfd].[spUpsertProcessamentoTrimestrePagoPa]",
+								"storedProcedureParameters": {
+									"year_quarter": {
+										"value": {
+											"value": "@variables('year_quarter')",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "fat_sql",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"ImportTrimestrale": {
+				"type": "bool",
+				"defaultValue": false
+			},
+			"ImportDate": {
+				"type": "string",
+				"defaultValue": "-"
+			}
+		},
+		"variables": {
+			"ContainerPath": {
+				"type": "String"
+			},
+			"ReportsPath": {
+				"type": "String"
+			},
+			"year_month": {
+				"type": "String"
+			},
+			"year_quarter": {
+				"type": "String"
+			},
+			"ImportDate": {
+				"type": "String"
+			},
+			"SemaforoCount": {
+				"type": "String",
+				"defaultValue": "false"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-08T09:47:48Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

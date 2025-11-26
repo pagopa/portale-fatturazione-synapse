@@ -1,0 +1,597 @@
+{
+	"name": "pagopa_privati",
+	"properties": {
+		"folder": {
+			"name": "PagoPA"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "ed96bd8c-edf7-4f43-a23e-57b5ba34fedd"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"from datetime import date, timedelta, datetime\n",
+					"from pyspark.sql.functions import *\n",
+					"from pyspark.sql import functions as F\n",
+					"from py4j.protocol import Py4JJavaError\n",
+					"import pandas as pd\n",
+					"from pyspark.sql.window import Window\n",
+					"from decimal import Decimal\n",
+					"from pyspark.sql.types import StructType, StructField, IntegerType, ArrayType, StringType, LongType, DecimalType, FloatType, TimestampType"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"year_quarter = \"2025_3\"\n",
+					"year_month = \"202506\""
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# get the function to retrieve sql properties\n",
+					"%run Utility/getSQLConnectionString\n",
+					"\n",
+					"# retrieve sql connection_string and connection_properties\n",
+					"jdbcUrl,conn_Prop = getSQLConnectionString()"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"trx_private = spark.sql(f\"\"\"\n",
+					"    with stazioni as \n",
+					"        (SELECT id_stazione, servizio,servizio_pof,\n",
+					"        CASE \n",
+					"            WHEN servizio = 'gpd-payments/api/v1' OR servizio = '/gpd-payments/api/v1' THEN 'ASYNC'\n",
+					"            WHEN servizio_pof = 'gpd-payments/api/v1' OR servizio_pof = '/gpd-payments/api/v1' THEN 'ASYNC'\n",
+					"        ELSE 'SYNC'\n",
+					"        END AS tipo_chiamata\n",
+					"        FROM pagopa.stazioni)\n",
+					"    SELECT gp.payment_id, gp.payment_date_time, sc.internalistitutionid, sc.taxcode, sc.description, s.tipo_chiamata, cs.prezzo_unitario\n",
+					"    from pagopa.enti sc inner join pagopa.transaction_raw gp on sc.taxcode = gp.pa_fiscal_code\n",
+					"    INNER JOIN stazioni s\n",
+					"    ON gp.partner_station = s.id_stazione\n",
+					"    INNER JOIN pagopa.catalogo_stazioni cs\n",
+					"    ON s.tipo_chiamata = cs.tipo_chiamata AND gp.payment_date_time > cs.datainiziovalidita AND gp.payment_date_time < cs.datafinevalidita \n",
+					"    where\n",
+					"    product = 'prod-pagopa' AND\n",
+					"    origin IN ('SELC', 'PDND_INFOCAMERE') AND\n",
+					"    institutiontype IN ('PRV', 'GPU')\n",
+					"    AND sc.notificationtype='UPDATE'\n",
+					"    AND gp.year_quarter = '{year_quarter}'\n",
+					"    \"\"\")"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_contracts = spark.sql(f\"SELECT * FROM pagopa.contracts_raw WHERE year_month= '{year_month}'\")\n",
+					"    \n",
+					"df_contracts_providers = df_contracts\\\n",
+					"                                .withColumn(\"provider_list\", split(col(\"provider_names\"), \",\"))\\\n",
+					"                                .withColumn(\"provider_id\", explode(col(\"provider_list\")))"
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_transactions = spark.sql(f\"select payment_id, payment_date_time, psp_id, total_amount, isPosFisico, client_id from pagopa.transaction_raw where year_quarter = '{year_quarter}'\")"
+				],
+				"execution_count": 53
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					" Join transazioni contratti per recuperare categoria e ordino le transazioni in base alla data"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Left join bewteen transactions and contracts on provider_id\n",
+					"df_trx_join_contracts = df_transactions.join(df_contracts_providers, df_transactions.psp_id == df_contracts_providers.provider_id, \"left\")\n",
+					"\n",
+					"clientIdLst = [\"IO\",\"CHECKOUT\", \"CHECKOUT_CART\", \"WISP\"]\n",
+					"\n",
+					"\n",
+					"windowSpec = Window.partitionBy(\"category\").orderBy(\"payment_date_time\")\n",
+					"\n",
+					"df_trx_contracts = df_trx_join_contracts\\\n",
+					"    .filter(col(\"membership_id\").isNotNull())\\\n",
+					"    .withColumn(\"category\", when((col(\"contract_type\") == \"A\") & (col(\"isPosFisico\")==True), \"A1\")\n",
+					"                .when((col(\"contract_type\") == \"B\") & (col(\"total_amount\") < 5000) & col(\"client_id\").isin(clientIdLst), \"B1\")\n",
+					"                .otherwise(concat(lit(\"G_\"), col(\"membership_id\"))))\\\n",
+					"                .withColumn(\"row_number\", row_number().over(windowSpec))\\\n",
+					"                .select(\"payment_id\",\"recipient_id\",\"category\",\"payment_date_time\",\"row_number\")\n",
+					""
+				],
+				"execution_count": 54
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"fasce_psp = spark.sql(f\"select * from pagopa.fasce_psp where year_quarter = '{year_quarter}'\").withColumn(\"current_total\", col(\"current_total\").cast(LongType()))"
+				],
+				"execution_count": 55
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Seleziono tra le transazioni ordinate quelle dei privati"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# df_trx_private_ranked = df_trx_contracts"
+				],
+				"execution_count": 56
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_trx_private_ranked = trx_private.join(df_trx_contracts, how=\"inner\", on=\"payment_id\")"
+				],
+				"execution_count": 57
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_G = df_trx_private_ranked.where(\"category not in ('A1','B1')\")\n",
+					"\n",
+					"df_non_G = df_trx_private_ranked.where(\"category in ('A1','B1')\")"
+				],
+				"execution_count": 58
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_non_G_final = df_non_G.withColumn(\"CodiceArticolo\",when(col(\"category\")==\"B1\",\"B.1\").when(col(\"category\")==\"A1\",\"B.3\"))\\\n",
+					"                        .withColumn(\"Value\",when(col(\"category\")==\"B1\",\"0.04\").when(col(\"category\")==\"A1\",\"0.025\"))\\\n",
+					"                        .select(\"payment_id\",\"recipient_id\",\"internalistitutionid\",\"taxcode\",\"description\",\"category\",\"prezzo_unitario\",\"tipo_chiamata\",\"CodiceArticolo\",\"Value\")\\\n",
+					"                        .withColumn(\"Value\", col(\"Value\").cast(DecimalType(10,4)))\\\n",
+					"\n",
+					"#  .select(\"payment_id\",\"category\",\"payment_date_time\",\"CodiceArticolo\",\"Value\")"
+				],
+				"execution_count": 59
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"- Esplodo il df sull'array delle fasce e ottengo in ogni riga il numero di transazioni di una categoria in una certa fascia\n",
+					"\n",
+					"- Filtro le righe che hanno numero di transazioni a 0 o a null escludendo così le fasce vuote e quelle riempite in un quarter precedente"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"fasce_exploded = fasce_psp.select(\"*\", posexplode(\"currentBasket\").alias(\"basket\", \"trans\"))\\\n",
+					"                    .where(\"trans is not null and trans <> 0 and left(category,1) = 'G'\")\\\n",
+					"                    .withColumn(\"trans\", col(\"trans\").cast(LongType()))"
+				],
+				"execution_count": 60
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"run_control": {
+						"frozen": true
+					},
+					"editable": false,
+					"jupyter": {
+						"outputs_hidden": true
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(fasce_exploded)"
+				],
+				"execution_count": 127
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Creo una tabella con le posizioni di ogni fascia e i codici articolo"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"fasce = [\n",
+					"    (0, \"A.1\", 0.0850),\n",
+					"    (1, \"A.2\", 0.0723),\n",
+					"    (2, \"A.3\", 0.0679),\n",
+					"    (3, \"A.4\", 0.0638),\n",
+					"    (4, \"A.5\", 0.0575),\n",
+					"    (5, \"A.6\", 0.0563),\n",
+					"    (6, \"A.7\", 0.0552),\n",
+					"    (7, \"A.8\", 0.0541),\n",
+					"    (8, \"A.9\", 0.0530)\n",
+					"    ]\n",
+					"    \n",
+					"# Define the schema for the DataFrame\n",
+					"\n",
+					"schema = StructType([\n",
+					"    StructField(\"fascia_key\", IntegerType(), True),\n",
+					"    StructField(\"CodiceArticolo\", StringType(), True),\n",
+					"    StructField(\"Value\", FloatType(), True)\n",
+					"    # StructField(\"Value\", DecimalType(10, 4), True)\n",
+					"])\n",
+					"\n",
+					"# Create the Spark DataFrame directly from the static data and schema\n",
+					"df_dict = spark.createDataFrame(data=fasce, schema=schema)"
+				],
+				"execution_count": 61
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"\n",
+					"Joino le fasce attive nel quarter di riferimento con le relative posizioni e calcolo le posizioni relativamente alle transazioni"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"windowSpec = Window.partitionBy(\"category\").orderBy(\"basket\").rowsBetween(Window.unboundedPreceding, Window.currentRow)\n",
+					"\n",
+					"df_fasce = fasce_exploded.join(df_dict,how=\"inner\",on=col(\"fascia_key\")==col(\"basket\"))\\\n",
+					"            .select(\"category\", \"basket\", \"CodiceArticolo\", \"trans\", \"Value\")\\\n",
+					"            .withColumn(\"max_pos\", sum(\"trans\").over(windowSpec))\\\n",
+					"            .withColumn(\"min_pos\", coalesce((lag(\"max_pos\", 1).over(Window.partitionBy(\"category\").orderBy(\"basket\"))), lit(0)))"
+				],
+				"execution_count": 62
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"run_control": {
+						"frozen": true
+					},
+					"editable": false,
+					"jupyter": {
+						"outputs_hidden": true
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(df_fasce)"
+				],
+				"execution_count": 28
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Joino le transazioni private ordinate in base alla category e confrontando se la posizione della transazione è compresa tra la max e la min posizioni per una fascia"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_G_final = df_G.join(\n",
+					"                df_fasce,\\\n",
+					"                (df_trx_private_ranked[\"category\"] == df_fasce[\"category\"]) &\\\n",
+					"                (df_trx_private_ranked[\"row_number\"] > df_fasce[\"min_pos\"]) &\\\n",
+					"                (df_trx_private_ranked[\"row_number\"] <= df_fasce[\"max_pos\"]),\\\n",
+					"                how=\"inner\")\\\n",
+					"                .select(\"payment_id\",\"recipient_id\",\"internalistitutionid\",\"taxcode\",\"description\",\"fasce_psp.category\",\"prezzo_unitario\",\"tipo_chiamata\",\"CodiceArticolo\",\"Value\")\\\n",
+					"                .withColumn(\"Value\", col(\"Value\").cast(DecimalType(10,4)))"
+				],
+				"execution_count": 63
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_final = df_G_final.union(df_non_G_final)"
+				],
+				"execution_count": 64
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"stazioni = df_final\\\n",
+					"                .groupBy(\"category\",\"recipient_id\",\"internalistitutionid\",\"taxcode\",\"description\",\"CodiceArticolo\")\\\n",
+					"                .pivot(\"tipo_chiamata\",[\"ASYNC\", \"SYNC\"])\\\n",
+					"                .agg(\n",
+					"                    F.count(\"Value\").alias(\"numero_tot\"),\\\n",
+					"                    F.sum(\"prezzo_unitario\").alias(\"valore_tot\")\\\n",
+					"                    )"
+				],
+				"execution_count": 65
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"report_privati = df_final\\\n",
+					"                .groupBy(\"category\",\"recipient_id\",\"internalistitutionid\",\"taxcode\",\"description\",\"CodiceArticolo\")\\\n",
+					"                .agg(\n",
+					"                    F.count(\"Value\").alias(\"numero_tot\"),\n",
+					"                    F.sum(\"Value\").alias(\"valore_tot\")\n",
+					"                    )\\\n",
+					"                .join(stazioni, on=[\"category\",\"recipient_id\",\"internalistitutionid\",\"taxcode\",\"description\",\"CodiceArticolo\"],how=\"inner\")\\\n",
+					"                .fillna(0)\\\n",
+					"                .withColumn(\"year_quarter\",lit(year_quarter))"
+				],
+				"execution_count": 66
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dfEnti = spark.sql(\"\"\"\n",
+					"                        SELECT internalistitutionid,\n",
+					"                            rootAggregator.institutionid as parentID,\n",
+					"                            rootAggregator.description as parentDescription\n",
+					"                        FROM pagopa.enti\n",
+					"                        WHERE institutiontype in ('GPU', 'PRV')\n",
+					"                        and product = 'prod-pagopa'\n",
+					"\"\"\")"
+				],
+				"execution_count": 67
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"joinDfEnti = report_privati.join(dfEnti, on = \"internalistitutionid\", how=\"left\")"
+				],
+				"execution_count": 68
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"editable": false,
+					"run_control": {
+						"frozen": true
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(joinDfEnti)"
+				],
+				"execution_count": 69
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"joinDfEnti.write.jdbc(url=jdbcUrl, table=\"stg.report_privati\", mode = 'overwrite', properties=conn_Prop)"
+				],
+				"execution_count": 310
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"run_control": {
+						"frozen": true
+					},
+					"editable": false,
+					"collapsed": false
+				},
+				"source": [
+					"display(report_privati)"
+				],
+				"execution_count": 239
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#### Quadrature"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# from pyspark.sql import SparkSession\n",
+					"# from pyspark.sql.types import StructType, StructField, StringType\n",
+					"\n",
+					"\n",
+					"# # Define the schema for the DataFrame\n",
+					"# schema = StructType([\n",
+					"#     StructField(\"tipo_chiamata\", StringType(), True),\n",
+					"#     StructField(\"prezzo_unitario\", DecimalType(10,4), True),\n",
+					"#     StructField(\"datainiziovalidita\", TimestampType(), True),\n",
+					"#     StructField(\"datafinevalidita\", TimestampType(), True)\n",
+					"# ])\n",
+					"\n",
+					"# # Create the data for the DataFrame\n",
+					"# data = [\n",
+					"#     (\"SYNC\", Decimal(0.4), datetime.strptime( \"2025-01-01\", \"%Y-%m-%d\"), datetime.strptime( \"2099-12-31\", \"%Y-%m-%d\")),\n",
+					"#     (\"ASYNC\", Decimal(0.3), datetime.strptime( \"2025-01-01\", \"%Y-%m-%d\"), datetime.strptime( \"2099-12-31\", \"%Y-%m-%d\"))\n",
+					"# ]\n",
+					"\n",
+					"# # Create the DataFrame\n",
+					"# df = spark.createDataFrame(data, schema)\n",
+					"\n",
+					"# # Write the DataFrame to a Delta table\n",
+					"# df.write.format(\"delta\").saveAsTable(\"pagopa.catalogo_stazioni\")"
+				],
+				"execution_count": 305
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"run_control": {
+						"frozen": true
+					},
+					"editable": false
+				},
+				"source": [
+					"# df = spark.read.csv(\"abfss://filequadrature@fatpdls.dfs.core.windows.net/privati_pagopa/privati_fasce/test_privati.csv\", header=True, inferSchema=True, sep=\";\")"
+				],
+				"execution_count": 278
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"run_control": {
+						"frozen": true
+					},
+					"editable": false,
+					"jupyter": {
+						"outputs_hidden": true
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# tmp = df.select(\"category\",\"codice_articolo\",\"tot_transactions\",\"tot_value\")\\\n",
+					"#                 .join(report_privati, how=\"inner\",\\\n",
+					"#                 on=(df[\"category\"] == report_privati[\"category\"]) &\\\n",
+					"#                 (df[\"codice_articolo\"] == report_privati[\"CodiceArticolo\"]))\n",
+					"\n",
+					"# fin = tmp.withColumn(\"ciao\", when((tmp[\"totale_transazioni\"] == tmp[\"tot_transactions\"])\\\n",
+					"#                     &(round(tmp[\"valore_tot_transazioni\"],2) == round(tmp[\"tot_value\"],2)), \"OK\")\\\n",
+					"#                 .otherwise(\"KO\"))\n",
+					"\n",
+					"# display(fin.where(\"ciao='KO'\"))"
+				],
+				"execution_count": 279
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": true
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# display(fin.select(round(col(\"tot_value\"),2),round(col(\"valore_tot_transazioni\"),2)))"
+				],
+				"execution_count": 306
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"run_control": {
+						"frozen": true
+					},
+					"editable": false,
+					"jupyter": {
+						"outputs_hidden": true
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# tmp = df.select(\"category\",\"codice_articolo\",\"tot_transactions\")\\\n",
+					"#                 .join(df_final.groupBy(\"category\",\"codicearticolo\").count(),how=\"inner\",on=(df[\"category\"] == df_final[\"category\"]) &\\\n",
+					"#                 (df[\"codice_articolo\"] == df_final[\"CodiceArticolo\"]))\n",
+					"# fin = tmp.withColumn(\"ciao\", when((tmp[\"tot_transactions\"] == tmp[\"count\"]), \"OK\")\\\n",
+					"#                 .otherwise(\"KO\"))\n",
+					"# display(fin)"
+				],
+				"execution_count": 55
+			}
+		]
+	}
+}

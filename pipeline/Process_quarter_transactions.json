@@ -1,0 +1,349 @@
+{
+	"name": "Process_quarter_transactions",
+	"properties": {
+		"activities": [
+			{
+				"name": "quarter_trx_tables",
+				"type": "SynapseNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "process_quarter_trx_tables",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"today_date": {
+							"value": {
+								"value": "@pipeline().parameters.current_date",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"import_trimestrale": {
+							"value": {
+								"value": "@pipeline().parameters.ImportTrimestrale",
+								"type": "Expression"
+							},
+							"type": "bool"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": null,
+						"spark.dynamicAllocation.minExecutors": null,
+						"spark.dynamicAllocation.maxExecutors": null
+					},
+					"driverSize": "Small",
+					"numExecutors": null
+				}
+			},
+			{
+				"name": "quarter_trx_generic_reports",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "Set year_month",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set year_quarter",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "process_quarter_trx_generic_reports",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"reference_year_quarter": {
+							"value": {
+								"value": "@variables('year_quarter')",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"container_path": {
+							"value": {
+								"value": "@pipeline().parameters.container_path",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"current_year_month": {
+							"value": {
+								"value": "@variables('year_month')",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": true
+					},
+					"driverSize": "Small"
+				}
+			},
+			{
+				"name": "quarter_trx_psp_reports",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "quarter_trx_generic_reports",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "process_quarter_trx_psp_reports",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"reference_year_quarter": {
+							"value": {
+								"value": "@variables('year_quarter')",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"container_path": {
+							"value": {
+								"value": "@pipeline().parameters.container_path",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"current_year_month": {
+							"value": {
+								"value": "@variables('year_month')",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": true
+					},
+					"driverSize": "Small"
+				}
+			},
+			{
+				"name": "SetReturnTimeVariables",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "quarter_trx_psp_reports",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "pipelineReturnValue",
+					"value": [
+						{
+							"key": "timevars",
+							"value": {
+								"type": "Expression",
+								"content": "@concat(variables('year_month'),',',variables('year_quarter'))"
+							}
+						}
+					],
+					"setSystemVariable": true
+				}
+			},
+			{
+				"name": "Set year_month",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "quarter_trx_tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "year_month",
+					"value": {
+						"value": "@split(activity('quarter_trx_tables').output.status.Output.result.exitValue, ',')[0]",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set year_quarter",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "quarter_trx_tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "year_quarter",
+					"value": {
+						"value": "@split(activity('quarter_trx_tables').output.status.Output.result.exitValue, ',')[1]",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "CopyToFatPublic",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SetReturnTimeVariables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "CopyToFatPublic",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"tableName": " ",
+						"containerName": "pagopa",
+						"folderName": "invoices",
+						"wildcard": {
+							"value": "@concat(\n    split(variables('year_quarter'),'_' )[0],\n    '-q',\n    split(variables('year_quarter'),'_' )[1],\n    '-DetailedReport.csv')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "CopyToFatPublic_AgentQuarter",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SetReturnTimeVariables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "CopyToFatPublic",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"tableName": " ",
+						"containerName": "pagopa",
+						"folderName": "invoices",
+						"wildcard": {
+							"value": "@concat(\n    split(variables('year_quarter'),'_' )[0],\n    '-q',\n    split(variables('year_quarter'),'_' )[1],\n    '-AgentQuarterReport.csv')",
+							"type": "Expression"
+						}
+					}
+				}
+			}
+		],
+		"parameters": {
+			"current_date": {
+				"type": "string"
+			},
+			"container_path": {
+				"type": "string"
+			},
+			"ImportTrimestrale": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"ContainerPath": {
+				"type": "String"
+			},
+			"year_quarter": {
+				"type": "String"
+			},
+			"year_month": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "PagoPA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-02-24T09:15:59Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

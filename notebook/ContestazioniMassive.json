@@ -1,0 +1,1528 @@
+{
+	"name": "ContestazioniMassive",
+	"properties": {
+		"description": "Notebook contestazioni massive con controlli sulle singole contestazioni",
+		"folder": {
+			"name": "Contestazioni"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "1175fb65-9cd0-44c6-87b5-10001eb18443"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Summary\n",
+					"Il notebook si occupa di leggere, validare, elaborare e generare i report delle contestazioni massive.\n",
+					"\n",
+					"Le contestazioni massive sono file CSV che vengono recuperati dal Blob Storage"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Stato Contestazioni\n",
+					"\n",
+					"|Stato Contestazione|Stato Fornito|Fatturabile\n",
+					"|-|-|-|\n",
+					"|Non Contestata|1|SI\n",
+					"|Annullata|2|SI\n",
+					"|Contestata|3|NO\n",
+					"|Risposta SEND|4|SI\n",
+					"|Risposta Recapitista|5|SI\n",
+					"|Risposta Consolidatore|6|SI\n",
+					"|Risposta Ente|7|NO\n",
+					"|Accettata|8|SI\n",
+					"|Rifiutata|9|SI"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Improvements\n",
+					"\n",
+					"- controllo risposte contestazioni nel periodo di validità\n",
+					"- controllo caricamento contestazioni nel periodo di validità"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Parametri Notebook"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"link = \"contestazioni/0307a5f0-2049-4da5-84db-8f2281d4fc6d/93b07db9-21fc-440d-ae35-49ee810f22b2/dd41c2e0-df46-42e0-94b9-2db296681529\"\n",
+					"annomese = '202502'\n",
+					"id_ente = '0307a5f0-2049-4da5-84db-8f2281d4fc6d'\n",
+					"id_contratto = '93b07db9-21fc-440d-ae35-49ee810f22b2'\n",
+					"report_id = 1\n",
+					"tipo_report = \"15\""
+				],
+				"execution_count": 118
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Import librerie"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"from datetime import datetime, timedelta\n",
+					"from pyspark.sql import functions as F\n",
+					"from pyspark.sql import Row\n",
+					"from pyspark.sql.types import StructType, StructField, StringType, ArrayType\n",
+					"from pyspark.sql.window import Window"
+				],
+				"execution_count": 119
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Variabili Globali"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"year = annomese[:4]\n",
+					"month = annomese[4:]\n",
+					"notebookRuntimeExecution = datetime.now()\n",
+					"inserimento_contestazioni_ente = \"16\"\n",
+					"inserimento_contestazioni_azureAd = \"15\""
+				],
+				"execution_count": 120
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query_report_contestazioni_righe = f\"\"\"(select top(1) \n",
+					" [report_id]\n",
+					",[step]\n",
+					",[TotaleNotificheAnalogiche890]\n",
+					",[TotaleNotificheDigitali]\n",
+					",[TotaleNotifiche]\n",
+					",[Link]\n",
+					",[NonContestataAnnullata]\n",
+					",[ContestataEnte]\n",
+					",[RispostaEnte]\n",
+					",[Accettata]\n",
+					",[RispostaSend]\n",
+					",[RispostaRecapitista]\n",
+					",[RispostaConsolidatore]\n",
+					",[Rifiutata]\n",
+					",[NonFatturabile]\n",
+					",[Fatturabile]\n",
+					",[Storage]\n",
+					",[NomeDocumento]\n",
+					",[DataCompletamento]\n",
+					",[TotaleNotificheAnalogicheARNazionali_AR]\n",
+					",[TotaleNotificheAnalogicheARInternazionali_RIR]\n",
+					",[TotaleNotificheAnalogicheRSNazionali_RS]\n",
+					",[TotaleNotificheAnalogicheRSInternazionali_RIS] from pfd.ReportContestazioniRighe\n",
+					") as tb\"\"\""
+				],
+				"execution_count": 121
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Lettura file contestazioni"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<mark>TODO</mark> aggiungere try-catch se nella folder non c'è alcun file la lettura va in errore e non viene gestita\n",
+					"\n",
+					"<mark>TODO</mark> se nel path c'è già la cartella \"file_intermedi\" la lettura non va a buon fine"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false
+					}
+				},
+				"source": [
+					"file_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/\"\n",
+					"\n",
+					"if \"enable_debug\" in locals():\n",
+					"    print(file_path)\n",
+					"\n",
+					"df_file = spark.read.format(\"csv\").option(\"delimiter\", \";\").option(\"header\",\"True\").load(file_path)\n",
+					"\n",
+					"df_contestazioni_file = spark.createDataFrame(df_file.rdd, schema=df_file.schema)"
+				],
+				"execution_count": 122
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Connessione SQL-DB"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# get the function to retrieve sql properties\n",
+					"%run Utility/getSQLConnectionString\n",
+					"\n",
+					"# retrieve sql connection_string and connection_properties\n",
+					"jdbcUrl,conn_Prop = getSQLConnectionString()"
+				],
+				"execution_count": 123
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Lettura step per report contestazioni"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query_report_contestazioni_step = f\"(SELECT step, descrizione from pfd.ReportContestazioniStep) as tb\"\n",
+					"stepContest = spark.read.jdbc(url=jdbcUrl, table=query_report_contestazioni_step, properties=conn_Prop)\n",
+					"stepContest.cache()"
+				],
+				"execution_count": 127
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Definizione schema target"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"default_schema = ['contract_id',\n",
+					" 'tax_code',\n",
+					" 'vat_number',\n",
+					" 'zip_code',\n",
+					" 'foreign_state',\n",
+					" 'number_of_pages',\n",
+					" 'g_envelope_weight',\n",
+					" 'cost_eurocent',\n",
+					" 'timeline_category',\n",
+					" 'paper_product_type',\n",
+					" 'notification_type',\n",
+					" 'event_id',\n",
+					" 'iun',\n",
+					" 'consolidatore',\n",
+					" 'recapitista',\n",
+					" 'notification_sent_at',\n",
+					" 'internal_organization_id',\n",
+					" 'description',\n",
+					" 'event_timestamp',\n",
+					" 'recipient_index',\n",
+					" 'recipient_type',\n",
+					" 'recipient_id',\n",
+					" 'year',\n",
+					" 'month',\n",
+					" 'daily',\n",
+					" 'item_code',\n",
+					" 'notification_request_id',\n",
+					" 'recipient_tax_id',\n",
+					" 'Note Ente',\n",
+					" 'Risposta Ente',\n",
+					" 'Risposta Send',\n",
+					" 'Risposta Recapitista',\n",
+					" 'Risposta Consolidatore',\n",
+					" 'Tipo Contestazione',\n",
+					" 'Id Tipo Contestazione',\n",
+					" 'Contestazione',\n",
+					" 'Stato contestazione',\n",
+					" 'Tipologia Fattura',\n",
+					" 'Codice Oggetto']"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Rimozione Codice Oggetto in base al tipo report\n",
+					"\n",
+					"Report 16 = CONTESTAZIONE ENTE"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"if tipo_report == '16':\n",
+					"    default_schema.remove('Codice Oggetto')"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Lettura Calendario Contestazioni"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query_contestazioni_calendario = f\"(select * from pfw.ContestazioniCalendario) as tb\"\n",
+					"ContestazioniCalendario = spark.read.jdbc(url=jdbcUrl, table=query_contestazioni_calendario, properties=conn_Prop)"
+				],
+				"execution_count": 13
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Lettura Data Fine Inserimento Contestazioni"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dataFineContestazioni = ContestazioniCalendario.where(f\"MeseContestazione = {month} and AnnoContestazione = {year}\").select(\"DataFine\").collect()[0][0]"
+				],
+				"execution_count": 14
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Lettura Data Chiusura Contestazioni"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dataChiusuraContestazioni = ContestazioniCalendario.where(f\"MeseContestazione = {month} and AnnoContestazione = {year}\").select(\"DataChiusuraContestazioni\").collect()[0][0]"
+				],
+				"execution_count": 15
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"run_control": {
+						"frozen": false
+					},
+					"editable": true
+				},
+				"source": [
+					"#TODO REMOVE\n",
+					"if 'enable_debug' in locals():\n",
+					"    print('Data Fine Contestazioni:',dataFineContestazioni)\n",
+					"    print(f'Data Fine Contestazioni < {notebookRuntimeExecution}:', dataFineContestazioni < notebookRuntimeExecution)"
+				],
+				"execution_count": 16
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Lettura Data Verifica"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dataVerifica = ContestazioniCalendario.where(f\"MeseContestazione = {month} and AnnoContestazione = {year}\").select(\"DataFineRisposteContestazioni\").collect()[0][0]"
+				],
+				"execution_count": 17
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"#TODO REMOVE\n",
+					"if 'enable_debug' in locals():\n",
+					"    print('Data Verifica:', dataVerifica)\n",
+					"    print(f'Data Verifica < {notebookRuntimeExecution}:', dataVerifica < notebookRuntimeExecution)"
+				],
+				"execution_count": 18
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Connessione blob storage"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"blob_account_name = 'fatppublic'\n",
+					"blob_container_name = 'contestazioni'\n",
+					"linked_service_name = 'AzureBlobStorageTEST'\n",
+					"\n",
+					"blob_sas_token = mssparkutils.credentials.getConnectionStringOrCreds(linked_service_name) \n",
+					"spark.conf.set('fs.azure.sas.%s.%s.blob.core.windows.net' % (blob_container_name, blob_account_name), blob_sas_token)"
+				],
+				"execution_count": 19
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Verifiche dati"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"|IdTipoContestazione|TipoContestazione|\n",
+					"|-|-|\n",
+					"|1|Ritardo nella consegna|\n",
+					"|2|Mancato recapito|\n",
+					"|3|Danneggiamento o manomissione|\n",
+					"|4|Mancato espletamento servizio|\n",
+					"|5|Mancato rispetto normativa|\n",
+					"|6|Errore di stampa|\n",
+					"|7|Dematerializzazione incorretta|\n",
+					"|8|Malfunzionamento - Interruzione del Servizio|\n",
+					"|9|Mancato rispetto degli SLA (mera segnalazione)|"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Read Tipi Contestazione Ammessi"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query_tipi_contestazione_ammessi = f\"(SELECT IdTipoContestazione from pfw.TipoContestazione WHERE FlagContestazione = 'True') as tb\"\n",
+					"tipi_contestazione_ammessi = spark.read.jdbc(url=jdbcUrl, table=query_tipi_contestazione_ammessi, properties=conn_Prop)"
+				],
+				"execution_count": 22
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"lista_tipi_ammessi = [str(row[\"IdTipoContestazione\"]) for row in tipi_contestazione_ammessi.select(\"IdTipoContestazione\").collect()]\n",
+					"# lista_tipi_ammessi = [\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\"]\n",
+					"\n",
+					"df_file = df_file.withColumn(\"Id Tipo Contestazione\",\\\n",
+					"                F.when(F.col(\"Id Tipo Contestazione\").isin(lista_tipi_ammessi), F.col(\"Id Tipo Contestazione\")).otherwise(\"100\"))"
+				],
+				"execution_count": 26
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Definisco variable semaforo per stop processamento\n",
+					"stopper = False"
+				],
+				"execution_count": 105
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"lista_tipi_query = ','.join(f\"'{tipo}'\" for tipo in lista_tipi_ammessi)"
+				],
+				"execution_count": 29
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Check Errore formato\n",
+					"Controllo se mancano dei campi nel file oppure se ci sono tipi contestazione non ammessi, se sì, blocco il processo con errore formato file e restituisco file csv con elenco dei campi mancanti o delle contestazioni con tipo non ammesso"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"ms_comments": [
+						{
+							"threadId": "d6d6bba5-f05a-416b-9300-677ec6d7a237",
+							"text": "perchè utilizzo il campo [Descrizione] per recuperare il valore dello step?",
+							"status": "active",
+							"user": {
+								"name": "Daniele Emilio Passarella",
+								"idType": "aad"
+							},
+							"createdDateUTC": 1754476558356,
+							"modifiedDateUTC": 1754476558356,
+							"replies": []
+						}
+					]
+				},
+				"source": [
+					"# CHECK SCHEMA DATI --> Errore formato file contestazioni\n",
+					"if set(df_file.columns) != set(default_schema) and len(df_file.columns) < len(default_schema):\n",
+					"\n",
+					"    schema = StructType([StructField(\"Campi Mancanti\", StringType(), True)])\n",
+					"\n",
+					"    fields_missing = []\n",
+					"\n",
+					"    # colleziona tutte le colonne mancanti\n",
+					"    for field in default_schema:\n",
+					"        if field not in df_file.columns:\n",
+					"            fields_missing.append(field)\n",
+					"\n",
+					"    df_format_error = spark.createDataFrame([(field,) for field in fields_missing], schema)\n",
+					"    stopper = True\n",
+					"\n",
+					"elif not df_file.where(f\"`Id Tipo Contestazione` not in ({lista_tipi_query})\").isEmpty():\n",
+					"\n",
+					"    df_format_error = df_file.where(f\"`Id Tipo Contestazione` not in ({lista_tipi_query})\").select(\"event_id\",\"Id Tipo Contestazione\").withColumn(\"TipoNonAmmesso\", F.lit(\"Id Tipo Contestazione non ammesso\"))\n",
+					"    stopper = True\n",
+					"\n",
+					"\n",
+					"if stopper:\n",
+					"\n",
+					"    file_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/Campi_missing\"\n",
+					"\n",
+					"    # scrivi file csv con tutte le colonne mancanti\n",
+					"    df_format_error.repartition(1).write.options(header = True, delimiter = ',').mode('overwrite').csv(file_path)\n",
+					"\n",
+					"    for id in mssparkutils.fs.ls(f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/Campi_missing\"):\n",
+					"        for file in mssparkutils.fs.ls(id.path):\n",
+					"            if 'SUCCESS' not in file.name:\n",
+					"                mssparkutils.fs.mv(file.path,f\"wasbs://{blob_container_name}@{blob_account_name}.blob.core.windows.net/{link[14:]}/Campi_missing.csv\", create_path = True, overwrite = True)\n",
+					"\n",
+					"    # predisponi record da inserire in SQL\n",
+					"    df_missing_columns = spark.read.jdbc(url=jdbcUrl, table=query_report_contestazioni_righe, properties=conn_Prop)\n",
+					"\n",
+					"    file_err = stepContest.where(\"descrizione = 'Errore formato file contestazioni'\").collect()[0][0]\n",
+					"\n",
+					"    step0 = Row(\n",
+					"    report_id=report_id,\n",
+					"    step=file_err,\n",
+					"    TotaleNotificheAnalogiche890=None,\n",
+					"    TotaleNotificheDigitali=None,\n",
+					"    TotaleNotifiche=None,\n",
+					"    Link=link,\n",
+					"    NonContestataAnnullata=None,\n",
+					"    ContestataEnte=None,\n",
+					"    RispostaEnte = None,\n",
+					"    Accettata=None,\n",
+					"    RispostaSend=None,\n",
+					"    RispostaRecapitista=None,\n",
+					"    RispostaConsolidatore=None,\n",
+					"    Rifiutata=None,\n",
+					"    NonFatturabile=None,\n",
+					"    Fatturabile=None,\n",
+					"    Storage=blob_account_name,\n",
+					"    NomeDocumento=\"Campi_missing.csv\",\n",
+					"    DataCompletamento=notebookRuntimeExecution,\n",
+					"    TotaleNotificheAnalogicheARNazionali_AR=None,\n",
+					"    TotaleNotificheAnalogicheARInternazionali_RIR=None,\n",
+					"    TotaleNotificheAnalogicheRSNazionali_RS=None,\n",
+					"    TotaleNotificheAnalogicheRSInternazionali_RIS=None\n",
+					"    )\n",
+					"\n",
+					"    # crea record di errore\n",
+					"    righe_report = spark.createDataFrame([step0], df_missing_columns.schema)\n",
+					"\n",
+					"    # inserisci record di errore\n",
+					"    righe_report.select(df_missing_columns.columns).write.jdbc(url=jdbcUrl, table=\"pfd.ReportContestazioniRighe\", mode = 'append', properties=conn_Prop)\n",
+					"\n",
+					"    # rimuovi file temporanei\n",
+					"    mssparkutils.fs.rm(f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/\", recurse = True)\n",
+					"\n",
+					"    # interrompi esecuzione notebook\n",
+					"    mssparkutils.notebook.exit(file_err) #stato 1 Impossibile procedere"
+				],
+				"execution_count": 106
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_file = df_file.select(default_schema)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Check inserimento contestazioni fuori periodo"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"step_report_contestazioni = 15 #Scadenza dei termini previsti per la contestazione nel periodo di riferimento\n",
+					"\n",
+					"if tipo_report == inserimento_contestazioni_ente:\n",
+					"    stato_notifiche_contestate = [3]\n",
+					"    dataCheckContestazioni = dataFineContestazioni\n",
+					"elif tipo_report == inserimento_contestazioni_azureAd:\n",
+					"    stato_notifiche_contestate = [1,2,3,4,5,6,7]\n",
+					"    dataCheckContestazioni = dataChiusuraContestazioni\n",
+					"\n",
+					"if (dataCheckContestazioni < notebookRuntimeExecution):\n",
+					"    # L'ente non può più inserire nuove contestazioni\n",
+					"\n",
+					"    # recupero delle notifiche contestate non processabili\n",
+					"    contestazioni_fuori_periodo = df_file.where( F.col(\"Stato contestazione\").isin(stato_notifiche_contestate))\n",
+					"\n",
+					"    if contestazioni_fuori_periodo.count() > 0:        \n",
+					"\n",
+					"        print(\"Contestazioni fuori periodo:\", contestazioni_fuori_periodo.count())\n",
+					"        print(\"Contestazioni totali da valutare:\", df_file.count())\n",
+					"\n",
+					"        # rimozione delle notifiche contestate non processabili\n",
+					"        df_file = df_file.where( ~ F.col(\"Stato contestazione\").isin(stato_notifiche_contestate))\n",
+					"\n",
+					"        # predisponi record da inserire in SQL\n",
+					"        df_report_contestazioni_righe = spark.read.jdbc(url=jdbcUrl, table=query_report_contestazioni_righe, properties=conn_Prop)\n",
+					"\n",
+					"        # TODO calculate sums\n",
+					"        calc_contestazioni_fuori_periodo = contestazioni_fuori_periodo.withColumn(\"reportid\",F.lit(report_id))\n",
+					"        calc_contestazioni_fuori_periodo = calc_contestazioni_fuori_periodo.groupBy(\"reportid\").agg(\n",
+					"            F.count(\"*\").alias(\"TotaleNotifiche\"),\n",
+					"            F.sum(F.when(F.col(\"notification_type\") == '890', 1).otherwise(0)).alias(\"TotaleNotificheAnalogiche890\"),\n",
+					"            F.sum(F.when(F.col(\"notification_type\") == 'DIG', 1).otherwise(0)).alias(\"TotaleNotificheDigitali\"),\n",
+					"            F.sum(F.when(F.col(\"notification_type\") == 'AR', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheARNazionali_AR\"),\n",
+					"            F.sum(F.when(F.col(\"notification_type\") == 'RIR', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheARInternazionali_RIR\"),\n",
+					"            F.sum(F.when(F.col(\"notification_type\") == 'RS', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheRSNazionali_RS\"),\n",
+					"            F.sum(F.when(F.col(\"notification_type\") == 'RIS', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheRSInternazionali_RIS\")\n",
+					"            ).withColumn(\"Step\", F.lit(step_report_contestazioni)).withColumn(\"link\",F.lit(\"\")).withColumn(\"Storage\",F.lit(blob_account_name)).withColumn(\"NomeDocumento\",F.lit(None))\n",
+					"\n",
+					"\n",
+					"        step0 = Row(\n",
+					"        report_id=report_id,\n",
+					"        step=step_report_contestazioni,\n",
+					"        TotaleNotificheAnalogiche890=calc_contestazioni_fuori_periodo.select(\"TotaleNotificheAnalogiche890\").collect()[0][0],\n",
+					"        TotaleNotificheDigitali=calc_contestazioni_fuori_periodo.select(\"TotaleNotificheDigitali\").collect()[0][0],\n",
+					"        TotaleNotifiche=calc_contestazioni_fuori_periodo.select(\"TotaleNotifiche\").collect()[0][0],\n",
+					"        Link=link,\n",
+					"        NonContestataAnnullata=None,\n",
+					"        ContestataEnte=None,\n",
+					"        RispostaEnte = None,\n",
+					"        Accettata=None,\n",
+					"        RispostaSend=None,\n",
+					"        RispostaRecapitista=None,\n",
+					"        RispostaConsolidatore=None,\n",
+					"        Rifiutata=None,\n",
+					"        NonFatturabile=None,\n",
+					"        Fatturabile=None,\n",
+					"        Storage=blob_account_name,\n",
+					"        NomeDocumento=None,\n",
+					"        DataCompletamento=notebookRuntimeExecution,\n",
+					"        TotaleNotificheAnalogicheARNazionali_AR=calc_contestazioni_fuori_periodo.select(\"TotaleNotificheAnalogicheARNazionali_AR\").collect()[0][0],\n",
+					"        TotaleNotificheAnalogicheARInternazionali_RIR=calc_contestazioni_fuori_periodo.select(\"TotaleNotificheAnalogicheARInternazionali_RIR\").collect()[0][0],\n",
+					"        TotaleNotificheAnalogicheRSNazionali_RS=calc_contestazioni_fuori_periodo.select(\"TotaleNotificheAnalogicheRSNazionali_RS\").collect()[0][0],\n",
+					"        TotaleNotificheAnalogicheRSInternazionali_RIS=calc_contestazioni_fuori_periodo.select(\"TotaleNotificheAnalogicheRSInternazionali_RIS\").collect()[0][0]\n",
+					"        )\n",
+					"\n",
+					"        # crea record di errore\n",
+					"        righe_report = spark.createDataFrame([step0], df_report_contestazioni_righe.schema)\n",
+					"\n",
+					"        try:\n",
+					"            # inserisci record di errore\n",
+					"            righe_report.select(df_report_contestazioni_righe.columns).write.jdbc(url=jdbcUrl, table=\"pfd.ReportContestazioniRighe\", mode = 'append', properties=conn_Prop)\n",
+					"        except:\n",
+					"            print(f\"Inserimento record di errore non riuscito.\")\n",
+					"            display(righe_report.select(\"report_id\",\"step\",\"Link\",\"NomeDocumento\",\"Storage\"))\n",
+					"\n",
+					"        \n",
+					"        # ci sono contestazioni fuori periodo, quindi stoppare esecuzione\n",
+					"        mssparkutils.notebook.exit(step_report_contestazioni)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Check risposte contestazioni fuori periodo"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"<mark>TODO</mark> se c'è già una riga con lo stesso report_id e step_id c'è errore di chiave duplicata e di fatto non viene inserito il record nella tabella _pfd.ReportContestazioniRighe_"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"step_report_contestazioni = 16 # Scadenza dei termini previsti per la risposta alla contestazione nel periodo di riferimento\n",
+					"# stato_notifiche_contestate_risposta = [7]\n",
+					"\n",
+					"if tipo_report == inserimento_contestazioni_ente:\n",
+					"    stato_notifiche_contestate_risposta = [7]\n",
+					"    dataCheckRisposte = dataChiusuraContestazioni\n",
+					"elif tipo_report == inserimento_contestazioni_azureAd:\n",
+					"    stato_notifiche_contestate_risposta = [1,2,3,4,5,6,7,8,9]\n",
+					"    dataCheckRisposte = dataVerifica\n",
+					"\n",
+					"if (dataCheckRisposte < notebookRuntimeExecution):\n",
+					"    # l'ente non può più rispondere alle contestazioni\n",
+					"\n",
+					"    # recupero delle notifiche contestate con risposta non processabili\n",
+					"    risposte_contestazioni_fuori_periodo = df_file.where( F.col(\"Stato contestazione\").isin(stato_notifiche_contestate_risposta))\n",
+					"\n",
+					"    # rimozione delle notifiche contestate con risposta non processabili\n",
+					"    df_file = df_file.where( ~ F.col(\"Stato contestazione\").isin(stato_notifiche_contestate_risposta))\n",
+					"\n",
+					"    if risposte_contestazioni_fuori_periodo.count() > 0:\n",
+					"\n",
+					"        print(\"Risposte alle contestazioni fuori periodo:\", risposte_contestazioni_fuori_periodo.count())\n",
+					"        print(\"Contestazioni totali da valutare:\", df_file.count())\n",
+					"\n",
+					"        # predisponi record da inserire in SQL\n",
+					"        df_report_contestazioni_righe = spark.read.jdbc(url=jdbcUrl, table=query_report_contestazioni_righe, properties=conn_Prop)\n",
+					"\n",
+					"        # file_err = stepContest.where(\"step = 16\").collect()[0][0]\n",
+					"\n",
+					"        # TODO calculate sums\n",
+					"        risposte_contestazioni_fuori_periodo = risposte_contestazioni_fuori_periodo.withColumn(\"reportid\",F.lit(report_id))\n",
+					"        df_report_risposte_contestazioni_fuori_periodo = risposte_contestazioni_fuori_periodo.groupBy(\"reportid\").agg(\n",
+					"            F.count(\"*\").alias(\"TotaleNotifiche\"),\n",
+					"            F.sum(F.when(F.col(\"notification_type\") == '890', 1).otherwise(0)).alias(\"TotaleNotificheAnalogiche890\"),\n",
+					"            F.sum(F.when(F.col(\"notification_type\") == 'DIG', 1).otherwise(0)).alias(\"TotaleNotificheDigitali\"),\n",
+					"            F.sum(F.when(F.col(\"notification_type\") == 'AR', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheARNazionali_AR\"),\n",
+					"            F.sum(F.when(F.col(\"notification_type\") == 'RIR', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheARInternazionali_RIR\"),\n",
+					"            F.sum(F.when(F.col(\"notification_type\") == 'RS', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheRSNazionali_RS\"),\n",
+					"            F.sum(F.when(F.col(\"notification_type\") == 'RIS', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheRSInternazionali_RIS\")\n",
+					"            ).withColumn(\"Step\", F.lit(step_report_contestazioni)).withColumn(\"link\",F.lit(\"\")).withColumn(\"Storage\",F.lit(blob_account_name)).withColumn(\"NomeDocumento\",F.lit(None))\n",
+					"\n",
+					"        step0 = Row(\n",
+					"        report_id=report_id,\n",
+					"        step=step_report_contestazioni,\n",
+					"        TotaleNotificheAnalogiche890=df_report_risposte_contestazioni_fuori_periodo.select(\"TotaleNotificheAnalogiche890\").collect()[0][0],\n",
+					"        TotaleNotificheDigitali=df_report_risposte_contestazioni_fuori_periodo.select(\"TotaleNotificheDigitali\").collect()[0][0],\n",
+					"        TotaleNotifiche=df_report_risposte_contestazioni_fuori_periodo.select(\"TotaleNotifiche\").collect()[0][0],\n",
+					"        Link=link,\n",
+					"        NonContestataAnnullata=None,\n",
+					"        ContestataEnte=None,\n",
+					"        RispostaEnte = None,\n",
+					"        Accettata=None,\n",
+					"        RispostaSend=None,\n",
+					"        RispostaRecapitista=None,\n",
+					"        RispostaConsolidatore=None,\n",
+					"        Rifiutata=None,\n",
+					"        NonFatturabile=None,\n",
+					"        Fatturabile=None,\n",
+					"        Storage=blob_account_name,\n",
+					"        NomeDocumento=None,\n",
+					"        DataCompletamento=notebookRuntimeExecution,\n",
+					"        TotaleNotificheAnalogicheARNazionali_AR=df_report_risposte_contestazioni_fuori_periodo.select(\"TotaleNotificheAnalogicheARNazionali_AR\").collect()[0][0],\n",
+					"        TotaleNotificheAnalogicheARInternazionali_RIR=df_report_risposte_contestazioni_fuori_periodo.select(\"TotaleNotificheAnalogicheARInternazionali_RIR\").collect()[0][0],\n",
+					"        TotaleNotificheAnalogicheRSNazionali_RS=df_report_risposte_contestazioni_fuori_periodo.select(\"TotaleNotificheAnalogicheRSNazionali_RS\").collect()[0][0],\n",
+					"        TotaleNotificheAnalogicheRSInternazionali_RIS=df_report_risposte_contestazioni_fuori_periodo.select(\"TotaleNotificheAnalogicheRSInternazionali_RIS\").collect()[0][0]\n",
+					"        )\n",
+					"\n",
+					"        # crea record di errore\n",
+					"        righe_report = spark.createDataFrame([step0], df_report_contestazioni_righe.schema)\n",
+					"\n",
+					"        # inserisci record di errore\n",
+					"        try:\n",
+					"            righe_report.select(df_report_contestazioni_righe.columns).write.jdbc(url=jdbcUrl, table=\"pfd.ReportContestazioniRighe\", mode = 'append', properties=conn_Prop)\n",
+					"        except:\n",
+					"            print(f\"Inserimento record di errore non riuscito.\")\n",
+					"            display(righe_report.select(\"report_id\",\"step\",\"Link\",\"NomeDocumento\",\"Storage\"))\n",
+					"\n",
+					"\n",
+					"        # ci sono risposte alle contestazioni che sono fuori periodo, quindi stoppare esecuzione\n",
+					"        mssparkutils.notebook.exit(step_report_contestazioni) "
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Generazione report"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# CHECK DATI CONCLUSO - Assegnazione report_id   \n",
+					"df_file = df_file.withColumn(\"reportid\",F.lit(report_id))\n",
+					"df_contestazioni_file = df_contestazioni_file.withColumn(\"reportid\",F.lit(report_id))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Lettura contestazioni da SQL-DB "
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"contestazioni_ente_query = f\"(select c.* from pfw.Contestazioni c inner join pfd.Notifiche on fkidnotifica = event_id where internal_organization_id = '{id_ente}') as tb\"\n",
+					"contestazioni_sql = spark.read.jdbc(url=jdbcUrl, table=contestazioni_ente_query, properties=conn_Prop)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Controllo Stato Contestazioni"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"if tipo_report == inserimento_contestazioni_azureAd:\n",
+					"    tipo_r = \"AzureAD\"\n",
+					"elif tipo_report == inserimento_contestazioni_ente:\n",
+					"    tipo_r = \"Ente\"\n",
+					"\n",
+					"df_stati = spark.sql(f\"\"\"SELECT stato_contestazione,stati_attesi,errore FROM fat_delta.contestazioni_stati \n",
+					"                        WHERE TipoReport = '{tipo_r}'\"\"\")\n",
+					"\n",
+					"controllo_stati = df_file\\\n",
+					"                .join(df_stati, how=\"inner\", on=df_stati[\"stato_contestazione\"]==df_file[\"Stato Contestazione\"])\\\n",
+					"                .join(contestazioni_sql, how=\"left\", on=F.col(\"fkidnotifica\")==F.col(\"event_id\"))\n",
+					"\n",
+					"# aggiunta colonna semaforo per elaborazione contestazioni\n",
+					"columns_to_filter = df_file.columns\n",
+					"columns_to_filter.append(\"Semaforo\")\n",
+					"\n",
+					"# inserimento stato contestazioni\n",
+					"controllo_stati = controllo_stati \\\n",
+					"                .fillna({'FkIdFlagContestazione':1})\\\n",
+					"                .withColumn(\"Semaforo\", \n",
+					"                    F.when( F.array_contains(F.col(\"stati_attesi\"),\n",
+					"                        F.col(\"fkIdFlagContestazione\").cast(StringType())), df_file[\"Stato Contestazione\"]\n",
+					"                    )\\\n",
+					"                    .otherwise(F.col(\"errore\"))) \\\n",
+					"                .select(columns_to_filter)\n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Lettura Notifiche"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query_notifiche = \"\"\"(SELECT\n",
+					"    event_id as event_id_sql\n",
+					"    , contract_id as contract_id_sql\n",
+					"    , internal_organization_id as internal_organization_id_sql\n",
+					"    , year as year_sql\n",
+					"    , month as month_sql\n",
+					"    , TipologiaFattura \n",
+					"FROM pfd.Notifiche\n",
+					") as tb\"\"\"\n",
+					"\n",
+					"df_notifiche_sql = spark.read.jdbc(url=jdbcUrl, table=query_notifiche, properties=conn_Prop)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Calcolo notifiche per ogni step"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Conteggio di notifiche aggregato per tipologia di notifica e Report_ID\n",
+					"df_elaborazione = df_contestazioni_file.groupBy(\"reportid\").agg(\n",
+					"F.count(\"*\").alias(\"TotaleNotifiche\"),\n",
+					"F.sum(F.when(F.col(\"notification_type\") == '890', 1).otherwise(0)).alias(\"TotaleNotificheAnalogiche890\"),\n",
+					"F.sum(F.when(F.col(\"notification_type\") == 'DIG', 1).otherwise(0)).alias(\"TotaleNotificheDigitali\"),\n",
+					"F.sum(F.when(F.col(\"notification_type\") == 'AR', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheARNazionali_AR\"),\n",
+					"F.sum(F.when(F.col(\"notification_type\") == 'RIR', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheARInternazionali_RIR\"),\n",
+					"F.sum(F.when(F.col(\"notification_type\") == 'RS', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheRSNazionali_RS\"),\n",
+					"F.sum(F.when(F.col(\"notification_type\") == 'RIS', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheRSInternazionali_RIS\")\n",
+					") \\\n",
+					".withColumn(\"report_id\", F.lit(report_id)) \\\n",
+					".withColumn(\"Step\", F.lit(2)).withColumn(\"link\",F.lit(\"\")).withColumn(\"Storage\",F.lit(blob_account_name)).withColumn(\"NomeDocumento\",F.lit(None))\n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"ms_comments": [
+						{
+							"threadId": "46a9aa53-5485-4012-ab4a-2ba541a3e28a",
+							"text": "La data completamento è un valore visibile da portale e pertanto deve essere valorizzata; attualmente viene impostato un valore fittizio di 10 secondi di elaborazione per ogni step. Da valutare se necessaria una logica differente.",
+							"status": "active",
+							"user": {
+								"name": "Daniele Emilio Passarella",
+								"idType": "aad"
+							},
+							"createdDateUTC": 1756800093004,
+							"modifiedDateUTC": 1756800093004,
+							"replies": []
+						}
+					],
+					"ms_comment_ranges": {
+						"46a9aa53-5485-4012-ab4a-2ba541a3e28a": {
+							"text": "df_righe_final = df_righe_final.withColumn(\"row_number\",F.row_number().over(windowSpec))",
+							"start": {
+								"line": 131,
+								"column": 1
+							},
+							"end": {
+								"line": 131,
+								"column": 89
+							}
+						}
+					}
+				},
+				"source": [
+					"# Aggiunta dello stato alle notifiche\n",
+					"df_joined = controllo_stati.join(df_notifiche_sql, how=\"left\", on=controllo_stati[\"event_id\"]==df_notifiche_sql[\"event_id_sql\"])\n",
+					"\n",
+					"# Assegna tipologia notifica in base allo stato\n",
+					"df_classificato = df_joined.withColumn(\"NomeFile_tmp\",\n",
+					"    F.when(F.col(\"Stato contestazione\") == '1', \"Notifiche_irrilevanti\")\n",
+					"        .when(F.col(\"event_id\").isNull(), \"Notifiche_missing\")\n",
+					"        .when(F.col(\"internal_organization_id_sql\") != F.col(\"internal_organization_id\"), \"Notifiche_missed_id\")\n",
+					"        .when(F.col(\"contract_id_sql\") != F.col(\"contract_id\"), \"Notifiche_missed_cid\")\n",
+					"        .when((F.col(\"year_sql\") != F.col(\"year\")) | (F.col(\"month_sql\") != F.col(\"month\")), \"Notifiche_missed_date\")\n",
+					"        .when(F.col(\"TipologiaFattura\").isin('PRIMO SALDO', 'ASSEVERAZIONE', 'SECONDO SALDO', 'VAR. SEMESTRALE'), \"Notifiche_fatturazione\")\n",
+					"        .when(F.col(\"Semaforo\") == 'Notifiche che non si possono annullare', \"Notifiche_non_annullabili\")\n",
+					"        .when(F.col(\"Semaforo\") == 'Notifiche che non si possono contestare', \"Notifiche_non_contestabili\")\n",
+					"        .when(F.col(\"Semaforo\") == 'Notifiche che non si possono accettare', \"Notifiche_non_accettabili\")\n",
+					"        .when(F.col(\"Semaforo\") == 'Notifiche che non si possono rifiutare', \"Notifiche_non_rifiutabili\")\n",
+					"        .when(F.col(\"Semaforo\") == F.col(\"Stato Contestazione\"), \"Notifiche_diff_no_fatturate\")\n",
+					"        .otherwise(\"Error\")\n",
+					")\n",
+					"\n",
+					"# definisci stati corretti contestazioni\n",
+					"correct_statuses = [\"Notifiche_irrilevanti\",\"Notifiche_diff_no_fatturate\"]\n",
+					"\n",
+					"# Verifica se ci sono notifiche contestate che rientrano in stati corretti\n",
+					"df_classificato = df_classificato.withColumn(\"StatusProcesso\", F.when(F.col(\"NomeFile_tmp\").isin(correct_statuses), 0).otherwise(1))\n",
+					"\n",
+					"# Verifico se c'è almeno una notifica se è invalida\n",
+					"df_status = df_classificato.groupby(\"reportid\").max(\"StatusProcesso\").withColumnRenamed(\"max(StatusProcesso)\", \"StatusProcesso\")\n",
+					"notificheInvalideFlag = df_status.first()[\"StatusProcesso\"]\n",
+					"\n",
+					"# Assegnamento alle notifiche invalide della dicitura di errore \"Notifiche_Valide\" \n",
+					"df_classificato = df_classificato.withColumnRenamed(\"NomeFile_tmp\",\"NomeFile\")\n",
+					"\n",
+					"if notificheInvalideFlag == 1:\n",
+					"    df_classificato = df_classificato.withColumn(\"NomeFile\", \n",
+					"        F.when((F.col(\"NomeFile\") == \"Notifiche_diff_no_fatturate\"), \"Notifiche_Valide\")\n",
+					"        .otherwise(F.col(\"NomeFile\"))\n",
+					"    )\n",
+					"\n",
+					"\n",
+					"# Cache del DataFrame classificato per migliorare le performance, dato che lo usiamo due volte.\n",
+					"df_classificato.cache()\n",
+					"\n",
+					"# 2. AGGREGA: Calcola i conteggi per ogni sottoinsieme.\n",
+					"# Raggruppa per NomeFile e report_id per ottenere i conteggi per ogni partizione.\n",
+					"df_counts = df_classificato.groupBy(\"NomeFile\",\"reportid\").agg(\n",
+					"F.count(\"*\").alias(\"TotaleNotifiche\"),\n",
+					"F.sum(F.when(F.col(\"notification_type\") == '890', 1).otherwise(0)).alias(\"TotaleNotificheAnalogiche890\"),\n",
+					"F.sum(F.when(F.col(\"notification_type\") == 'DIG', 1).otherwise(0)).alias(\"TotaleNotificheDigitali\"),\n",
+					"F.sum(F.when(F.col(\"notification_type\") == 'AR', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheARNazionali_AR\"),\n",
+					"F.sum(F.when(F.col(\"notification_type\") == 'RIR', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheARInternazionali_RIR\"),\n",
+					"F.sum(F.when(F.col(\"notification_type\") == 'RS', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheRSNazionali_RS\"),\n",
+					"F.sum(F.when(F.col(\"notification_type\") == 'RIS', 1).otherwise(0)).alias(\"TotaleNotificheAnalogicheRSInternazionali_RIS\"),\n",
+					"F.sum(F.when((F.col(\"Semaforo\") == 2) & (F.col(\"NomeFile\")==\"Notifiche_diff_no_fatturate\"),1).otherwise(0)).alias(\"NonContestataAnnullata\"),\n",
+					"F.sum(F.when((F.col(\"Semaforo\") == 3) & (F.col(\"NomeFile\")==\"Notifiche_diff_no_fatturate\"),1).otherwise(0)).alias(\"ContestataEnte\"),\n",
+					"F.sum(F.when((F.col(\"Semaforo\") == 8) & (F.col(\"NomeFile\")==\"Notifiche_diff_no_fatturate\"),1).otherwise(0)).alias(\"Accettata\"),\n",
+					"F.sum(F.when((F.col(\"Semaforo\") == 7) & (F.col(\"NomeFile\")==\"Notifiche_diff_no_fatturate\"),1).otherwise(0)).alias(\"RispostaEnte\"),\n",
+					"F.sum(F.when((F.col(\"Semaforo\") == 4) & (F.col(\"NomeFile\")==\"Notifiche_diff_no_fatturate\"),1).otherwise(0)).alias(\"RispostaSend\"),\n",
+					"F.sum(F.when((F.col(\"Semaforo\") == 5) & (F.col(\"NomeFile\")==\"Notifiche_diff_no_fatturate\"),1).otherwise(0)).alias(\"RispostaRecapitista\"),\n",
+					"F.sum(F.when((F.col(\"Semaforo\") == 6) & (F.col(\"NomeFile\")==\"Notifiche_diff_no_fatturate\"),1).otherwise(0)).alias(\"RispostaConsolidatore\"),\n",
+					"F.sum(F.when((F.col(\"Semaforo\") == 9) & (F.col(\"NomeFile\")==\"Notifiche_diff_no_fatturate\"),1).otherwise(0)).alias(\"Rifiutata\"),\n",
+					"F.sum(F.when((F.col(\"Semaforo\").isin(3,4,5,6,7,8)) & (F.col(\"NomeFile\")==\"Notifiche_diff_no_fatturate\"),1).otherwise(0)).alias(\"NonFatturabile\"),\n",
+					"F.sum(F.when((F.col(\"Semaforo\").isin(2,9)) & (F.col(\"NomeFile\")==\"Notifiche_diff_no_fatturate\"),1).otherwise(0)).alias(\"Fatturabile\")\n",
+					").alias(\"c\")\n",
+					"\n",
+					"\n",
+					"items = [\n",
+					"    \"Notifiche_irrilevanti\", \"Notifiche_missing\", \"Notifiche_missed_id\", \"Notifiche_missed_cid\",\n",
+					"    \"Notifiche_missed_date\", \"Notifiche_fatturazione\", \"Notifiche_non_annullabili\",\n",
+					"    \"Notifiche_non_contestabili\", \"Notifiche_non_accettabili\", \"Notifiche_non_rifiutabili\",\n",
+					"    \"Notifiche_diff_no_fatturate\", \"Notifiche_Valide\"\n",
+					"]\n",
+					"codes = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12,99, 98]\n",
+					"\n",
+					"# Crea una lista di tuple (item, codice)\n",
+					"data = list(zip(items, codes))\n",
+					"\n",
+					"# Definisci lo schema del DataFrame\n",
+					"schema = StructType([\n",
+					"    StructField(\"NomeDocumento\", StringType(), True),\n",
+					"    StructField(\"Step\", StringType(), True)\n",
+					"])\n",
+					"\n",
+					"# Crea il DataFrame\n",
+					"df_step = spark.createDataFrame(data, schema)\n",
+					"\n",
+					"df_id = df_status.withColumnRenamed(\"reportid\",\"id_report\").select(\"id_report\")\\\n",
+					"                 .withColumn(\"link\",F.lit(\"\")).withColumn(\"Storage\",F.lit(blob_account_name))\n",
+					"\n",
+					"df_fill = df_id.crossJoin(df_step)\n",
+					"\n",
+					"df_righe = df_fill.join(df_counts, how=\"outer\", \n",
+					"                on=[(df_fill[\"id_report\"]==df_counts[\"reportid\"])&(df_fill[\"NomeDocumento\"]==df_counts[\"NomeFile\"])])\\\n",
+					"                .fillna(0).drop(\"NomeDocumento\").drop(\"reportid\")\\\n",
+					"                .withColumnRenamed(\"NomeFile\",\"NomeDocumento\").withColumnRenamed(\"id_report\",\"report_id\")\n",
+					"\n",
+					"\n",
+					"# Recupera record di errore con Notifiche_Valide\n",
+					"df_error = df_righe.select(\"report_id\").where(\"Step = '98'\")\\\n",
+					"            .withColumn(\"NomeDocumento\",F.lit(None))\\\n",
+					"            .withColumn(\"Step\",F.lit(101))\\\n",
+					"            .withColumn(\"link\",F.lit(\"\"))\\\n",
+					"            .withColumn(\"Storage\",F.lit(blob_account_name))\n",
+					"\n",
+					"# Verifica se non ci sono notifiche invalide\n",
+					"if not notificheInvalideFlag:\n",
+					"    # Rimuovi tutte le righe non valide\n",
+					"    df_error = df_error.limit(0)\n",
+					"\n",
+					"# Verifica se ci sono notifiche invalide\n",
+					"if not df_error.isEmpty():\n",
+					"    df_righe = df_righe.where(\"step != 99\")\n",
+					"    stopper = True\n",
+					"else:   \n",
+					"    # Non ci sono notifiche invalide\n",
+					"    df_righe = df_righe.where(\"step != 98\")\n",
+					"\n",
+					"# Formattazione colonne dataframe\n",
+					"fill_columns = set(df_righe.columns)\n",
+					"for col in fill_columns-set(df_elaborazione.columns):\n",
+					"    df_elaborazione = df_elaborazione.withColumn(col, F.lit(0))\n",
+					"\n",
+					"for col in fill_columns-set(df_error.columns):\n",
+					"    df_error = df_error.withColumn(col, F.lit(0))\n",
+					"\n",
+					"# Unisci righe calcolate ed eventuali righe di errore\n",
+					"df_righe_final = df_righe.union(df_error.select(df_righe.columns)).union(df_elaborazione.select(df_righe.columns))\n",
+					"\n",
+					"windowSpec = Window.orderBy(df_righe_final[\"Step\"].asc())\n",
+					"\n",
+					"# Add row number\n",
+					"df_righe_final = df_righe_final.withColumn(\"row_number\",F.row_number().over(windowSpec))\n",
+					"df_righe_final = df_righe_final.withColumn(\"DataCompletamento\",F.to_timestamp(F.unix_timestamp(F.lit(notebookRuntimeExecution))+(F.col(\"row_number\")*10)))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Creazione file per ogni step\n",
+					"\n",
+					"per ogni step (se necessario) viene creato un file (_.parquet_) dedicato che contiene tutte le notifiche di quel tipo"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"file_path_blob_storage = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/\"\n",
+					"\n",
+					"file_types = df_classificato.select(\"NomeFile\").distinct().collect()\n",
+					"\n",
+					"for file_type in file_types:\n",
+					"    folder_file = file_type[0]\n",
+					"    print(\"Creazione file:\",folder_file)\n",
+					"\n",
+					"    #TODO REMOVE\n",
+					"    if \"enable_debug\" in locals():\n",
+					"        display(df_classificato.where(f\"NomeFile = '{folder_file}'\"))\n",
+					"\n",
+					"    output_file = file_path_blob_storage + folder_file + \".csv\"\n",
+					"\n",
+					"    df_classificato.select(columns_to_filter+[\"NomeFile\"]) \\\n",
+					"        .where(f\"NomeFile = '{folder_file}'\")\\\n",
+					"        .toPandas()\\\n",
+					"        .to_csv(output_file, index=False)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Inserimento record in SQL\n",
+					"\n",
+					"Per ogni step vi è un record che viene inserito in SQL"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# recupero schema sql\n",
+					"df_report_contestazioni_righe = spark.read.jdbc(url=jdbcUrl, table=query_report_contestazioni_righe, properties=conn_Prop)\n",
+					"\n",
+					"# copio il valore di LINK in tutte le righe alla colonna LINK\n",
+					"df_righe_final = df_righe_final.withColumn(\"Link\", F.lit(link))\n",
+					"\n",
+					"# aggiungo l'estensione .csv a tutti i file\n",
+					"df_righe_final = df_righe_final.withColumn(\"NomeDocumento\", \n",
+					"        F.when(F.col(\"NomeDocumento\").isNotNull(),\n",
+					"            F.concat(F.col(\"NomeDocumento\") , F.lit(\".csv\"))) \\\n",
+					"        .otherwise(F.col(\"NomeDocumento\")))\n",
+					"\n",
+					"# scrivi su SQL tutti gli step eseguiti\n",
+					"df_righe_final.select(df_report_contestazioni_righe.columns).write.jdbc(url=jdbcUrl, table=\"pfd.ReportContestazioniRighe\", mode = 'append', properties=conn_Prop)\n",
+					"\n",
+					"# Rimuovi il DataFrame dalla cache\n",
+					"# df_classificato.unpersist()"
+				],
+				"execution_count": 43
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Sposta file intermedi\n",
+					"\n",
+					"i file intermedi vengono prelevati dal blob_storage e spostati verso la destinazione finale"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false
+					}
+				},
+				"source": [
+					"tmp_path = f\"abfss://contestazionifiles@fatpdls.dfs.core.windows.net/{id_ente}/{report_id}/file_intermedi/\"\n",
+					"\n",
+					"for file in mssparkutils.fs.ls(tmp_path):\n",
+					"    if 'Notifiche' in file.name:\n",
+					"        sourcefile = mssparkutils.fs.ls(file.path)[0].path\n",
+					"        #filename = file.path.split('NomeFile=')[1]\n",
+					"        filename = file.path.split('file_intermedi/')[1]\n",
+					"        destination = f\"wasbs://{blob_container_name}@{blob_account_name}.blob.core.windows.net/{link[14:]}/{filename}\"\n",
+					"        \n",
+					"        #TODO REMOVE\n",
+					"        if \"enable_debug\" in locals():\n",
+					"            print(\"Sourcefilepath:\",sourcefile,\"\\n\\nFilename:\", filename,\"\\n\\nDestination:\", destination)\n",
+					"        \n",
+					"        # Sposta il file nella destinazione finale\n",
+					"        mssparkutils.fs.mv(src=sourcefile,dest=destination,create_path=True,overwrite=True)\n",
+					"\n",
+					"# remove temporary folder\n",
+					"mssparkutils.fs.rm(tmp_path, recurse = True)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Blocco esecuzione notebook\n",
+					"\n",
+					"Blocca l'esecuzione se nei passaggi precedenti si è verificato un errore"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"if stopper == True:\n",
+					"    mssparkutils.notebook.exit(\"101\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Creazione report finale"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"selected_fields = [\n",
+					"    \"event_id\", \"year\", \"month\",\"Note Ente\",\"Risposta Ente\", \"Risposta Send\", \"Risposta Recapitista\", \"Risposta Consolidatore\",\n",
+					"    \"Id Tipo Contestazione\", \"Stato Contestazione\", \"Tipologia Fattura\", \"Semaforo\"\n",
+					"]"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_final = df_classificato.where(\"NomeFile='Notifiche_diff_no_fatturate'\")\\\n",
+					"    .select(selected_fields)\\\n",
+					"    .withColumn(\"ReportId\", F.lit(report_id))\\\n",
+					"    .withColumnRenamed(\"Stato Contestazione\", \"StatoContestazione\")\\\n",
+					"    .withColumnRenamed(\"Tipologia Fattura\", \"TipologiaFattura\")\\\n",
+					"    .withColumnRenamed(\"Note Ente\", \"NoteEnte\") \\\n",
+					"    .withColumnRenamed(\"Risposta Ente\", \"RispostaEnte\") \\\n",
+					"    .withColumnRenamed(\"Risposta Send\", \"NoteSend\") \\\n",
+					"    .withColumnRenamed(\"Risposta Recapitista\", \"NoteRecapitista\") \\\n",
+					"    .withColumnRenamed(\"Risposta Consolidatore\", \"NoteConsolidatore\") \\\n",
+					"    .withColumnRenamed(\"Id Tipo Contestazione\", \"TipoContestazione\") \\\n",
+					"    .withColumnRenamed(\"Semaforo\", \"FkIdFlagContestazione\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Inserimento report"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_final.write.jdbc(url=jdbcUrl, table=\"stg.contestazioni_massive\", mode = 'append', properties=conn_Prop)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"mssparkutils.notebook.exit(\"OK\")"
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

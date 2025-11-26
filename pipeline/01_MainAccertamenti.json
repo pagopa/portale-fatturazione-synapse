@@ -1,0 +1,52 @@
+{
+	"name": "01_MainAccertamenti",
+	"properties": {
+		"activities": [
+			{
+				"name": "Proc Accertamenti",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "ProcessAccertamenti",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "Report Prese in carico",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Proc Accertamenti",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "ReportPreseInCarico",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			}
+		],
+		"folder": {
+			"name": "Accertamenti"
+		},
+		"annotations": [],
+		"lastPublishTime": "2024-09-27T14:56:59Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

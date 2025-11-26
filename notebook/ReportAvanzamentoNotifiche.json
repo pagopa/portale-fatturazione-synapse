@@ -1,0 +1,877 @@
+{
+	"name": "ReportAvanzamentoNotifiche",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "25ec724a-fd72-4a63-8fa7-8c912936568d"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql import functions as F\r\n",
+					"from pyspark.sql import window as W"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# get the function to retrieve sql properties\r\n",
+					"%run Utility/getSQLConnectionString\r\n",
+					"\r\n",
+					"# retrieve sql connection_string and connection_properties\r\n",
+					"jdbcUrl,conn_Prop = getSQLConnectionString()"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dfPreseInCarico = spark.sql(\"\"\"SELECT presaincarico_data,tipologia_notifica, sum(tot_notifiche) tot_notifiche_categoria\r\n",
+					"        ,sum(tot_prezzo_ente) totale_valore_categoria\r\n",
+					"        FROM fat_delta.allpreseincarico\r\n",
+					"        group by presaincarico_data,tipologia_notifica\"\"\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfPreseInCaricoTotali = spark.sql(\"\"\"\r\n",
+					"SELECT presaincarico_data\r\n",
+					"    ,sum(tot_notifiche) as totale_notifiche\r\n",
+					"    ,sum(tot_prezzo_ente) as totale_valore\r\n",
+					"    FROM fat_delta.allpreseincarico\r\n",
+					"    group by presaincarico_data\r\n",
+					"\"\"\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#### Report Perfezionate"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"query = \"\"\"(SELECT \r\n",
+					"              presaincarico_data\r\n",
+					"              ,tipologia_notifica\r\n",
+					"              ,CAST(CONCAT(year, RIGHT(CONCAT('0',month),2)) as int) as AnnoMese\r\n",
+					"              ,count(*) as NumNotifiche\r\n",
+					"              ,sum(cost_eurocent) as CostoNotifiche\r\n",
+					"            FROM (SELECT \r\n",
+					"                    CASE WHEN notificationtype = 'DIGITALE' THEN LEFT(notification_sent_at,7)\r\n",
+					"                    ELSE LEFT(event_timestamp,7)\r\n",
+					"                    END AS presaincarico_data\r\n",
+					"                    ,CASE WHEN notificationtype <> 'DIGITALE' THEN 'ANALOGICO'\r\n",
+					"                      ELSE 'DIGITALE'\r\n",
+					"                    END AS tipologia_notifica\r\n",
+					"                    ,cost_eurocent\r\n",
+					"                    ,year\r\n",
+					"                    ,month\r\n",
+					"                  FROM pfd.Notifiche \r\n",
+					"                  WHERE TipologiaFattura in ('PRIMO SALDO','SECONDO SALDO')) t\r\n",
+					"            group by year,month,presaincarico_data,tipologia_notifica) as tb\"\"\"\r\n",
+					"            \r\n",
+					"dfPerfezionate = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfTotale = dfPreseInCarico.join(dfPerfezionate, on=[\"presaincarico_data\",\"tipologia_notifica\"],how=\"left\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfPivot = dfTotale.groupBy(\"presaincarico_data\", \"tipologia_notifica\").pivot(\"AnnoMese\").agg(F.sum(\"NumNotifiche\").alias(\"NumNotifiche\"), F.sum(\"CostoNotifiche\").alias(\"CostoNotifiche\"))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfPivot = dfPivot.select([col for col in dfPivot.columns if 'null' not in col ])"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfPivot = dfPreseInCaricoTotali.join(dfPreseInCarico, on=[\"presaincarico_data\"],how=\"inner\")\\\r\n",
+					"                               .join(dfPivot, on=[\"presaincarico_data\", \"tipologia_notifica\"],how=\"inner\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(dfPivot)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(dfPivot_final)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"file_path = f\"abfss://reportaccertamenti@fatpdls.dfs.core.windows.net/report_avanzamento_notifiche/Avanzamento_Perfezionate\"\r\n",
+					"\r\n",
+					"dfPivot.orderBy(\"presaincarico_data\", ascending=[True]).repartition(1).write.options(header = True, delimiter = ',').mode('overwrite').csv(file_path)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#### Report Contestate"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"query = \"\"\"(SELECT \r\n",
+					"              presaincarico_data\r\n",
+					"              ,tipologia_notifica\r\n",
+					"              ,CAST(CONCAT(year, RIGHT(CONCAT('0',month),2)) as int) as AnnoMese\r\n",
+					"              ,count(*) as NumNotifiche\r\n",
+					"              ,sum(cost_eurocent) as CostoNotifiche\r\n",
+					"              ,stato_contestazione\r\n",
+					"            FROM (SELECT \r\n",
+					"                    CASE WHEN notificationtype = 'DIGITALE' THEN LEFT(notification_sent_at,7)\r\n",
+					"                    ELSE LEFT(event_timestamp,7)\r\n",
+					"                    END AS presaincarico_data\r\n",
+					"                    ,CASE WHEN notificationtype <> 'DIGITALE' THEN 'ANALOGICO'\r\n",
+					"                      ELSE 'DIGITALE'\r\n",
+					"                    END AS tipologia_notifica\r\n",
+					"                    ,cost_eurocent\r\n",
+					"                    ,year\r\n",
+					"                    ,month\r\n",
+					"                    ,CASE WHEN FkIdFlagContestazione in (1,2,9) THEN 'ChiusaFatturabile'\r\n",
+					"                        WHEN FkIdFlagContestazione = 8 THEN 'ChiusaNonFatturabile'\r\n",
+					"                        WHEN FkIdFlagContestazione in (3,4,5,6,7) THEN 'Pending'\r\n",
+					"                    END as stato_contestazione\r\n",
+					"                  FROM pfw.Contestazioni c\r\n",
+					"                  inner join pfd.Notifiche n on event_id = fkidNotifica\r\n",
+					"                  AND n.TipologiaFattura is null) t\r\n",
+					"            group by year,month,presaincarico_data,tipologia_notifica, stato_contestazione) as tb\"\"\"\r\n",
+					"            \r\n",
+					"#dfMatriceRecapitisti = \r\n",
+					"dfContestate = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop)  #.createOrReplaceTempView(\"tmpNotifiche\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfContestate = dfPreseInCarico.join(dfContestate, on=[\"presaincarico_data\",\"tipologia_notifica\"],how=\"left\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfContestate = dfContestate.withColumn(\"AnnoMese_Contestazione\", F.concat(F.col(\"AnnoMese\"), F.lit(\"_\"), F.col(\"stato_contestazione\")))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfContPivot = dfContestate.groupBy(\"presaincarico_data\", \"tipologia_notifica\").pivot(\"AnnoMese_Contestazione\")\\\r\n",
+					"                .agg(F.sum(\"NumNotifiche\").alias(\"NumNotifiche\"), F.sum(\"CostoNotifiche\").alias(\"CostoNotifiche\"))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfContPivot = dfContPivot.select([col for col in dfContPivot.columns if 'null' not in col ])"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfContestateFinal = dfPreseInCaricoTotali.join(dfPreseInCarico, on=[\"presaincarico_data\"], how=\"inner\")\\\r\n",
+					"                    .join(dfContPivot, on=[\"presaincarico_data\", \"tipologia_notifica\"], how=\"inner\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"file_path = f\"abfss://reportaccertamenti@fatpdls.dfs.core.windows.net/report_avanzamento_notifiche/Avanzamento_Contestate\"\r\n",
+					"\r\n",
+					"dfContestateFinal.orderBy(\"presaincarico_data\", ascending=[True]).repartition(1).write.options(header = True, delimiter = ',').mode('overwrite').csv(file_path)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#### Report Asseverate"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"query = \"\"\"(SELECT \r\n",
+					"              presaincarico_data\r\n",
+					"              ,tipologia_notifica\r\n",
+					"              ,CAST(CONCAT(year, RIGHT(CONCAT('0',month),2)) as int) as AnnoMese\r\n",
+					"              ,count(*) as NumNotifiche\r\n",
+					"              ,sum(cost_eurocent) as CostoNotifiche\r\n",
+					"            FROM (SELECT \r\n",
+					"                    CASE WHEN notificationtype = 'DIGITALE' THEN LEFT(notification_sent_at,7)\r\n",
+					"                    ELSE LEFT(event_timestamp,7)\r\n",
+					"                    END AS presaincarico_data\r\n",
+					"                    ,CASE WHEN notificationtype <> 'DIGITALE' THEN 'ANALOGICO'\r\n",
+					"                      ELSE 'DIGITALE'\r\n",
+					"                    END AS tipologia_notifica\r\n",
+					"                    ,cost_eurocent\r\n",
+					"                    ,year\r\n",
+					"                    ,month\r\n",
+					"                  FROM pfd.Notifiche \r\n",
+					"                  WHERE TipologiaFattura = 'ASSEVERAZIONE' AND cost_eurocent > 0) t\r\n",
+					"            group by year,month,presaincarico_data,tipologia_notifica) as tb\"\"\"\r\n",
+					"            \r\n",
+					"dfAsseverate = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop)  #.createOrReplaceTempView(\"tmpNotifiche\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfAsseverate = dfPreseInCarico.where(\"tipologia_notifica = 'DIGITALE'\").join(dfAsseverate, on=[\"presaincarico_data\",\"tipologia_notifica\"],how=\"left\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfAsseveratePivot = dfAsseverate.groupBy(\"presaincarico_data\",\"tipologia_notifica\").pivot(\"AnnoMese\").agg(F.sum(\"NumNotifiche\").alias(\"NumNotifiche\"), F.sum(\"CostoNotifiche\").alias(\"CostoNotifiche\"))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfAsseveratePivot = dfAsseveratePivot.select([col for col in dfAsseveratePivot.columns if 'null' not in col ])"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfAsseveratePivot = dfPreseInCaricoTotali.join(dfPreseInCarico, on=[\"presaincarico_data\"],how=\"inner\")\\\r\n",
+					"                    .join(dfAsseveratePivot, on=[\"presaincarico_data\",\"tipologia_notifica\"],how=\"inner\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(dfAsseveratePivot)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"file_path = f\"abfss://reportaccertamenti@fatpdls.dfs.core.windows.net/report_avanzamento_notifiche/Avanzamento_Asseverate\"\r\n",
+					"\r\n",
+					"dfAsseveratePivot.orderBy(\"presaincarico_data\", ascending=[True]).repartition(1).write.options(header = True, delimiter = ',').mode('overwrite').csv(file_path)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#### Report Delta notifiche"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"query = \"\"\"(SELECT \r\n",
+					"              presaincarico_data\r\n",
+					"              ,tipologia_notifica\r\n",
+					"              ,CAST(CONCAT(year, RIGHT(CONCAT('0',month),2)) as int) as AnnoMese\r\n",
+					"              ,count(*) as NumNotifiche\r\n",
+					"              ,sum(cost_eurocent) as CostoNotifiche\r\n",
+					"            FROM (SELECT \r\n",
+					"                    CASE WHEN notificationtype = 'DIGITALE' THEN LEFT(notification_sent_at,7)\r\n",
+					"                    ELSE LEFT(event_timestamp,7)\r\n",
+					"                    END AS presaincarico_data\r\n",
+					"                    ,CASE WHEN notificationtype <> 'DIGITALE' THEN 'ANALOGICO'\r\n",
+					"                      ELSE 'DIGITALE'\r\n",
+					"                    END AS tipologia_notifica\r\n",
+					"                    ,cost_eurocent\r\n",
+					"                    ,year\r\n",
+					"                    ,month\r\n",
+					"                  FROM pfd.Notifiche\r\n",
+					"                  LEFT JOIN pfw.Contestazioni ON event_id = FkIdNotifica\r\n",
+					"                  WHERE (TipologiaFattura in ('PRIMO SALDO','SECONDO SALDO', 'ASSEVERAZIONE')\r\n",
+					"                  OR FkIdNotifica IS NOT NULL) AND cost_eurocent > 0) t\r\n",
+					"            group by year,month,presaincarico_data,tipologia_notifica) as tb\"\"\"\r\n",
+					"            \r\n",
+					"dfConsuntivate = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"dfConsuntivate = dfPreseInCarico.join(dfConsuntivate, on=[\"presaincarico_data\",\"tipologia_notifica\"],how=\"left\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"windowSpec = W.Window.partitionBy(\"presaincarico_data\", \"tipologia_notifica\").orderBy(\"presaincarico_data\", \"AnnoMese\").rowsBetween(W.Window.unboundedPreceding, W.Window.currentRow)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df = dfConsuntivate.withColumn(\"NumNotCum\", F.sum(\"NumNotifiche\").over(windowSpec)).withColumn(\"CostoNotCum\", F.sum(\"CostoNotifiche\").over(windowSpec))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df = df.withColumn(\"NumNotificheDelta\", F.col(\"tot_notifiche_categoria\")-F.col(\"NumNotCum\")).withColumn(\"CostoNotificheDelta\", F.col(\"totale_valore_categoria\")-F.col(\"CostoNotCum\"))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfDeltaPivot = df.groupBy(\"presaincarico_data\",\"tipologia_notifica\").pivot(\"AnnoMese\").agg(F.sum(\"NumNotificheDelta\").alias(\"NumNotificheDelta\"), F.sum(\"CostoNotificheDelta\").alias(\"CostoNotificheDelta\"))"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfDeltaPivot = dfDeltaPivot.select([col for col in dfDeltaPivot.columns if 'null' not in col ])"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfDeltaPivot = dfPreseInCaricoTotali.join(dfPreseInCarico, on=[\"presaincarico_data\"],how=\"inner\")\\\r\n",
+					"                    .join(dfDeltaPivot, on=[\"presaincarico_data\",\"tipologia_notifica\"],how=\"inner\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(dfDeltaPivot)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"file_path = f\"abfss://reportaccertamenti@fatpdls.dfs.core.windows.net/report_avanzamento_notifiche/Avanzamento_Delta\"\r\n",
+					"\r\n",
+					"dfDeltaPivot.orderBy(\"presaincarico_data\", ascending=[True]).repartition(1).write.options(header = True, delimiter = ',').mode('overwrite').csv(file_path)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"\r\n",
+					"select * from fat_delta.preseincarico_raw where takenincharge_date = '2023-08' and notification_cluster = 'DIGITALE'"
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

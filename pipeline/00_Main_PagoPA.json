@@ -1,0 +1,513 @@
+{
+	"name": "00_Main_PagoPA",
+	"properties": {
+		"activities": [
+			{
+				"name": "IngestAcquirers",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SetRawPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "IngestPagoPA",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TabToImport": "acquirers",
+						"ImportTrimestrale": {
+							"value": "@pipeline().parameters.ImportTrimestrale",
+							"type": "Expression"
+						},
+						"ImportDate": {
+							"value": "@variables('ImportDate')",
+							"type": "Expression"
+						},
+						"Container_path": {
+							"value": "@variables('ContainerPath')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "SearchRawPath",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Set Date",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 5,
+					"retryIntervalInSeconds": 60,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": "select container_path from configpath where active = 1 and stored_data = 'raw'",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "pagopa_deltalake",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "SetRawPath",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "SearchRawPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "ContainerPath",
+					"value": {
+						"value": "@activity('SearchRawPath').output.firstRow.container_path",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "IngestContracts",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SetRawPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "IngestPagoPA",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TabToImport": "contracts_crm",
+						"ImportTrimestrale": {
+							"value": "@pipeline().parameters.ImportTrimestrale",
+							"type": "Expression"
+						},
+						"ImportDate": {
+							"value": "@variables('ImportDate')",
+							"type": "Expression"
+						},
+						"Container_path": {
+							"value": "@variables('ContainerPath')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "IngestTransactions",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SetRawPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "IngestPagoPA",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TabToImport": "gold_invoicing_payments",
+						"ImportTrimestrale": {
+							"value": "@pipeline().parameters.ImportTrimestrale",
+							"type": "Expression"
+						},
+						"ImportDate": {
+							"value": "@variables('ImportDate')",
+							"type": "Expression"
+						},
+						"Container_path": {
+							"value": "@variables('ContainerPath')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "IngestMatSconti",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SetRawPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "IngestPagoPA",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TabToImport": "silver_kpi_pagamenti",
+						"ImportTrimestrale": {
+							"value": "@pipeline().parameters.ImportTrimestrale",
+							"type": "Expression"
+						},
+						"ImportDate": {
+							"value": "@variables('ImportDate')",
+							"type": "Expression"
+						},
+						"Container_path": {
+							"value": "@variables('ContainerPath')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "ProcessTransactions",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SetReportsPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Process_quarter_transactions",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"current_date": {
+							"value": "@variables('ImportDate')",
+							"type": "Expression"
+						},
+						"container_path": {
+							"value": "@variables('ReportsPath')",
+							"type": "Expression"
+						},
+						"ImportTrimestrale": {
+							"value": "@pipeline().parameters.ImportTrimestrale",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "ProcessInvoices",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SetYearMonth",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "SetYearQuarter",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Process_quarter_invoices",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"year_quarter": {
+							"value": "@variables('year_quarter')",
+							"type": "Expression"
+						},
+						"container_path": {
+							"value": "@variables('ReportsPath')",
+							"type": "Expression"
+						},
+						"year_month": {
+							"value": "@variables('year_month')",
+							"type": "Expression"
+						},
+						"import_trimestrale": {
+							"value": "@pipeline().parameters.ImportTrimestrale",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "SetReportsPath",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "GetReportsPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "ReportsPath",
+					"value": {
+						"value": "@activity('GetReportsPath').output.firstRow.container_path",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "GetReportsPath",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "IngestMatSconti",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "IngestTransactions",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "IngestContracts",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "IngestAcquirers",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 5,
+					"retryIntervalInSeconds": 60,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": "select container_path from configpath where active = 1 and stored_data = 'report'",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "pagopa_deltalake",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "SetYearMonth",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "ProcessTransactions",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "year_month",
+					"value": {
+						"value": "@split(activity('ProcessTransactions').output.pipelineReturnValue.timevars,',')[0]",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "SetYearQuarter",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "ProcessTransactions",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "year_quarter",
+					"value": {
+						"value": "@split(activity('ProcessTransactions').output.pipelineReturnValue.timevars,',')[1]",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "CalcoloSconti",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "ProcessInvoices",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "CalcoloSconto",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"year_quarter": {
+							"value": "@variables('year_quarter')",
+							"type": "Expression"
+						},
+						"year_month": {
+							"value": "@variables('year_month')",
+							"type": "Expression"
+						},
+						"container_path": {
+							"value": "@variables('ReportsPath')",
+							"type": "Expression"
+						},
+						"importTrimestrale": {
+							"value": "@pipeline().parameters.ImportTrimestrale",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Set Date",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "ImportDate",
+					"value": {
+						"value": "@if(equals(string(pipeline().parameters.ImportDate), '-'),formatDateTime(utcNow(), 'yyyy-MM-dd'),pipeline().parameters.ImportDate)",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"ImportTrimestrale": {
+				"type": "bool",
+				"defaultValue": false
+			},
+			"ImportDate": {
+				"type": "string",
+				"defaultValue": "-"
+			}
+		},
+		"variables": {
+			"ContainerPath": {
+				"type": "String"
+			},
+			"ReportsPath": {
+				"type": "String"
+			},
+			"year_month": {
+				"type": "String"
+			},
+			"year_quarter": {
+				"type": "String"
+			},
+			"ImportDate": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "CESTINO"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T15:28:51Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

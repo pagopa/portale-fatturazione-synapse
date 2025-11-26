@@ -1,0 +1,120 @@
+{
+	"name": "SendJsonToSap_OLD",
+	"properties": {
+		"activities": [
+			{
+				"name": "Generate Json",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "JsonToSAP_OLD",
+						"type": "DataFlowReference",
+						"parameters": {
+							"AnnoRiferimento": {
+								"value": "@pipeline().parameters.AnnoRiferimento",
+								"type": "Expression"
+							},
+							"MeseRiferimento": {
+								"value": "@pipeline().parameters.MeseRiferimento",
+								"type": "Expression"
+							},
+							"TipologiaFattura": {
+								"value": "'@{pipeline().parameters.TipologiaFattura}'",
+								"type": "Expression"
+							}
+						},
+						"datasetParameters": {
+							"ExportJsonToBlobStorage": {
+								"NomeFile": "FatturePagoPa.json"
+							}
+						}
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "None",
+					"cacheSinks": {
+						"firstRowOnly": true
+					}
+				}
+			},
+			{
+				"name": "UpdFattureInviate",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Generate Json",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[spUpdateFlagFatturaInviata]",
+					"storedProcedureParameters": {
+						"AnnoRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoRiferimento",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.MeseRiferimento",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TipologiaFattura": {
+							"value": {
+								"value": "@pipeline().parameters.TipologiaFattura",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"AnnoRiferimento": {
+				"type": "int"
+			},
+			"MeseRiferimento": {
+				"type": "int"
+			},
+			"TipologiaFattura": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "CESTINO"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-02-10T10:39:59Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

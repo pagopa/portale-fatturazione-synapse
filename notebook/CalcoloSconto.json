@@ -1,0 +1,1129 @@
+{
+	"name": "CalcoloSconto",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/Sconto"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "61d29084-a66b-42d0-8bf9-7587e03c4d88"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.conf.set(\"spark.sql.sources.partitionOverwriteMode\", \"dynamic\")"
+				],
+				"execution_count": 153
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.functions import col, sum, when,floor, concat,lit, udf, posexplode, concat_ws, collect_list, asc, desc, count, split, explode\r\n",
+					"from pyspark.sql.types import ArrayType, DoubleType,FloatType, StringType"
+				],
+				"execution_count": 154
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"year_quarter = '2025_2'\r\n",
+					"year_month = '202505'"
+				],
+				"execution_count": 155
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"reference_year = year_quarter[:4]\r\n",
+					"reference_quarter = year_quarter[-1]\r\n",
+					"\r\n",
+					"reference_year_sconto = ''\r\n",
+					"reference_quarter_sconto = ''\r\n",
+					"\r\n",
+					"if reference_quarter == '1':\r\n",
+					"    reference_quarter_sconto = '4'\r\n",
+					"    reference_year_sconto = int(reference_year) -1\r\n",
+					"else:\r\n",
+					"    reference_year_sconto = reference_year\r\n",
+					"    reference_quarter_sconto = int(reference_quarter) -1\r\n",
+					"\r\n",
+					"year_quarter_sconto = str(reference_year_sconto) + '_' + str(reference_quarter_sconto)"
+				],
+				"execution_count": 156
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"print(reference_quarter_sconto, reference_year_sconto, year_quarter_sconto)"
+				],
+				"execution_count": 157
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfMatriceSconti = spark.sql(f\"SELECT psp_id,contract_id,recipient_id,membership_id,countKpi,valueKpi, year_quarter_trx,year_quarter_kpi \\\r\n",
+					"                            FROM pagopa.silver_matricesconti \\\r\n",
+					"                            WHERE year_quarter_trx = '{year_quarter}'\")\r\n",
+					"\r\n",
+					"dfMatriceScontiGold = dfMatriceSconti.groupBy(\"psp_id\", \"contract_id\", \"recipient_id\", \"membership_id\", \"year_quarter_trx\", \"year_quarter_kpi\")\\\r\n",
+					"                        .agg(sum(when(col(\"countKpi\") == col(\"valueKpi\"), 1).otherwise(0)).alias(\"KpiOk\"),\\\r\n",
+					"                        sum(col(\"countKpi\")).alias(\"numKpi\"),\\\r\n",
+					"                        sum(col(\"valueKpi\")).alias(\"sumKpi\")\r\n",
+					"                        )\r\n",
+					"\r\n",
+					"#Modifica 30-5-2025 sconti al 4 solo se ci sono 8 kpi raggiunti\r\n",
+					"#dfMatriceScontiGold = dfMatriceScontiGold.withColumn(\"PercSconto\",when(col(\"KpiOk\") >= 7, 4).when(col(\"KpiOk\") >=5, 3).otherwise(0))\r\n",
+					"dfMatriceScontiGold = dfMatriceScontiGold.withColumn(\"PercSconto\",when((col(\"numKpi\").isin(18,24)) & (col(\"numKpi\") == col(\"sumKpi\")), 4).otherwise(0))\r\n",
+					""
+				],
+				"execution_count": 158
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"editable": true,
+					"run_control": {
+						"frozen": false
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# dfMatriceScontiGold = dfMatriceScontiGold.withColumn(\"New_recipient_id\",when(col(\"psp_id\") == \"ATPIITM1\", \"pagopa-psp-295\").otherwise(col(\"recipient_id\")))\\\r\n",
+					"#                                          .drop(\"recipient_id\")\\\r\n",
+					"#                                          .withColumnRenamed(\"New_recipient_id\", \"recipient_id\")\r\n",
+					"\r\n",
+					"# display(dfMatriceScontiGold.where(\"psp_id = 'ATPIITM1'\"))"
+				],
+				"execution_count": 159
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Mandatari Qualificati\r\n",
+					"# dfContracts = spark.sql(f\"SELECT * FROM pagopa.contracts_raw WHERE year_month = '{year_month}'\")\r\n",
+					"# dfContracts = dfContracts.withColumn(\"Anno\", col(\"year_month\").substr(0,4).cast(\"string\"))       \r\n",
+					"# dfContracts = dfContracts.withColumn(\"Quarter\", floor((col(\"year_month\").substr(5, 2).cast(\"int\")-1)/3)+1)\r\n",
+					"\r\n",
+					"# dfContracts = dfContracts.withColumn(\"Year_Quarter\",concat(col(\"Anno\").cast(\"string\"),lit(\"_\"), col(\"Quarter\").cast(\"string\")))"
+				],
+				"execution_count": 160
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# dfContracts = spark.sql(f\"SELECT * FROM pagopa.contracts_raw WHERE year_month = '{year_month}'\")\r\n",
+					"\r\n",
+					"# dfMandatariSpeciali = dfContracts.filter(f\"year_month='{year_month}'\")\r\n",
+					"# dfMandatariSpeciali = dfMandatariSpeciali.withColumn(\"multiProvider\", when(col(\"provider_names\").contains(','),1).otherwise(0) )\r\n",
+					"# dfMandatariSpeciali = dfMandatariSpeciali.filter(\"multiProvider=1 AND contract_id = recipient_id AND recipient_id = membership_id\").select(\"recipient_id\").distinct()\r\n",
+					"# #display(dfMandatariSpeciali)"
+				],
+				"execution_count": 161
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# dfMandatariQualificati = dfContracts.filter(f\"contract_id <> recipient_id\").select(\"recipient_id\").distinct()\r\n",
+					"\r\n",
+					"# dfMandatariQualificati = dfMandatariQualificati.union(dfMandatariSpeciali).distinct()"
+				],
+				"execution_count": 162
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# dfFinancialReport.join(dfMandatariQualificati,\"recipient_id\",\"left_anti\").columns"
+				],
+				"execution_count": 163
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# dfFinancialReportNO_MQ = dfFinancialReportNO_MQ.groupBy(\"recipient_id\",\"name\",\"year_quarter\").agg(sum(col(\"current_trx\")).alias(\"trx_total\"),sum(col(\"value\")).alias(\"value_total\"))\r\n",
+					"#display(dfFinancialReportNO_MQ)"
+				],
+				"execution_count": 164
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"\r\n",
+					"# dfSconto = dfFinancialReportNO_MQ.join(dfMatriceScontiGold,\"recipient_id\",\"left\")\r\n",
+					"# dfSconto = dfSconto.withColumn(\"value_discount\",(col(\"value_total\") * col(\"PercSconto\")) / 100)\r\n",
+					"# dfSconto = dfSconto.drop(\"name\",\"contract_id\",\"membership_id\",\"year_quarter_trx\",\"year_quarter_kpi\")\r\n",
+					""
+				],
+				"execution_count": 165
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# dfSconto = dfSconto.withColumn(\"FlagMQ\",lit(\"0\").cast(\"boolean\"))"
+				],
+				"execution_count": 166
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Mandatari Qualificati"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"def evaluateAmount(trx):\r\n",
+					"    dictFasce = {\r\n",
+					"        0:[0,1500000],\r\n",
+					"        1:[1500000,4500000],\r\n",
+					"        2:[4500000,9000000],\r\n",
+					"        3:[9000000,14500000],\r\n",
+					"        4:[14500000,23500000],\r\n",
+					"        5:[23500000,38500000],\r\n",
+					"        6:[38500000,62000000],\r\n",
+					"        7:[62000000,100000000]\r\n",
+					"    }\r\n",
+					"    leftTrx = trx\r\n",
+					"    trxFasce =[]\r\n",
+					"    for f in range(0,8):\r\n",
+					"        #if math.floor(trx/dictFasce[f][1]):\r\n",
+					"        if trx > dictFasce[f][1]:\r\n",
+					"            trxInFascia = dictFasce[f][1]-dictFasce[f][0]\r\n",
+					"        else:\r\n",
+					"            trxInFascia = leftTrx\r\n",
+					"    \r\n",
+					"        trxFasce.append(trxInFascia)\r\n",
+					"        leftTrx = leftTrx - trxInFascia\r\n",
+					"  \r\n",
+					"    trxFasce.append(leftTrx)\r\n",
+					"    return trxFasce\r\n",
+					"\r\n",
+					"def Diff(arr1,arr2):\r\n",
+					"    res=[]\r\n",
+					"    for e in arr1:\r\n",
+					"        res.append(e-arr2[arr1.index(e)])\r\n",
+					"    return res\r\n",
+					"\r\n",
+					"def MyevaluateCurrentBasket(current_trx,previous_trx):\r\n",
+					"    total_basket= evaluateAmount(float(current_trx+previous_trx))\r\n",
+					"    previous_basket = evaluateAmount(previous_trx)\r\n",
+					"    return Diff(total_basket,previous_basket)\r\n",
+					"    # return total_basket\r\n",
+					"\r\n",
+					"def _a1TrxValue(trx):\r\n",
+					"    return float(trx) * 0.025\r\n",
+					"\r\n",
+					"def MycodiceArticolo(category,x):\r\n",
+					"    group_choices= {\r\n",
+					"        0:\"A.1\",\r\n",
+					"        1:\"A.2\",\r\n",
+					"        2:\"A.3\",\r\n",
+					"        3:\"A.4\",\r\n",
+					"        4:\"A.5\",\r\n",
+					"        5:\"A.6\",\r\n",
+					"        6:\"A.7\",\r\n",
+					"        7:\"A.8\",\r\n",
+					"        8:\"A.9\"\r\n",
+					"    }\r\n",
+					"    category_choices = {\r\n",
+					"        \"A1\":\"B.3\",\r\n",
+					"        \"B1\":\"B.1\",\r\n",
+					"        \"B2\":\"B.2\"\r\n",
+					"    }\r\n",
+					"    if ( category.startswith (\"G\") ) :\r\n",
+					"        result = group_choices.get(x,\"A.9\")\r\n",
+					"    else:\r\n",
+					"        result = category_choices.get(category)\r\n",
+					"    return result\r\n",
+					"\r\n",
+					"def _new_basketValue(trx,basketId):\r\n",
+					"    fascia_value=[0.0850,0.0723,0.0679,0.0638,0.0575,0.0563,0.0552,0.0541,0.0530]\r\n",
+					"    return trx * fascia_value[basketId]\r\n",
+					"\r\n",
+					"def _b1TrxValue(trx):\r\n",
+					"    return float(trx) * 0.04\r\n",
+					"\r\n",
+					"def _b2TrxValue(trx):\r\n",
+					"    return float(trx) * 0.04\r\n",
+					"    \r\n",
+					"evaluateCurrentBasket = udf(MyevaluateCurrentBasket, ArrayType(DoubleType())) \r\n",
+					"a1TrxValue = udf(_a1TrxValue,FloatType())\r\n",
+					"codiceArticolo = udf(MycodiceArticolo, StringType())  \r\n",
+					"new_basketValue = udf(_new_basketValue,FloatType())\r\n",
+					"b1TrxValue = udf(_b1TrxValue,FloatType())\r\n",
+					"b2TrxValue = udf(_b2TrxValue,FloatType())"
+				],
+				"execution_count": 167
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Leggo tutte le transazioni per l'anno di riferimento\r\n",
+					"\r\n",
+					"# Read all transactions of the year\r\n",
+					"df_all_correct_transactions = spark.sql(f'''\r\n",
+					"    SELECT \r\n",
+					"        year,\r\n",
+					"        quarter,\r\n",
+					"        month,\r\n",
+					"        abi,\r\n",
+					"        category,\r\n",
+					"        recipient_id,\r\n",
+					"        contract_type,\r\n",
+					"        provider_id,\r\n",
+					"        CAST(n_transactions AS STRING),\r\n",
+					"        psp_id,\r\n",
+					"        psp_name,\r\n",
+					"        year_quarter\r\n",
+					"    FROM pagopa.trx_quarter\r\n",
+					"    WHERE year = {reference_year_sconto}\r\n",
+					"''')\r\n",
+					"\r\n",
+					"# # Get all transactions to be corrected\r\n",
+					"df_transactions_correction = spark.sql(f'''\r\n",
+					"    SELECT \r\n",
+					"        year_quarter,\r\n",
+					"        year,\r\n",
+					"        quarter,\r\n",
+					"        month,\r\n",
+					"        abi,\r\n",
+					"        category,\r\n",
+					"        recipient_id,\r\n",
+					"        contract_type,\r\n",
+					"        provider_id,\r\n",
+					"        (n_transactions * correction) AS n_transactions,\r\n",
+					"        cf_psp as psp_id,\r\n",
+					"        psp as psp_name\r\n",
+					"    FROM pagopa.missed_trx_quarter\r\n",
+					"    WHERE year = {reference_year_sconto}\r\n",
+					"''')\r\n",
+					"\r\n",
+					"# # Add corrected transactions\r\n",
+					"df_all_transactions = df_all_correct_transactions.unionByName(df_transactions_correction)\r\n",
+					"\r\n",
+					"#Prendo solo le transazioni dei mandatari qualificati\r\n",
+					"# df_all_transactions = df_all_transactions.join(dfMandatariQualificati,\"recipient_id\",\"inner\")\r\n",
+					"\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": 168
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# df_all_transactions = df_all_transactions.withColumn(\"New_recipient_id\",when(col(\"psp_id\") == \"ATPIITM1\", \"pagopa-psp-295\").otherwise(col(\"recipient_id\")))\\\r\n",
+					"#                                          .withColumn(\"New_category\",when(col(\"psp_id\") == \"ATPIITM1\", \"G_pagopa-psp-295\").otherwise(col(\"category\")))\\\r\n",
+					"#                                          .drop(\"recipient_id\")\\\r\n",
+					"#                                          .drop(\"category\")\\\r\n",
+					"#                                          .withColumnRenamed(\"New_recipient_id\", \"recipient_id\")\\\r\n",
+					"#                                          .withColumnRenamed(\"New_category\", \"category\")\r\n",
+					"\r\n",
+					"df_all_transactions.createOrReplaceTempView(\"all_transactions\")\r\n",
+					""
+				],
+				"execution_count": 169
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Sum of transactions grouped by category for current quarter\r\n",
+					"current_membership_value = spark.sql(f'''\r\n",
+					"    SELECT \r\n",
+					"        year,\r\n",
+					"        quarter,\r\n",
+					"        category,\r\n",
+					"        sum(n_transactions) AS current_total \r\n",
+					"    FROM all_transactions \r\n",
+					"    WHERE quarter == {reference_quarter_sconto}\r\n",
+					"    AND year == {reference_year_sconto}\r\n",
+					"    GROUP BY \r\n",
+					"        year,\r\n",
+					"        quarter,\r\n",
+					"        category\r\n",
+					"''')\r\n",
+					"\r\n",
+					"# Sum of transactions grouped by category for previous quarters\r\n",
+					"previous_transactions_by_category = spark.sql(f'''\r\n",
+					"    SELECT \r\n",
+					"        category, \r\n",
+					"        SUM(n_transactions) AS history_transactions \r\n",
+					"    FROM all_transactions \r\n",
+					"    WHERE quarter < {reference_quarter_sconto} \r\n",
+					"    AND year = {reference_year_sconto} \r\n",
+					"    GROUP BY category\r\n",
+					"''')\r\n",
+					"\r\n",
+					"# Left join between current transactions and previous transactions\r\n",
+					"current_membership_basket_value = current_membership_value\\\r\n",
+					"    .join(previous_transactions_by_category, on = \"category\", how = \"left\")\\\r\n",
+					"    .fillna(0)\\\r\n",
+					"    .withColumn(\"currentBasket\", evaluateCurrentBasket(col(\"current_total\"), col(\"history_transactions\")))\\\r\n",
+					"    .select(\"category\", \"current_total\", \"currentBasket\")"
+				],
+				"execution_count": 170
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"#display(current_membership_basket_value)"
+				],
+				"execution_count": 171
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Sum of current transactions grouped by category and id\r\n",
+					"current_invoice_df = spark.sql(f'''\r\n",
+					"    SELECT\r\n",
+					"        year,\r\n",
+					"        quarter,\r\n",
+					"        category,\r\n",
+					"        recipient_id,\r\n",
+					"        psp_id,\r\n",
+					"        SUM(n_transactions) AS n_transactions\r\n",
+					"    FROM all_transactions\r\n",
+					"    WHERE quarter == {reference_quarter_sconto}\r\n",
+					"    AND year == {reference_year_sconto}\r\n",
+					"    GROUP BY\r\n",
+					"        year,\r\n",
+					"        quarter,\r\n",
+					"        category,\r\n",
+					"        recipient_id,\r\n",
+					"        psp_id\r\n",
+					"''')"
+				],
+				"execution_count": 172
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Evaluate value for fixed costs\r\n",
+					"\r\n",
+					"# A1 transactions\r\n",
+					"current_a1_invoice = current_invoice_df\\\r\n",
+					"    .filter(col(\"category\").startswith(\"A1\"))\\\r\n",
+					"    .withColumnRenamed(\"n_transactions\", \"current_trx\")\\\r\n",
+					"    .withColumn(\"value\", a1TrxValue(col(\"current_trx\").cast(\"float\")))\\\r\n",
+					"    .withColumn(\"Codice_Articolo\", codiceArticolo(col(\"category\"), lit(\"0\")))\\\r\n",
+					"    .select(\"category\", \"recipient_id\",\"psp_id\", \"current_trx\", \"value\", \"Codice_articolo\")\r\n",
+					"\r\n",
+					"# B1 transactions\r\n",
+					"current_b1_invoice = current_invoice_df\\\r\n",
+					"    .filter(col(\"category\").startswith(\"B1\"))\\\r\n",
+					"    .withColumnRenamed(\"n_transactions\", \"current_trx\")\\\r\n",
+					"    .withColumn(\"value\", b1TrxValue(col(\"current_trx\").cast(\"float\")))\\\r\n",
+					"    .withColumn(\"Codice_Articolo\", codiceArticolo(col(\"category\"), lit(\"0\")))\\\r\n",
+					"    .select(\"category\", \"recipient_id\",\"psp_id\", \"current_trx\", \"value\", \"Codice_articolo\")\r\n",
+					"\r\n",
+					"# B2 transactions\r\n",
+					"current_b2_invoice = current_invoice_df\\\r\n",
+					"    .filter(col(\"category\").startswith(\"B2\"))\\\r\n",
+					"    .withColumnRenamed(\"n_transactions\", \"current_trx\")\\\r\n",
+					"    .withColumn(\"value\", b2TrxValue(col(\"current_trx\").cast(\"float\")))\\\r\n",
+					"    .withColumn(\"Codice_Articolo\", codiceArticolo(col(\"category\"), lit(\"0\")))\\\r\n",
+					"    .select(\"category\", \"recipient_id\",\"psp_id\", \"current_trx\", \"value\", \"Codice_articolo\")\r\n",
+					"\r\n",
+					"# Basket transactions\r\n",
+					"current_basket_invoice = current_invoice_df\\\r\n",
+					"    .filter(col(\"category\").startswith(\"G_\"))\\\r\n",
+					"    .join(current_membership_basket_value, on = \"category\", how = \"left\")\\\r\n",
+					"    .withColumn(\"perc_trx\", col(\"n_transactions\") / col(\"current_total\"))\\\r\n",
+					"    .select(\"category\", \"recipient_id\",\"psp_id\",\"perc_trx\", posexplode(\"currentBasket\"))\\\r\n",
+					"    .fillna(0)\\\r\n",
+					"    .withColumn(\"current_trx\", col(\"col\") * col(\"perc_trx\"))\\\r\n",
+					"    .withColumn(\"value\", new_basketValue(col(\"current_trx\"), col(\"pos\")))\\\r\n",
+					"    .withColumn(\"Codice_articolo\", codiceArticolo(col(\"category\"), col(\"pos\")))\\\r\n",
+					"    .select(\"category\", \"recipient_id\",\"psp_id\", \"current_trx\", \"value\", \"Codice_articolo\")\\\r\n",
+					"    .filter(col(\"value\") > 0)\r\n",
+					"\r\n",
+					"# Unite all categories of transactions \r\n",
+					"current_invoice = current_basket_invoice\\\r\n",
+					"    .union(current_a1_invoice)\\\r\n",
+					"    .union(current_b1_invoice)\\\r\n",
+					"    .union(current_b2_invoice)"
+				],
+				"execution_count": 173
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"current_invoice = current_invoice.join(dfMatriceScontiGold, \"psp_id\",\"inner\")\r\n",
+					"current_invoice = current_invoice.withColumn(\"Value_Discount\", (col(\"value\") * col(\"PercSconto\"))/100)"
+				],
+				"execution_count": 174
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"all_psp_singoli = current_invoice.select(col(\"all_transactions.recipient_id\").alias(\"recipient_id\")\\\r\n",
+					"                                    ,lit(year_quarter_sconto).alias(\"year_quarter\")\\\r\n",
+					"                                    ,col(\"current_trx\").alias(\"trx_total\")\r\n",
+					"                                    ,col(\"value\").alias(\"value_total\")\r\n",
+					"                                    ,col(\"psp_id\")\r\n",
+					"                                    ,col(\"KpiOk\")\r\n",
+					"                                    ,col(\"numKpi\")\r\n",
+					"                                    ,col(\"sumKpi\")\r\n",
+					"                                    ,col(\"PercSconto\")\r\n",
+					"                                    ,col(\"Value_Discount\").alias(\"value_discount\"))"
+				],
+				"execution_count": 175
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# current_invoice = current_invoice.withColumn(\"FlagMQ\",lit(\"1\").cast(\"boolean\"))"
+				],
+				"execution_count": 176
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"dfContracts = spark.sql(f\"SELECT * FROM pagopa.contracts_raw WHERE year_month = '{year_month}'\")\r\n",
+					"\r\n",
+					"# dfContracts = dfContracts.withColumn(\"New_recipient_id\",when(col(\"contract_id\") == \"pagopa-psp-295\", \"pagopa-psp-295\").otherwise(col(\"recipient_id\")))\\\r\n",
+					"#                                          .drop(\"recipient_id\")\\\r\n",
+					"#                                          .withColumnRenamed(\"New_recipient_id\", \"recipient_id\")\r\n",
+					"\r\n",
+					"dfContracts = dfContracts.withColumn(\"provider_list\", split(col(\"provider_names\"), \",\"))\\\r\n",
+					"                .withColumn(\"provider_id\", explode(col(\"provider_list\")))\\\r\n",
+					"                .withColumn(\"FlagMQ\", when(col(\"recipient_id\")!=col(\"contract_id\"), True).otherwise(False))\\\r\n",
+					"                .select(\"provider_id\", \"recipient_id\", \"FlagMQ\")\r\n",
+					"\r\n",
+					"# display(dfContracts.where(\"contract_id = 'pagopa-psp-295'\"))"
+				],
+				"execution_count": 177
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"dfScontoDef = all_psp_singoli.drop(\"recipient_id\")\\\r\n",
+					"                             .join(dfContracts, how=\"left\", on=dfContracts[\"provider_id\"]==all_psp_singoli[\"psp_id\"])\\\r\n",
+					"                             .drop(\"provider_id\")\r\n",
+					"\r\n",
+					"# display(dfScontoDef.where(\"FlagMQ is null\"))"
+				],
+				"execution_count": 178
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfMatriceSilver = spark.sql(f\"SELECT kpi_id, psp_id,recipient_id \\\r\n",
+					"                             FROM pagopa.silver_matricesconti \\\r\n",
+					"                            WHERE year_quarter_trx = '{year_quarter}' \\\r\n",
+					"                            AND countKpi = valueKpi\")\r\n",
+					"dfMatriceSilverGrouped = dfMatriceSilver.groupBy(\"psp_id\").agg(concat_ws(\" - \", collect_list(\"kpi_id\")).alias(\"KpiList\"))                            "
+				],
+				"execution_count": 179
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"#dfScontoDef = dfScontoDef.withColumn(\"linkReport\", lit(\"\"))\r\n",
+					"dfScontoDef = dfScontoDef.join(dfMatriceSilverGrouped, \"psp_id\",\"left\")\r\n",
+					"\r\n",
+					"#display(dfScontoDef)"
+				],
+				"execution_count": 180
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfScontoDef = dfScontoDef.select(col(\"psp_id\")\\\r\n",
+					"                            ,col(\"recipient_id\")\\\r\n",
+					"                            ,col(\"trx_total\").cast(\"int\")\\\r\n",
+					"                            ,col(\"value_total\").cast(\"decimal(38, 14)\")\\\r\n",
+					"                            ,col(\"KpiOk\").cast(\"int\")\\\r\n",
+					"                            ,col(\"PercSconto\").cast(\"decimal(5,2)\")\\\r\n",
+					"                            ,col(\"value_discount\").cast(\"decimal(38, 14)\")\\\r\n",
+					"                            ,col(\"KpiList\")\\\r\n",
+					"                            ,col(\"FlagMQ\") )\r\n",
+					"#dfScontoDef = dfScontoDef.drop(\"year_quarter\")\r\n",
+					"dfScontoDef = dfScontoDef.withColumn(\"year_quarter\", lit(year_quarter))"
+				],
+				"execution_count": 181
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"dfScontoDef = dfScontoDef\\\r\n",
+					"                    .groupBy(\"recipient_id\",\"psp_id\",\"year_quarter\",\"KpiOk\",\"PercSconto\",\"KpiList\",\"FlagMQ\")\\\r\n",
+					"                    .agg(sum(\"trx_total\"),sum(\"value_total\"),sum(\"value_discount\"))\r\n",
+					""
+				],
+				"execution_count": 182
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfScontoDef = dfScontoDef.withColumnRenamed(\"sum(trx_total)\", \"trx_total_sum\")\\\r\n",
+					"           .withColumnRenamed(\"sum(value_total)\", \"value_total_sum\")\\\r\n",
+					"           .withColumnRenamed(\"sum(value_discount)\", \"value_discount_sum\")"
+				],
+				"execution_count": 183
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"dfScontoDef = dfScontoDef.withColumnRenamed(\"value_discount\", \"value_discount_sum\")"
+				],
+				"execution_count": 184
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Scrittura report su storage"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"synapse_instance_name = mssparkutils.env.getWorkspaceName()\r\n",
+					"\r\n",
+					"tmp_path = \"\"\r\n",
+					"new_prefix = ''\r\n",
+					"\r\n",
+					"ambiente = synapse_instance_name[4:5]\r\n",
+					"if ambiente=='d':\r\n",
+					"    tmp_path = \"abfss://invoices@fatdpublic.blob.core.windows.net/tmp/KpiPagamenti_Sconti\"\r\n",
+					"    new_prefix = \"abfss://invoices@fatdpublic.blob.core.windows.net\"\r\n",
+					"elif ambiente == \"p\":\r\n",
+					"    tmp_path = \"abfss://pagopa@fatpdls.dfs.core.windows.net/invoices/KpiPagamenti_Sconti\"\r\n",
+					"    new_prefix = \"abfss://pagopa@fatpdls.dfs.core.windows.net/invoices/\"\r\n",
+					"elif ambiente == \"u\":\r\n",
+					"    tmp_path = \"abfss://invoices@fatupublic.dfs.core.windows.net/tmp/KpiPagamenti_Sconti\"\r\n",
+					"    new_prefix = \"abfss://invoices@fatupublic.dfs.core.windows.net\"\r\n",
+					"\r\n",
+					"#print(tmp_path, new_prefix)"
+				],
+				"execution_count": 263
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"# display(dfScontoDef)"
+				],
+				"execution_count": 264
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"partition_key = \"recipient_id\"\r\n",
+					"#tmp_path = f\"abfss://test@fatddls.dfs.core.windows.net/invoices/tmp/KpiPagamenti_Sconti\"\r\n",
+					"\r\n",
+					"dfScontoDef\\\r\n",
+					"    .withColumn(\"recipientID\",col(partition_key))\\\r\n",
+					"    .sort(asc(\"recipient_id\"))\\\r\n",
+					"    .coalesce(1) \\\r\n",
+					"    .write\\\r\n",
+					"    .mode(\"overwrite\")\\\r\n",
+					"    .partitionBy(partition_key)\\\r\n",
+					"    .option(\"header\",\"true\")\\\r\n",
+					"    .csv(tmp_path)"
+				],
+				"execution_count": 39
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dir_list = mssparkutils.fs.ls(tmp_path)\r\n",
+					"file_list = []\r\n",
+					"prefix = 'recipient_id='\r\n",
+					"dict_recipients_filenames = {}\r\n",
+					"\r\n",
+					"for path in dir_list:\r\n",
+					"    current_path = mssparkutils.fs.ls(path.path)[0].path\r\n",
+					"    #print(current_path)\r\n",
+					"    if current_path.endswith(\".csv\"):\r\n",
+					"        recipient_id = path.path.split(\"/\")[-1].replace(prefix, \"\")\r\n",
+					"        dict_recipients_filenames[recipient_id] = current_path"
+				],
+				"execution_count": 40
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#new_prefix = f\"abfss://test@fatddls.dfs.core.windows.net/invoices/\"\r\n",
+					"new_filename = str(reference_year) + \"-q\" + str(reference_quarter) + \"-KpiPagamenti_Sconto.csv\"\r\n",
+					"\r\n",
+					"for recipient in dict_recipients_filenames:\r\n",
+					"    new_path = new_prefix + recipient + \"/\" + new_filename\r\n",
+					"    try:\r\n",
+					"        mssparkutils.fs.mv(dict_recipients_filenames[recipient], new_path, overwrite=True)\r\n",
+					"    except Py4JJavaError:\r\n",
+					"        mssparkutils.fs.rm(new_path)\r\n",
+					"        mssparkutils.fs.mv(dict_recipients_filenames[recipient], new_path, overwrite=True)"
+				],
+				"execution_count": 41
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"mssparkutils.fs.rm(tmp_path, True)"
+				],
+				"execution_count": 42
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"partition_key = \"year_quarter\"\r\n",
+					"table = \"pagopa.financial_report_sconti\"\r\n",
+					"\r\n",
+					"dfScontoDef =  dfScontoDef.withColumn(\"linkReport\", lit(''))\r\n",
+					"\r\n",
+					"dfScontoDef.repartition(partition_key)\\\r\n",
+					"        .write.mode(\"overwrite\")\\\r\n",
+					"        .format(\"delta\")\\\r\n",
+					"        .partitionBy(partition_key)\\\r\n",
+					"        .option(\"mergeSchema\", \"true\")\\\r\n",
+					"        .saveAsTable(table)"
+				],
+				"execution_count": 85
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					""
+				]
+			}
+		]
+	}
+}

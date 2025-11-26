@@ -1,0 +1,269 @@
+{
+	"name": "ScontiSasToken",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/Sconto"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "0bde3dbc-6fa2-4488-ac61-259c2308d3fa"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.conf.set(\"spark.sql.sources.partitionOverwriteMode\", \"dynamic\")"
+				],
+				"execution_count": 46
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"from pyspark.sql.types import StructType, StructField, StringType"
+				],
+				"execution_count": 47
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"year_quarter = '2025_2'"
+				],
+				"execution_count": 48
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"reference_year = year_quarter[:4]\r\n",
+					"reference_quarter = year_quarter[-1]\r\n",
+					""
+				],
+				"execution_count": 49
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"print(reference_quarter, reference_year)"
+				],
+				"execution_count": 50
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfScontiQuarter = spark.sql(f\"SELECT * FROM pagopa.financial_report_sconti WHERE year_quarter='{year_quarter}'\")\r\n",
+					"\r\n",
+					"dfScontiQuarterDistinct = dfScontiQuarter.select(\"recipient_id\").distinct()"
+				],
+				"execution_count": 51
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"%run PagoPA/SendMail/GenerateSASToken_def"
+				],
+				"execution_count": 52
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"report_name = str(reference_year) + \"-q\" + str(reference_quarter) + \"-KpiPagamenti_Sconto.csv\"\r\n",
+					"\r\n",
+					"container_list = []\r\n",
+					"for row in dfScontiQuarterDistinct.rdd.toLocalIterator():\r\n",
+					"    kpiPagamentiReport = generateSAStoken(\"fatppublic\",\"invoices\",f\"{row.recipient_id}/{report_name}\")\r\n",
+					"    #spark.sql(f\"UPDATE pagopa.financial_report_sconti SET linkReport = '{kpiPagamentiReport}' WHERE recipient_id = '{row.recipient_id}'\")\r\n",
+					"    container_list.append(\r\n",
+					"        [row.recipient_id, kpiPagamentiReport]\r\n",
+					"    )\r\n",
+					"\r\n",
+					"if len(container_list) != 0:\r\n",
+					"    dfLinkReport = spark.createDataFrame(container_list)\r\n",
+					"else:\r\n",
+					"    schema = StructType([StructField('_1', StringType(), True), StructField('_2', StringType(), True)])\r\n",
+					"    dfLinkReport = spark.createDataFrame([], schema)\r\n",
+					""
+				],
+				"execution_count": 53
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"dfLinkReport = dfLinkReport.withColumnRenamed(\"_1\",\"recipient_id\").withColumnRenamed(\"_2\",\"linkReportOK\")"
+				],
+				"execution_count": 54
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfScontiQuarter = dfScontiQuarter.join(dfLinkReport,on=\"recipient_id\", how=\"inner\")\r\n",
+					"dfScontiQuarter = dfScontiQuarter.drop(\"linkReport\")\r\n",
+					"dfScontiQuarter = dfScontiQuarter.withColumnRenamed(\"linkReportOK\",\"linkReport\")"
+				],
+				"execution_count": 55
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"partition_key = \"year_quarter\"\r\n",
+					"table = \"pagopa.financial_report_sconti\"\r\n",
+					"\r\n",
+					"\r\n",
+					"dfScontiQuarter.repartition(partition_key)\\\r\n",
+					"        .write.mode(\"overwrite\")\\\r\n",
+					"        .format(\"delta\")\\\r\n",
+					"        .partitionBy(partition_key)\\\r\n",
+					"        .option(\"mergeSchema\", \"true\")\\\r\n",
+					"        .saveAsTable(table)"
+				],
+				"execution_count": 79
+			}
+		]
+	}
+}

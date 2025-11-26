@@ -1,0 +1,288 @@
+{
+	"name": "00__Orchestrator_bckup",
+	"properties": {
+		"activities": [
+			{
+				"name": "IngestNotifiche",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "00_MainStarter",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TaskId": "100"
+					}
+				}
+			},
+			{
+				"name": "IngestSelfcare",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "00_MainStarter",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TaskId": "150"
+					}
+				}
+			},
+			{
+				"name": "IngestPnTimeline",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "00_MainStarter",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"TaskId": "600"
+					}
+				}
+			},
+			{
+				"name": "If_Monthly",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "CodiceOggetto",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(dayOfMonth(utcNow('yyyy-MM-dd')),5)",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "CalcoloPreseInCarico",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "ProcessNotifiche",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "00_MainStarter",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"TaskId": "700"
+								}
+							}
+						},
+						{
+							"name": "Notifiche Count",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "CalcoloPreseInCarico",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "pfd.spUpsertNotificheCount"
+							},
+							"linkedServiceName": {
+								"referenceName": "fat_sql",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Insert Calendari",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Notifiche Count",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "pfd.spPopolaCalendari",
+								"storedProcedureParameters": {
+									"DataProcessamentoMensile": {
+										"value": {
+											"value": "@utcNow('yyyy-MM-dd')",
+											"type": "Expression"
+										},
+										"type": "Datetime"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "fat_sql",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "ProcessNotifiche",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "00_MainStarter",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"TaskId": "300"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "00_MainREL",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "If_Monthly",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "00_MainREL",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "00_MainInvoice",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "00_MainREL",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "00_MainInvoice",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "CodiceOggetto",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "IngestNotifiche",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "IngestSelfcare",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "IngestPnTimeline",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "CodiceOggetto",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			}
+		],
+		"variables": {
+			"test": {
+				"type": "String"
+			},
+			"pippo": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "CESTINO"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-29T15:24:41Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

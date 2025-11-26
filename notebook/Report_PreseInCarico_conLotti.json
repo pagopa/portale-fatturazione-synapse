@@ -1,0 +1,291 @@
+{
+	"name": "Report_PreseInCarico_conLotti",
+	"properties": {
+		"folder": {
+			"name": "Accertamenti"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "54b65b0d-955b-4a87-a3b9-2956450ddc73"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net",
+					"authHeader": null
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"tipo_report = \"preseincarico_conLotti\"\r\n",
+					"#tipo_report = \"preseincarico_asseverazione_conLotti\"\r\n",
+					"anno_mese = \"\""
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql import functions as F\r\n",
+					"from pyspark.sql.types import DecimalType"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"if tipo_report == 'preseincarico_conLotti':\r\n",
+					"    asseverazione = 0\r\n",
+					"    report = spark.sql(f\"\"\"SELECT\r\n",
+					"                    id_ente\r\n",
+					"                    ,ente\r\n",
+					"                    ,presaincarico_data\r\n",
+					"                    ,tipologia_notifica\r\n",
+					"                    ,sum(tot_prezzo_ente/100) as tot_prezzo_ente\r\n",
+					"                    ,sum(tot_notifiche) as tot_notifiche\r\n",
+					"                    ,lotto\r\n",
+					"                    ,recapitista\r\n",
+					"                    ,sum(tot_costo_consolidatore/100) as tot_costo_consolidatore\r\n",
+					"                    ,sum(tot_costo_recapitista/100) as tot_costo_recapitista\r\n",
+					"                FROM fat_delta.allpreseincarico_conlotti\r\n",
+					"                WHERE presaincarico_data = '{anno_mese}'\r\n",
+					"                GROUP BY id_ente, ente, presaincarico_data, tipologia_notifica, lotto, recapitista\"\"\")       \r\n",
+					"else:\r\n",
+					"    asseverazione = 1\r\n",
+					"    report = spark.sql(f\"\"\"SELECT\r\n",
+					"                    id_ente\r\n",
+					"                    ,ente\r\n",
+					"                    ,presaincarico_data\r\n",
+					"                    ,tipologia_notifica\r\n",
+					"                    ,tot_prezzo_ente/100 as tot_prezzo_ente\r\n",
+					"                    ,tot_notifiche\r\n",
+					"                    ,lotto\r\n",
+					"                    ,recapitista\r\n",
+					"                    ,tot_costo_consolidatore/100 as tot_costo_consolidatore\r\n",
+					"                    ,tot_costo_recapitista/100 as tot_costo_recapitista\r\n",
+					"                FROM fat_delta.allpreseincarico_conlotti\r\n",
+					"                WHERE FlagAsseverazione = {asseverazione} AND presaincarico_data = '{anno_mese}'\"\"\")    "
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# report = spark.sql(f\"\"\"SELECT\r\n",
+					"#                     id_ente\r\n",
+					"#                     ,ente\r\n",
+					"#                     ,presaincarico_data\r\n",
+					"#                     ,tipologia_notifica\r\n",
+					"#                     ,tot_prezzo_ente/100 as tot_prezzo_ente\r\n",
+					"#                     ,tot_notifiche\r\n",
+					"#                     ,lotto\r\n",
+					"#                     ,recapitista\r\n",
+					"#                     ,tot_costo_consolidatore/100 as tot_costo_consolidatore\r\n",
+					"#                     ,tot_costo_recapitista/100 as tot_costo_recapitista\r\n",
+					"#                 FROM fat_delta.allpreseincarico_conlotti\r\n",
+					"#                 WHERE FlagAsseverazione = {asseverazione} AND presaincarico_data = '{anno_mese}'\"\"\")\r\n",
+					""
+				],
+				"execution_count": 142
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"def sum_col(df, col):\r\n",
+					"    return df.select(F.sum(col).cast(DecimalType(10, 2))).collect()[0][0]"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"totali = spark.createDataFrame([(\"\",\"\",\"\",\"\",\r\n",
+					"float(sum_col(report, 'tot_prezzo_ente')),\\\r\n",
+					"report.select(F.sum('tot_notifiche')).collect()[0][0],\\\r\n",
+					"999999,\"\",\r\n",
+					"float(sum_col(report, 'tot_costo_consolidatore')),\\\r\n",
+					"float(sum_col(report, 'tot_costo_recapitista')))],\r\n",
+					"report.schema)"
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"report = report.union(totali)"
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"file_path = f\"abfss://reportaccertamenti@fatpdls.dfs.core.windows.net/{tipo_report}/{anno_mese}\"\r\n",
+					"report.repartition(1).write.options(header = True, delimiter = ',').mode('overwrite').csv(file_path)"
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"for folder in mssparkutils.fs.ls(file_path[:-7]):\r\n",
+					"    if anno_mese in folder.path:\r\n",
+					"        for file in mssparkutils.fs.ls(folder.path):\r\n",
+					"            if file.name == '_SUCCESS':\r\n",
+					"                mssparkutils.fs.rm(file.path)\r\n",
+					"                1\r\n",
+					"            else:\r\n",
+					"                filePath = folder.path+f\"/Report_{tipo_report}_\"+folder.path[len(file_path)-7:]+\".csv\"\r\n",
+					"                mssparkutils.fs.mv(file.path, folder.path+f\"/Report_{tipo_report}_\"+folder.path[len(file_path)-7:]+\".csv\", True)"
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"mssparkutils.notebook.run(\"Accertamenti/InsertTabellaReportSql\",90,{\"path\":filePath,\"tipo_report\":tipo_report,\"anno_mese\":anno_mese})"
+				],
+				"execution_count": 10
+			}
+		]
+	}
+}

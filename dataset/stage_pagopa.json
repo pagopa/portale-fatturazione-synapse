@@ -1,0 +1,29 @@
+{
+	"name": "stage_pagopa",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "fat_sa",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"PathFolderFile": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"folderPath": {
+					"value": "@dataset().PathFolderFile",
+					"type": "Expression"
+				},
+				"container": "stage"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

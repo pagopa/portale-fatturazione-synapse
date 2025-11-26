@@ -1,0 +1,289 @@
+{
+	"name": "ProcessamentoPagopa",
+	"properties": {
+		"activities": [
+			{
+				"name": "ProcessTransactions",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SetReportsPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Process_quarter_transactions",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"current_date": {
+							"value": "@pipeline().parameters.ImportDate",
+							"type": "Expression"
+						},
+						"container_path": {
+							"value": "@variables('ReportsPath')",
+							"type": "Expression"
+						},
+						"ImportTrimestrale": {
+							"value": "@pipeline().parameters.process_trimestrale",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "ProcessInvoices",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SetYearMonth",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "SetYearQuarter",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Process_quarter_invoices",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"year_quarter": {
+							"value": "@variables('year_quarter')",
+							"type": "Expression"
+						},
+						"container_path": {
+							"value": "@variables('ReportsPath')",
+							"type": "Expression"
+						},
+						"year_month": {
+							"value": "@variables('year_month')",
+							"type": "Expression"
+						},
+						"import_trimestrale": {
+							"value": "@pipeline().parameters.process_trimestrale",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "SetReportsPath",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "GetReportsPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "ReportsPath",
+					"value": {
+						"value": "@activity('GetReportsPath').output.firstRow.container_path",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "GetReportsPath",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 5,
+					"retryIntervalInSeconds": 60,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": "select container_path from configpath where active = 1 and stored_data = 'report'",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "pagopa_deltalake",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "SetYearMonth",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "ProcessTransactions",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "year_month",
+					"value": {
+						"value": "@split(activity('ProcessTransactions').output.pipelineReturnValue.timevars,',')[0]",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "SetYearQuarter",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "ProcessTransactions",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "year_quarter",
+					"value": {
+						"value": "@split(activity('ProcessTransactions').output.pipelineReturnValue.timevars,',')[1]",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "CalcoloSconti",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "ProcessInvoices",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "CalcoloSconto",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"year_quarter": {
+							"value": "@variables('year_quarter')",
+							"type": "Expression"
+						},
+						"year_month": {
+							"value": "@variables('year_month')",
+							"type": "Expression"
+						},
+						"container_path": {
+							"value": "@variables('ReportsPath')",
+							"type": "Expression"
+						},
+						"importTrimestrale": {
+							"value": "@pipeline().parameters.process_trimestrale",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "FatturazionePrivati",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "CalcoloSconti",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Privati",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"year_quarter": {
+							"value": "@variables('year_quarter')",
+							"type": "Expression"
+						},
+						"year_month": {
+							"value": "@variables('year_month')",
+							"type": "Expression"
+						},
+						"ImportTrimestrale": {
+							"value": "@pipeline().parameters.process_trimestrale",
+							"type": "Expression"
+						}
+					}
+				}
+			}
+		],
+		"parameters": {
+			"process_trimestrale": {
+				"type": "bool"
+			},
+			"ImportDate": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"ReportsPath": {
+				"type": "String"
+			},
+			"year_quarter": {
+				"type": "String"
+			},
+			"year_month": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "PagoPA"
+		},
+		"annotations": []
+	}
+}

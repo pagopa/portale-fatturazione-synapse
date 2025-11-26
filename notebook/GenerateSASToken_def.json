@@ -1,0 +1,110 @@
+{
+	"name": "GenerateSASToken_def",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/SendMail"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "561cf787-3c62-47c9-b0f6-68772c26d736"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from azure.storage.blob import generate_blob_sas, BlobSasPermissions, ResourceTypes\r\n",
+					"import datetime"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"key_vault_linkedservice = 'KeyVault'\r\n",
+					"kv_secret = 'DlsStorageConnectionString'"
+				],
+				"execution_count": 21
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"def generateSAStoken(account_name, container_name, blob_name):\r\n",
+					"\r\n",
+					"    # get the adls connection_string\r\n",
+					"    adls_connectionstring = mssparkutils.credentials.getSecretWithLS(key_vault_linkedservice, kv_secret)\r\n",
+					"\r\n",
+					"    # retrieve only the account_key value from adls connection_string\r\n",
+					"    account_key = (account_key.split(\";\")[2]).removeprefix(\"AccountKey=\")\r\n",
+					"\r\n",
+					"    # generate sas token with validity\r\n",
+					"    sas_token = generate_blob_sas(account_name=account_name,\r\n",
+					"                                    container_name=container_name,\r\n",
+					"                                    blob_name=blob_name,\r\n",
+					"                                    account_key=account_key,\r\n",
+					"                                    permission=BlobSasPermissions(read=True),\r\n",
+					"                                    expiry=datetime.datetime.utcnow() + datetime.timedelta(days=120),\r\n",
+					"                                    resource=\"b\")\r\n",
+					"\r\n",
+					"    urlDoc = f\"https://{account_name}.blob.core.windows.net/{container_name}/{blob_name}?{sas_token}\"\r\n",
+					"\r\n",
+					"    return(urlDoc)"
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

@@ -1,0 +1,156 @@
+{
+	"name": "IngestAcquirers",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/IngestRaw"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "33e264a6-61f2-48b0-8cfe-6a6e55d40e18"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net",
+					"authHeader": null
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"tableName = 'pagopa.acquirers_raw'\r\n",
+					"tableNameH = 'pagopa.acquirers_raw_history'\r\n",
+					"sourcefile = '' #'abfss://test@fatddls.dfs.core.windows.net/acquirers.snappy.parquet'"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql import functions as F\r\n",
+					"from delta.tables import *\r\n",
+					"from pyspark.sql.functions import max\r\n",
+					"from datetime import datetime,date,timedelta\r\n",
+					"import pandas as pd"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"try:\r\n",
+					"    dfH = spark.sql(f\"SELECT * FROM {tableName}\")\r\n",
+					"    dfH.write.format(\"delta\").mode(\"append\").saveAsTable(tableNameH)\r\n",
+					"\r\n",
+					"    spark.sql(f\"DELETE FROM {tableName}\")\r\n",
+					"except Exception as e:\r\n",
+					"    print(\"acquirers table doesnt exist yet\")"
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfNewFile = spark.read.format(\"parquet\").load(sourcefile)\r\n",
+					"actualTimeStamp = datetime.now()\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"LastModified\",  F.lit(actualTimeStamp))\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"SourceFile\",  F.lit(sourcefile))"
+				],
+				"execution_count": 35
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfNewFile.write.format(\"delta\").mode(\"append\").saveAsTable(tableName)"
+				],
+				"execution_count": 36
+			}
+		]
+	}
+}

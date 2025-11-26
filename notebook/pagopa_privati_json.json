@@ -1,0 +1,299 @@
+{
+	"name": "pagopa_privati_json",
+	"properties": {
+		"folder": {
+			"name": "PagoPA"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "064b4fb8-af31-4267-8f72-5fba401c47b0"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"from pyspark.sql.window import Window\n",
+					"from pyspark.sql import Row\n",
+					"from pyspark.sql.functions import *\n",
+					"import json"
+				],
+				"execution_count": 47
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"year_quarter = '2025_2'"
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"anno = year_quarter[:4]\n",
+					"trimestre = \"Q\" + year_quarter[5:6]\n",
+					"\n",
+					"print(anno,trimestre)"
+				],
+				"execution_count": 44
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# get the function to retrieve sql properties\n",
+					"%run Utility/getSQLConnectionString\n",
+					"\n",
+					"# retrieve sql connection_string and connection_properties\n",
+					"jdbcUrl,conn_Prop = getSQLConnectionString()\n",
+					""
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"queryPrivati = f\"\"\"\n",
+					"    (SELECT parentDescription as description\n",
+					"        ,parentID as internalistitutionid\n",
+					"        ,sum(async_numero_tot) as TotAsync\n",
+					"        ,sum(async_valore_tot) as ValAsync\n",
+					"        ,'ASYNC' as Tipo\n",
+					"        ,CONCAT('EC-',RIGHT(parentID,5),'-{trimestre}-{anno}') as numFattura\n",
+					"    FROM [ppa].[report_privati]\n",
+					"    WHERE year_quarter = '{year_quarter}'\n",
+					"    and parentID is not null\n",
+					"    GROUP BY parentDescription,parentID\n",
+					"    HAVING sum(async_numero_tot) > 0\n",
+					"    UNION\n",
+					"    SELECT parentDescription as description\n",
+					"        ,parentID as internalistitutionid\n",
+					"        ,sum(sync_numero_tot) as TotAsync\n",
+					"        ,sum(sync_valore_tot) as ValAsync\n",
+					"        ,'SYNC' as Tipo\n",
+					"        ,CONCAT('EC-',RIGHT(parentID,5),'-{trimestre}-{anno}') as numFattura\n",
+					"    FROM [ppa].[report_privati]\n",
+					"    WHERE year_quarter = '{year_quarter}'\n",
+					"    and parentID is not null\n",
+					"    GROUP BY parentDescription,parentID\n",
+					"    HAVING sum(sync_numero_tot) > 0\n",
+					"    UNION\n",
+					"    SELECT [description]\n",
+					"        ,internalistitutionid\n",
+					"        ,sum(async_numero_tot) as TotAsync\n",
+					"        ,sum(async_valore_tot) as ValAsync\n",
+					"        ,'ASYNC' as Tipo\n",
+					"        ,CONCAT('EC-',RIGHT(internalistitutionid,5),'-{trimestre}-{anno}') as numFattura\n",
+					"    FROM [ppa].[report_privati]\n",
+					"    WHERE year_quarter = '{year_quarter}'\n",
+					"    and parentID is null\n",
+					"    GROUP BY [description],internalistitutionid\n",
+					"    HAVING sum(async_numero_tot) > 0\n",
+					"    UNION \n",
+					"    SELECT [description]\n",
+					"        ,internalistitutionid\n",
+					"        ,sum(sync_numero_tot) as TotSync\n",
+					"        ,sum(sync_valore_tot) as ValSync\n",
+					"        ,'SYNC' as Tipo\n",
+					"        ,CONCAT('EC-',RIGHT(internalistitutionid,5),'-{trimestre}-{anno}') as numFattura\n",
+					"    FROM [ppa].[report_privati]\n",
+					"    WHERE year_quarter = '{year_quarter}'\n",
+					"    and parentID is null\n",
+					"    GROUP BY [description],internalistitutionid\n",
+					"    HAVING sum(sync_numero_tot) > 0) as tb\n",
+					"\"\"\""
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dfTmpPrivati = spark.read.jdbc(url=jdbcUrl, table=queryPrivati, properties=conn_Prop)"
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dfBollo = dfTmpPrivati.groupBy(\"internalistitutionid\",\"description\",\"numFattura\").agg(sum(col(\"ValAsync\"))\\\n",
+					"                    .alias(\"TotEnte\")).filter(\"TotEnte > 77.47\")\\\n",
+					"                    .withColumn(\"TotAsync\", lit(1))\\\n",
+					"                    .withColumn(\"ValAsync\", lit(2))\\\n",
+					"                    .withColumn(\"Tipo\", lit(\"BOLLO\"))"
+				],
+				"execution_count": 21
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"dfTmpPrivati = dfTmpPrivati.union(dfBollo.select(\"description\",\"internalistitutionid\",\"TotAsync\",\"ValAsync\",\"Tipo\",\"numFattura\"))"
+				],
+				"execution_count": 22
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dfKpmg = spark.sql(f\"SELECT DISTINCT Riferimento_data FROM pagopa.kpmg_import WHERE year_quarter = '{year_quarter}'\")\n",
+					"dataFatturaTmp = dfKpmg.first()[0]\n",
+					"anno = dataFatturaTmp[0:4]\n",
+					"mese = dataFatturaTmp[5:7]\n",
+					"giorno = dataFatturaTmp[8:10]\n",
+					"dataFattura = f\"{giorno}-{mese}-{anno}\"\n",
+					"#print(dataFattura)"
+				],
+				"execution_count": 37
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dfTmpPrivati = dfTmpPrivati.withColumn(\"dataFattura\",lit(dataFattura))"
+				],
+				"execution_count": 38
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"#dfCodiciMateriali\n",
+					"OrdineData = [(\"SYNC\",\"Corrispettivi per le posizioni debitorie, art. 4 e 5 Accordo per la partecipazione al Sistema dei pagamenti informatici.\",\"D.2\",2),\n",
+					"            (\"ASYNC\",\"Corrispettivi per le posizioni debitorie, art. 4 e 5 Accordo per la partecipazione al Sistema dei pagamenti informatici.\",\"D.1\",1),\n",
+					"            (\"BOLLO\",\"Bollo\",\"BOLLO\",3)]\n",
+					"dfOrdine = spark.createDataFrame(OrdineData,[\"Tipo\",\"Descrizione\",\"codiceMateriale\", \"order\"])\n",
+					"\n",
+					"dfPrivati = dfTmpPrivati.join(dfOrdine, on=\"Tipo\",how=\"left\")\n",
+					"#display(dfPrivati)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"window_spec = Window.partitionBy(\"internalistitutionid\").orderBy(\"order\")\n",
+					"\n",
+					"dfNew = dfPrivati.withColumn(\"numeroLinea\", row_number().over(window_spec))#.drop(\"newOrder\")"
+				],
+				"execution_count": 41
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"editable": false,
+					"run_control": {
+						"frozen": true
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(dfNew)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"result = {\"listaFatture\": []}\n",
+					"fatture_dict = {}\n",
+					"\n",
+					"for row in dfNew.collect():\n",
+					"    istitutionID = row[\"internalistitutionid\"]\n",
+					"    \n",
+					"    if (istitutionID) not in fatture_dict:\n",
+					"        fatture_dict[(istitutionID)] = {\n",
+					"            \"numero\": row[\"numFattura\"],\n",
+					"            \"dataFattura\":row[\"dataFattura\"],\n",
+					"            \"prodotto\": \"PROD-PAGOPA\",\n",
+					"            \"identificativo\":row[\"numFattura\"],\n",
+					"            \"tipologiaFattura\":\"SALDO PAGOPA\",\n",
+					"            \"istitutioID\": istitutionID,\n",
+					"            \"onboardingTokenID\": istitutionID, # row[\"onboardingTokenID\"],\n",
+					"            \"tipoDocumento\":\"TD01\",\n",
+					"            \"divisa\":\"EUR\",\n",
+					"            \"metodoPagamento\":\"409\",\n",
+					"            \"causale\": f\"Piattaforma pagoPA - periodo {trimestre}-{anno}\",\n",
+					"            \"split\": False, #row[\"split\"],\n",
+					"            \"sollecito\":\"\",\n",
+					"            \"datiGeneraliDocumento\": [{\"tipologia\":\"\",\"idDocumento\":\"\",\\\n",
+					"                                     \"numItem\":\"\", \"codiceCommessaConvenzione\":\"\",\"CUP\":\"\", \"CIG\": \"\"}],\n",
+					"            \"posizioni\": []\n",
+					"        }\n",
+					"    \n",
+					"    fatture_dict[(istitutionID)][\"posizioni\"].append({\n",
+					"        \"numerolinea\": row[\"numeroLinea\"],\n",
+					"        \"testo\": \"\",\n",
+					"        \"codiceMateriale\":row[\"codiceMateriale\"],\n",
+					"        \"quantita\":  row[\"TotAsync\"],\n",
+					"        \"prezzoUnitario\": \"\",\n",
+					"        \"imponibile\": \"\", #row[\"Imponibile\"],\n",
+					"        \"periodoRiferimento\": \"PRI\" \n",
+					"    })\n",
+					"\n",
+					"result[\"listaFatture\"] = [{\"fattura\": fattura} for fattura in fatture_dict.values()]\n",
+					"\n",
+					"# Converti in stringa JSON\n",
+					"json_result = json.dumps(result, indent=4)"
+				],
+				"execution_count": 48
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"file_path = f\"abfss://pagopa@fatpdls.dfs.core.windows.net/KPMG_report/{year_quarter}/Json/fatturepagopa_privati_{year_quarter}_t.json\"\n",
+					"\n",
+					"\n",
+					"mssparkutils.fs.put(file_path, json_result, overwrite=True)"
+				],
+				"execution_count": 49
+			}
+		]
+	}
+}

@@ -1,0 +1,204 @@
+{
+	"name": "SendJsonToSap_w_check",
+	"properties": {
+		"activities": [
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@pipeline().parameters.parametri",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Generate Json",
+							"type": "ExecuteDataFlow",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataflow": {
+									"referenceName": "JsonToSAP",
+									"type": "DataFlowReference",
+									"parameters": {
+										"TipologiaFattura": {
+											"value": "'@{item().tipoFattura}'",
+											"type": "Expression"
+										},
+										"MesiDaProcessare": {
+											"value": "'@{join(item().MesidaFatturare,',')}'",
+											"type": "Expression"
+										}
+									},
+									"datasetParameters": {
+										"ExportJsonToBlobStorage": {
+											"NomeFile": "FatturePagoPa.json"
+										}
+									}
+								},
+								"compute": {
+									"coreCount": 8,
+									"computeType": "General"
+								},
+								"traceLevel": "None",
+								"cacheSinks": {
+									"firstRowOnly": true
+								}
+							}
+						},
+						{
+							"name": "checkJson",
+							"type": "SynapseNotebook",
+							"dependsOn": [
+								{
+									"activity": "Generate Json",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"notebook": {
+									"referenceName": "CheckJson",
+									"type": "NotebookReference"
+								},
+								"snapshot": true,
+								"sparkPool": {
+									"referenceName": "sparkcls01",
+									"type": "BigDataPoolReference"
+								},
+								"executorSize": "Small",
+								"conf": {
+									"spark.dynamicAllocation.enabled": null,
+									"spark.dynamicAllocation.minExecutors": null,
+									"spark.dynamicAllocation.maxExecutors": null
+								},
+								"driverSize": "Small",
+								"numExecutors": null
+							}
+						},
+						{
+							"name": "If Condition1",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "checkJson",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(activity('checkJson').output.status.Output.result.exitValue,'OK')",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "jsonFail",
+										"type": "Fail",
+										"dependsOn": [],
+										"userProperties": [],
+										"typeProperties": {
+											"message": {
+												"value": "@activity('checkJson').output.status.Output.result.exitValue",
+												"type": "Expression"
+											},
+											"errorCode": "500"
+										}
+									}
+								],
+								"ifTrueActivities": [
+									{
+										"name": "UpdFattureInviate",
+										"type": "SqlServerStoredProcedure",
+										"state": "Inactive",
+										"onInactiveMarkAs": "Succeeded",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[dbo].[spUpdateFlagFatturaInviata]",
+											"storedProcedureParameters": {
+												"TipologiaFattura": {
+													"value": {
+														"value": "@item().tipoFattura",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"MesiDaProcessare": {
+													"value": {
+														"value": "@join(item().MesidaFatturare,',')",
+														"type": "Expression"
+													},
+													"type": "String"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "fat_sql",
+											"type": "LinkedServiceReference"
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"parametri": {
+				"type": "array",
+				"defaultValue": [
+					{
+						"tipoFattura": "PRIMO SALDO",
+						"MesidaFatturare": [
+							"202410",
+							"202409"
+						]
+					},
+					{
+						"tipoFattura": "SECONDO SALDO",
+						"MesidaFatturare": [
+							"202410"
+						]
+					}
+				]
+			}
+		},
+		"folder": {
+			"name": "CESTINO"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-05-14T10:49:34Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

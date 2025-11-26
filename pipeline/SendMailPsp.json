@@ -1,0 +1,160 @@
+{
+	"name": "SendMailPsp",
+	"properties": {
+		"activities": [
+			{
+				"name": "SendMailPsp",
+				"type": "AzureFunctionActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 10,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"functionName": {
+						"value": "@concat('SendEmailPspHandler?',\n        'trimestre=', pipeline().parameters.trimestre\n        )",
+						"type": "Expression"
+					},
+					"method": "GET"
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_api_func",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Set variable1",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "SendMailPsp",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "checkUrl",
+					"value": {
+						"value": "@activity('SendMailPsp').output.statusQueryGetUri",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Until1",
+				"type": "Until",
+				"dependsOn": [
+					{
+						"activity": "Set variable1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@or(equals(variables('status'), 'Completed'),equals(variables('status'), 'Failed'))",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "checkUrl",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "GET",
+								"url": {
+									"value": "@variables('checkUrl')",
+									"type": "Expression"
+								},
+								"connectVia": {
+									"referenceName": "AutoResolveIntegrationRuntime",
+									"type": "IntegrationRuntimeReference"
+								}
+							}
+						},
+						{
+							"name": "setStatus",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "checkUrl",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "status",
+								"value": {
+									"value": "@activity('checkUrl').output.runtimeStatus",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Wait1",
+							"type": "Wait",
+							"dependsOn": [
+								{
+									"activity": "setStatus",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"waitTimeInSeconds": 10
+							}
+						}
+					],
+					"timeout": "0.12:00:00"
+				}
+			}
+		],
+		"parameters": {
+			"trimestre": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"checkUrl": {
+				"type": "String"
+			},
+			"status": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "PagoPA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-15T15:23:21Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

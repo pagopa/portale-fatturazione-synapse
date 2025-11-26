@@ -1,0 +1,26 @@
+{
+	"name": "contestazioni_dls",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "fat_adls",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"ente": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Binary",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": {
+					"value": "@dataset().ente",
+					"type": "Expression"
+				},
+				"fileSystem": "contestazionifiles"
+			}
+		}
+	}
+}

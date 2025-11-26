@@ -1,0 +1,212 @@
+{
+	"name": "Ingest_PnTimeLine",
+	"properties": {
+		"folder": {
+			"name": "Ingestion"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "c0b84dc7-eda9-4ae1-b834-5cd22982af78"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Parameter"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"tableName_pnTimeLine = 'fat_delta.pn_timeline'\r\n",
+					"linked_service_name = 'nomeLinkedService'\r\n",
+					"# sourcefile = 'abfss://raw@fatpdls.dfs.core.windows.net/send/2025/04/28/pn_timeline'"
+				],
+				"execution_count": 23
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Libraries"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql import functions as F\r\n",
+					"from delta.tables import *\r\n",
+					"from pyspark.sql.functions import max\r\n",
+					"from datetime import datetime\r\n",
+					"import pandas as pd\r\n",
+					"from pyspark.sql.types import StringType"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Load and Process"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfNewFile = spark.read.format(\"parquet\").load(sourcefile)\r\n",
+					"actualTimeStamp = datetime.now()\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"LastModified\",  F.lit(actualTimeStamp))\r\n",
+					"dfNewFile = dfNewFile.withColumn(\"SourceFile\",  F.lit(sourcefile))\r\n",
+					"\r\n",
+					"\r\n",
+					"#Da cancellare quando la colonna arriverà nel parquet\r\n",
+					"#dfNewFile = dfNewFile.withColumn(\"dl_processed_tms\", F.lit(None).cast(StringType()))\r\n",
+					"\r\n",
+					"# dfNewFile.write.format(\"delta\").mode(\"append\").saveAsTable(tableName_pnTimeLine)"
+				],
+				"execution_count": 25
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"tDeltaTimeline = DeltaTable.forName(spark, tableName_pnTimeLine)"
+				],
+				"execution_count": 26
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"tDeltaTimeline.alias(\"target\").merge(\r\n",
+					"    dfNewFile.alias(\"source\"),\r\n",
+					"    \"target.eventid = source.eventid\"\r\n",
+					").whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()"
+				],
+				"execution_count": 28
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Update Watermark table"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from delta.exceptions import ConcurrentAppendException\r\n",
+					"import time\r\n",
+					"\r\n",
+					"try:\r\n",
+					"    watermarkTable =  DeltaTable.forName(spark, \"fat_delta.watermark\")\r\n",
+					"    watermarkTable.update(\"TableName = 'pn_timeline'\", {\"LastModified\": F.lit(actualTimeStamp)})\r\n",
+					"except ConcurrentAppendException:\r\n",
+					"    time.sleep(60)\r\n",
+					"    watermarkTable =  DeltaTable.forName(spark, \"fat_delta.watermark\")\r\n",
+					"    watermarkTable.update(\"TableName = 'pn_timeline'\", {\"LastModified\": F.lit(actualTimeStamp)})"
+				],
+				"execution_count": 16
+			}
+		]
+	}
+}

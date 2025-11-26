@@ -1,0 +1,206 @@
+{
+	"name": "ProcessMensile",
+	"properties": {
+		"activities": [
+			{
+				"name": "If SemaforoVerde",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "QuadraturaCount",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(activity('QuadraturaCount').output.status.Output.result.exitValue,'Correct')",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Fail1",
+							"type": "Fail",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"message": {
+									"value": "@concat('Squadratura count sulle tabelle', activity('QuadraturaCount').output.status.Output.result.exitValue)",
+									"type": "Expression"
+								},
+								"errorCode": "500"
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "CalcoloPreseInCarico",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "ProcessNotifiche",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "00_MainStarter",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"TaskId": "700"
+								}
+							}
+						},
+						{
+							"name": "Notifiche Count",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "CalcoloPreseInCarico",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "pfd.spUpsertNotificheCount"
+							},
+							"linkedServiceName": {
+								"referenceName": "fat_sql",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Insert Calendari",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Notifiche Count",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "pfd.spPopolaCalendari",
+								"storedProcedureParameters": {
+									"DataProcessamentoMensile": {
+										"value": {
+											"value": "@utcNow('yyyy-MM-dd')",
+											"type": "Expression"
+										},
+										"type": "Datetime"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "fat_sql",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "ProcessNotifiche",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "00_MainStarter",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"TaskId": "300"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "IngestCount",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "IngestCountSend",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "QuadraturaCount",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "IngestCount",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "ControlloCount",
+						"type": "NotebookReference"
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": true
+					},
+					"driverSize": "Small"
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2025-05-06T08:03:08Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

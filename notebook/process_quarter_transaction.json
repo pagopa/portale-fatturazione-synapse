@@ -1,0 +1,871 @@
+{
+	"name": "process_quarter_transaction",
+	"properties": {
+		"folder": {
+			"name": "CESTINO"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "b823525a-6368-48f3-b7a0-be5c8edf5f59"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"language_info": {
+				"name": "python"
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"#Attivazione modalità \"dynamic\" per la scrittura delle partizioni\r\n",
+					"spark.conf.set(\"spark.sql.sources.partitionOverwriteMode\", \"dynamic\")"
+				],
+				"execution_count": 126
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.types import StructType, StructField, IntegerType\r\n",
+					"from datetime import date, timedelta, datetime\r\n",
+					"from pyspark.sql.functions import *\r\n",
+					"from py4j.protocol import Py4JJavaError\r\n",
+					"import pandas as pd"
+				],
+				"execution_count": 127
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Reference time indicators\r\n",
+					"\r\n",
+					"In this section, the invoce period is set.\\\r\n",
+					"The reference date is 5 days before the current date.\\\r\n",
+					"The current date is by default the day on which the job runs.\\\r\n",
+					"However, this can be overwritten by uncommenting the next cell of code and inserting the year, month, and day of choice."
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#gestione tempo - da verificare se passare direttamente anno e trimestre dalla pipe\r\n",
+					"\r\n",
+					"# current_date = date.today()\r\n",
+					"#tmp da rimuovere\r\n",
+					"string_date = '2024-10-05'\r\n",
+					"date_format = \"%Y-%m-%d\"\r\n",
+					"\r\n",
+					"current_date = datetime.strptime(string_date, date_format)\r\n",
+					"\r\n",
+					"# Define time variables\r\n",
+					"current_year_month = str(current_date.year) + str(current_date.month).zfill(2)\r\n",
+					"reference_date = current_date - timedelta(5)\r\n",
+					"reference_quarter = ((reference_date.month - 1) // 3 + 1)\r\n",
+					"reference_year = reference_date.year\r\n",
+					"reference_year_quarter = str(reference_year) + \"_\" + str(reference_quarter)"
+				],
+				"execution_count": 128
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Read input data"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Contratti\r\n",
+					"\r\n",
+					"df_contracts = spark.sql(f\"SELECT * FROM fat_delta.contracts_raw WHERE year_month= '{current_year_month}'\")\r\n",
+					"\r\n",
+					"df_contracts_providers = df_contracts\\\r\n",
+					"                            .withColumn(\"provider_list\", split(col(\"provider_names\"), \",\"))\\\r\n",
+					"                            .withColumn(\"provider_id\", explode(col(\"provider_list\")))"
+				],
+				"execution_count": 131
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Acquirers\r\n",
+					"df_acquirers = spark.sql(\"SELECT acquirers FROM fat_delta.acquirers_raw\")\r\n",
+					"\r\n",
+					"# get list of acquirers\r\n",
+					"acquirers = df_acquirers.rdd.map(lambda r: r.acquirers).collect()"
+				],
+				"execution_count": 132
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Transaction\r\n",
+					"\r\n",
+					"df_transactions = spark.sql(f\"SELECT * FROM fat_delta.transaction_raw WHERE payment_id IS NOT NULL AND year='{reference_year}' AND quarter='{reference_quarter}'\")\r\n",
+					""
+				],
+				"execution_count": 133
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Join between transactions and contracts\r\n",
+					"\r\n",
+					"A left join is performed bewteen transactions and contracts on provider_id.\r\n",
+					"\r\n",
+					"A filter is applied to select only the transactions associated with a membership_id.\r\n",
+					"Additionally, the \"category\" field is added to the new dataframe. This field's values depend on several conditions:\r\n",
+					"- A1: contract_type = A; payment_model = posFisico\r\n",
+					"- B1: contract_type = B; importo_versato < 5000; identificativo_canale in acquirers\r\n",
+					"- G_ + membership_id: otherwise"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Left join bewteen transactions and contracts on provider_id\r\n",
+					"df_trx_join_contracts = df_transactions.join(df_contracts_providers, df_transactions.psp_id == df_contracts_providers.provider_id, \"left\")\r\n",
+					"df_trx_join_contracts.createOrReplaceTempView(\"trx_join_contracts\")\r\n",
+					"\r\n",
+					"# Filter transactions with a membership_id associated\r\n",
+					"# Add category field\r\n",
+					"df_trx_contracts = df_trx_join_contracts\\\r\n",
+					"    .filter(col(\"membership_id\").isNotNull())\\\r\n",
+					"    .withColumn(\"category\", when((col(\"contract_type\") == \"A\") & (col(\"isPosFisico\")==True), \"A1\")\r\n",
+					"                .when((col(\"contract_type\") == \"B\") & (col(\"total_amount\") < 5000) & col(\"psp_channel_id\").isin(acquirers), \"B1\")\r\n",
+					"                .otherwise(concat(lit(\"G_\"), col(\"membership_id\")))\r\n",
+					"               )\r\n",
+					"df_trx_contracts.createOrReplaceTempView(\"trx_contracts\")"
+				],
+				"execution_count": 134
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# trx without contract"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#verificare le altre colonne con il mapping\r\n",
+					"\r\n",
+					"df_trx_without_contract = spark.sql(f'''\r\n",
+					"SELECT \r\n",
+					"    count(*) AS transactions, \r\n",
+					"    year, \r\n",
+					"    quarter, \r\n",
+					"    psp_id, \r\n",
+					"    psp_name, \r\n",
+					"    psp_channel_id AS identificativo_canale, --nella tabella siapositive_tran è identificativo_canale\r\n",
+					"    membership_id,\r\n",
+					"    year_quarter\r\n",
+					"FROM trx_join_contracts \r\n",
+					"WHERE membership_id is NULL\r\n",
+					"GROUP BY year, quarter, psp_id, psp_name, psp_channel_id, membership_id, year_quarter\r\n",
+					"''')"
+				],
+				"execution_count": 135
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Insert NULL row if the dataframe is empty in order to overwrite the partition\r\n",
+					"if df_trx_without_contract.isEmpty():\r\n",
+					"    # Get the schema of df_trx_without_contract\r\n",
+					"    schema = df_trx_without_contract.schema\r\n",
+					"    # Create a row with all null values except for transactions(=0) and year_quarter(=reference_year_quarter)\r\n",
+					"    row_data = [0] + ([None] * (len(schema.fields) - 2)) + [reference_year_quarter]\r\n",
+					"    new_row = spark.createDataFrame([tuple(row_data)], schema)\r\n",
+					"    # Add null row to df_trx_without_contract\r\n",
+					"    df_trx_without_contract = df_trx_without_contract.union(new_row)"
+				],
+				"execution_count": 136
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Trx Quarter"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_trx_quarter = spark.sql(f'''\r\n",
+					"SELECT \r\n",
+					"    year, \r\n",
+					"    quarter, \r\n",
+					"    month, \r\n",
+					"    abi, \r\n",
+					"    category,\r\n",
+					"    recipient_id,\r\n",
+					"    contract_type,\r\n",
+					"    provider_id,\r\n",
+					"    count(*) AS n_transactions,\r\n",
+					"    psp_id, --nella tabella siapositive_tran è cf_psp\r\n",
+					"    psp_name , --nella tabella siapositive_tran è psp\r\n",
+					"    year_quarter\r\n",
+					"FROM trx_contracts\r\n",
+					"GROUP BY year, quarter, month, abi, category, recipient_id, contract_type, provider_id, psp_id, psp_name, year_quarter\r\n",
+					"''')"
+				],
+				"execution_count": 137
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Write transactions without contracts report"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"if df_trx_without_contract[df_trx_without_contract[\"transactions\"]!=0].count() == 0:\r\n",
+					"    a = \"-\"\r\n",
+					"    gs_trx_without_contract = spark.createDataFrame(pd.DataFrame({\"transactions\": a, \"year\": a, \"quarter\": a, \"psp_id\": a, \"psp_name\": a,\r\n",
+					"                                               \"identificativo_canale\": a, \"membership_id\": a, \"year_quarter\": a}, index = [0]))\r\n",
+					"\r\n",
+					"else:\r\n",
+					"    gs_trx_without_contract = df_trx_without_contract"
+				],
+				"execution_count": 138
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"path = f'abfss://test@fatddls.dfs.core.windows.net/report/{reference_year_quarter}/trx_without_contract/'\r\n",
+					"\r\n",
+					"gs_trx_without_contract\\\r\n",
+					"    .coalesce(1)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .option(\"header\",\"true\")\\\r\n",
+					"    .csv(path)"
+				],
+				"execution_count": 139
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Rename Report file\r\n",
+					"filename = str(reference_year) + \"-q\" + str(reference_quarter) + \"-transactions-without-contracts.csv\"\r\n",
+					"\r\n",
+					"for file in mssparkutils.fs.ls(path):\r\n",
+					"    if file.name == '_SUCCESS':\r\n",
+					"        mssparkutils.fs.rm(file.path)\r\n",
+					"    else:\r\n",
+					"        mssparkutils.fs.mv(file.path, path+filename)"
+				],
+				"execution_count": 140
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# trx_without_contract to HDFS"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"partition_key = \"year_quarter\"\r\n",
+					"table = \"trx_without_contract\"\r\n",
+					"\r\n",
+					"df_trx_without_contract\\\r\n",
+					"    .repartition(partition_key)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .format(\"delta\")\\\r\n",
+					"    .partitionBy(partition_key)\\\r\n",
+					"    .saveAsTable(table)"
+				],
+				"execution_count": 156
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Write report trx_quarter"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"path = f'abfss://test@fatddls.dfs.core.windows.net/report/{reference_year_quarter}/trx_quarter/'\r\n",
+					"\r\n",
+					"df_trx_quarter\\\r\n",
+					"    .coalesce(1)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .option(\"header\",\"true\")\\\r\n",
+					"    .csv(path)"
+				],
+				"execution_count": 142
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Rename Report file\r\n",
+					"filename = str(reference_year) + \"-q\" + str(reference_quarter) + \"-transactions.csv\"\r\n",
+					"\r\n",
+					"for file in mssparkutils.fs.ls(path):\r\n",
+					"    if file.name == '_SUCCESS':\r\n",
+					"        mssparkutils.fs.rm(file.path)\r\n",
+					"        # print(file.name)\r\n",
+					"    else:\r\n",
+					"        # print(file.name)\r\n",
+					"        mssparkutils.fs.mv(file.path, path+filename)"
+				],
+				"execution_count": 143
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# trx_quarter to HDFS"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"partition_key = \"year_quarter\"\r\n",
+					"table = \"trx_quarter\"\r\n",
+					"\r\n",
+					"df_trx_quarter\\\r\n",
+					"    .repartition(partition_key)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .format(\"delta\")\\\r\n",
+					"    .partitionBy(partition_key)\\\r\n",
+					"    .saveAsTable(table)"
+				],
+				"execution_count": 146
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Detailed Report"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Write temporary data\r\n",
+					"\r\n",
+					"partition_key = \"recipient_id\"\r\n",
+					"tmp_path = f\"abfss://test@fatddls.dfs.core.windows.net/tmp/DetailedReport\"\r\n",
+					"\r\n",
+					"df_trx_contracts\\\r\n",
+					"    .select(\"year\", \"quarter\", \"daily\", \"abi\", \"category\", \"contract_type\", \"recipient_id\", \"provider_id\", \"iuv\", \"sorgente\", \"psp_id\", \"psp_name\")\\\r\n",
+					"    .sort(asc(\"recipient_id\"), asc(\"iuv\"))\\\r\n",
+					"    .coalesce(1) \\\r\n",
+					"    .write\\\r\n",
+					"    .mode(\"overwrite\")\\\r\n",
+					"    .option(\"header\",\"true\")\\\r\n",
+					"    .csv(tmp_path)"
+				],
+				"execution_count": 147
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"##### Move each PSP report from the temporary folder to its designated folder\r\n",
+					"\r\n",
+					"- Extraction of the psp_id from the partition path\r\n",
+					"- Creation of a psp_id:path dictionary\r\n",
+					"- Move the files from the path stored in the dictionary to the PSP folder"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dir_list = mssparkutils.fs.ls(tmp_path)\r\n",
+					"file_list = []\r\n",
+					"prefix = 'recipient_id='\r\n",
+					"dict_recipients_filenames = {}\r\n",
+					"\r\n",
+					"for path in dir_list:\r\n",
+					"    current_path = mssparkutils.fs.ls(path.path)[0].path\r\n",
+					"    if current_path.endswith(\".csv\"):\r\n",
+					"        recipient_id = path.path.split(\"/\")[-1].replace(prefix, \"\")\r\n",
+					"        dict_recipients_filenames[recipient_id] = current_path"
+				],
+				"execution_count": 148
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"new_prefix = f\"abfss://test@fatddls.dfs.core.windows.net/invoices/\"\r\n",
+					"new_filename = str(reference_year) + \"-q\" + str(reference_quarter) + \"-DetailedReport.csv\"\r\n",
+					"\r\n",
+					"for recipient in dict_recipients_filenames:\r\n",
+					"    new_path = new_prefix + recipient + \"/\" + new_filename\r\n",
+					"    try:\r\n",
+					"        mssparkutils.fs.mv(dict_recipients_filenames[recipient], new_path, True)\r\n",
+					"    except Py4JJavaError:\r\n",
+					"        mssparkutils.fs.rm(new_path)\r\n",
+					"        mssparkutils.fs.mv(dict_recipients_filenames[recipient], new_path, True)"
+				],
+				"execution_count": 149
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# QuarterAgentReport"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_trx_quarter_recipient = spark.sql('''\r\n",
+					"SELECT \r\n",
+					"    year,\r\n",
+					"    quarter,\r\n",
+					"    month,\r\n",
+					"    provider_id,\r\n",
+					"    abi,\r\n",
+					"    category,\r\n",
+					"    contract_type,\r\n",
+					"    recipient_id,\r\n",
+					"    sum(n_transactions) as trx\r\n",
+					"FROM trx_quarter\r\n",
+					"GROUP BY year, quarter, month, provider_id, abi, category, contract_type, recipient_id\r\n",
+					"''')"
+				],
+				"execution_count": 150
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"partition_key = \"recipient_id\"\r\n",
+					"tmp_path = f\"abfss://test@fatddls.dfs.core.windows.net/tmp/AgentQuarterReport\"\r\n",
+					"\r\n",
+					"df_trx_quarter_recipient\\\r\n",
+					"    .coalesce(1) \\\r\n",
+					"    .write\\\r\n",
+					"    .mode(\"overwrite\")\\\r\n",
+					"    .partitionBy(partition_key)\\\r\n",
+					"    .option(\"header\", \"true\")\\\r\n",
+					"    .csv(tmp_path)"
+				],
+				"execution_count": 151
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"tmp_path = f\"abfss://test@fatddls.dfs.core.windows.net/tmp/AgentQuarterReport\"\r\n",
+					"\r\n",
+					"\r\n",
+					"dir_list = mssparkutils.fs.ls(tmp_path)\r\n",
+					"file_list = []\r\n",
+					"prefix = 'recipient_id='\r\n",
+					"dict_recipients_agents = {}\r\n",
+					"\r\n",
+					"for path in dir_list:\r\n",
+					"    current_path = mssparkutils.fs.ls(path.path)[0].path\r\n",
+					"    if current_path.endswith(\".csv\"):\r\n",
+					"        recipient_id = path.path.split(\"/\")[-1].replace(prefix, \"\")\r\n",
+					"        dict_recipients_agents[recipient_id] = current_path"
+				],
+				"execution_count": 152
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"new_prefix = f\"abfss://test@fatddls.dfs.core.windows.net/invoices/\"\r\n",
+					"new_filename = str(reference_year) + \"-q\" + str(reference_quarter) + \"-AgentQuarterReport.csv\"\r\n",
+					"\r\n",
+					"\r\n",
+					"for recipient in dict_recipients_agents:\r\n",
+					"    new_path = new_prefix + recipient + \"/\" + new_filename\r\n",
+					"    try:\r\n",
+					"        mssparkutils.fs.mv(dict_recipients_agents[recipient], new_path, True)\r\n",
+					"    except Py4JJavaError:\r\n",
+					"        mssparkutils.fs.rm(new_path)\r\n",
+					"        mssparkutils.fs.mv(dict_recipients_agents[recipient], new_path, True)"
+				],
+				"execution_count": 153
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Eliminazione File temporanei"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"tmp_path = f\"abfss://test@fatddls.dfs.core.windows.net/tmp\"\r\n",
+					"\r\n",
+					"mssparkutils.fs.rm(tmp_path, True)"
+				],
+				"execution_count": 154
+			}
+		]
+	}
+}

@@ -1,0 +1,27 @@
+{
+	"name": "fatpublic_binary",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "fatppublic",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"foldername": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Binary",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"folderPath": {
+					"value": "@dataset().foldername",
+					"type": "Expression"
+				},
+				"container": "invoices"
+			}
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

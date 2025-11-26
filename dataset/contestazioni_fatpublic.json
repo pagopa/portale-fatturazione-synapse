@@ -1,0 +1,28 @@
+{
+	"name": "contestazioni_fatpublic",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "fatppublic",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"guid": {
+				"type": "string"
+			},
+			"filename": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Binary",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"container": {
+					"value": "@dataset().guid",
+					"type": "Expression"
+				}
+			}
+		}
+	}
+}

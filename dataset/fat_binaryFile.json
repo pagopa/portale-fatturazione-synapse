@@ -1,0 +1,40 @@
+{
+	"name": "fat_binaryFile",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "fat_adls",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"tableName": {
+				"type": "String"
+			},
+			"containerName": {
+				"type": "string"
+			},
+			"floderName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Binary",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": {
+					"value": "@dataset().tableName",
+					"type": "Expression"
+				},
+				"folderPath": {
+					"value": "@dataset().floderName",
+					"type": "Expression"
+				},
+				"fileSystem": {
+					"value": "@dataset().containerName",
+					"type": "Expression"
+				}
+			}
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

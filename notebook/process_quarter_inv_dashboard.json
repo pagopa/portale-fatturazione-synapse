@@ -1,0 +1,359 @@
+{
+	"name": "process_quarter_inv_dashboard",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/quarter_invoice"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "31cf9eeb-7f5e-4b6e-90d3-8e784b7887ea"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Dashboard"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"spark.conf.set(\"spark.sql.sources.partitionOverwriteMode\", \"dynamic\")"
+				],
+				"execution_count": 12
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.types import StructType, StructField, IntegerType, ArrayType, DoubleType, FloatType, StringType #TimestampType \r\n",
+					"from pyspark.sql.functions import *\r\n",
+					"from pyspark.sql import Window\r\n",
+					"from datetime import datetime, date, timedelta\r\n",
+					"import pytz\r\n",
+					"import jsonschema\r\n",
+					"from time import time\r\n",
+					"from math import floor\r\n",
+					"import json"
+				],
+				"execution_count": 13
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"current_year_month = '202504'\r\n",
+					"reference_year_quarter = '2025_1'\r\n",
+					"container_path = ''"
+				],
+				"execution_count": 19
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"reference_year = reference_year_quarter[:4]\r\n",
+					"reference_quarter = reference_year_quarter[5:]\r\n",
+					"\r\n",
+					"print(f\"Current year_month: {current_year_month}\\nReference year_quarter: {reference_year_quarter}\")"
+				],
+				"execution_count": 15
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Write: Dashboard export"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_financial_report_write = spark.sql(f\"select * from pagopa.financial_report where year_quarter = '{reference_year_quarter}'\")"
+				],
+				"execution_count": 16
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# daily\r\n",
+					"utc = pytz.timezone(\"UTC\")\r\n",
+					"current_time = utc.localize(datetime.now())\r\n",
+					"daily = current_time.strftime(\"%Y%m%d\")\r\n",
+					"\r\n",
+					"# daily_utc\r\n",
+					"local_tz = pytz.timezone(\"Europe/Rome\")\r\n",
+					"local_time = local_tz.localize(datetime.now())\r\n",
+					"daily_midnight = local_time.strftime(\"%d/%m/%Y 00:00:00%z\")\r\n",
+					"my_local = datetime.strptime(daily_midnight, \"%d/%m/%Y 00:00:00%z\")\r\n",
+					"utc_time = my_local.astimezone(tz = utc)\r\n",
+					"daily_utc = utc_time.strftime(\"%s\")\r\n",
+					"\r\n",
+					"# Add daily and daily_utc to dashboard\r\n",
+					"dashboard_export = df_financial_report_write\\\r\n",
+					"    .withColumn(\"daily\", lit(daily))\\\r\n",
+					"    .withColumn(\"daily_epoch\", lit(daily_utc))"
+				],
+				"execution_count": 17
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dashboard_export_pd = dashboard_export.toPandas()\r\n",
+					"\r\n",
+					"current_time = datetime.now()\r\n",
+					"daily = current_time.strftime(\"%Y%m%d\")\r\n",
+					"last_run = floor(time())\r\n",
+					"\r\n",
+					"\r\n",
+					"out = {\r\n",
+					"    \"last_run\": last_run,\r\n",
+					"    \"trx_by_psp\" : json.loads(dashboard_export_pd.to_json(orient = \"records\"))\r\n",
+					"}"
+				],
+				"execution_count": 18
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"path = f'{container_path}/invoice-dashboard/history/{reference_year_quarter}/export_{daily}.json'\r\n",
+					"\r\n",
+					"\r\n",
+					"result = json.dumps(out, ensure_ascii=False).encode('utf8')\r\n",
+					"mssparkutils.fs.put(path, result.decode(), overwrite = True)"
+				],
+				"execution_count": 20
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Write: Table for invoices daily history"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Read dashboard export\r\n",
+					"all_dashboard_export = spark.read.json(f'{container_path}/invoice-dashboard/history/{reference_year_quarter}')\r\n",
+					"\r\n",
+					"# Explode and select columns, filter on current daily\r\n",
+					"dashboard_daily_history = all_dashboard_export\\\r\n",
+					"    .select(all_dashboard_export.last_run, explode(all_dashboard_export.trx_by_psp).alias(\"tmp_col\"))\\\r\n",
+					"    .select(\"last_run\", \"tmp_col.*\")\\\r\n",
+					"    .where(\"year_quarter is not null\")\\\r\n",
+					"    .select(\"last_run\", \"codice_articolo\", \"abi\", \"category\", \"current_trx\", \"daily_epoch\", \"name\", \"recipient_id\", \"value\", \"year_quarter\",\"daily\")\\\r\n",
+					"    .where(f\"daily={daily}\")"
+				],
+				"execution_count": 21
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Write dashboard daily history\r\n",
+					"\r\n",
+					"table = \"pagopa.invoices_history\"\r\n",
+					"\r\n",
+					"dashboard_daily_history\\\r\n",
+					"    .repartition(\"year_quarter\", \"daily\")\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .format(\"delta\")\\\r\n",
+					"    .partitionBy(\"year_quarter\", \"daily\")\\\r\n",
+					"    .saveAsTable(table)"
+				],
+				"execution_count": 20
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"CSV BI"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"#display(dashboard_daily_history)\r\n",
+					"path = f'{container_path}/invoice-dashboard/history/csv/{reference_year_quarter}/{daily}/'\r\n",
+					"\r\n",
+					"dashboard_daily_history\\\r\n",
+					"    .coalesce(1)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .option(\"header\",\"true\")\\\r\n",
+					"    .csv(path)"
+				],
+				"execution_count": 23
+			}
+		]
+	}
+}

@@ -1,0 +1,179 @@
+{
+	"name": "ConvertInoicingDashboardJsonToCSV",
+	"properties": {
+		"folder": {
+			"name": "CESTINO"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "a5d5b750-0695-440e-8cea-105c30e624a9"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net",
+					"authHeader": null
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"import json\n",
+					"from pyspark.sql.functions import col, lit, when, count, isnull, explode,udf"
+				],
+				"execution_count": 17
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"storage_url = f\"abfss://pagopa@fatpdls.dfs.core.windows.net/invoice-dashboard/history/\""
+				],
+				"execution_count": 18
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"jsonList = mssparkutils.fs.ls(storage_url)"
+				],
+				"execution_count": 19
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"jsonToConvert = []\n",
+					"\n",
+					"for j in jsonList:\n",
+					"    dataEstrazione = j.path[77:85]\n",
+					"    if dataEstrazione != \"\":\n",
+					"        if int(dataEstrazione) < 20250411:\n",
+					"            jsonToConvert.append(j)"
+				],
+				"execution_count": 20
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"run_control": {
+						"frozen": true
+					},
+					"editable": false
+				},
+				"source": [
+					"df = spark.read\\\n",
+					".option(\"multiLine\", \"true\")\\\n",
+					".option(\"mode\", \"FAILFAST\")\\\n",
+					".json('abfss://pagopa@fatpdls.dfs.core.windows.net/invoice-dashboard/history/export_20250208.json')"
+				],
+				"execution_count": 49
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"run_control": {
+						"frozen": true
+					},
+					"editable": false,
+					"collapsed": false
+				},
+				"source": [
+					"lastRun = df.collect()[0][0]\n",
+					"dfExploded = df.select(\"last_run\",explode('trx_by_psp').alias('psp'))\\\n",
+					"                .select(\\\n",
+					"                    col(\"last_run\")\\\n",
+					"                    ,col(\"psp.codice_articolo\")\\\n",
+					"                    ,col(\"psp.abi\")\\\n",
+					"                    ,col(\"psp.category\")\\\n",
+					"                    ,col(\"psp.current_trx\")\\\n",
+					"                    ,col(\"psp.daily_epoch\")\\\n",
+					"                    ,col(\"psp.name\")\\\n",
+					"                    ,col(\"psp.recipient_id\")\\\n",
+					"                    ,col(\"psp.value\")\\\n",
+					"                    ,col(\"psp.year_quarter\")\\\n",
+					"                    ,col(\"psp.daily\")\n",
+					"                )\n",
+					"\n",
+					"print(lastRun)\n",
+					"display(dfExploded)"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"storage_url_tmp = storage_url + \"remediation/\"\n",
+					"print(storage_url_tmp)"
+				],
+				"execution_count": 21
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"\n",
+					"for j in jsonToConvert:\n",
+					"    df = spark.read\\\n",
+					"    .option(\"multiLine\", \"true\")\\\n",
+					"    .option(\"mode\", \"FAILFAST\")\\\n",
+					"    .json(j.path)\n",
+					"    \n",
+					"    dataEstrazione = j.path[77:85]\n",
+					"\n",
+					"    #print(f\"{storage_url_tmp}{dataEstrazione}/\")\n",
+					"    lastRun = df.collect()[0][0]\n",
+					"    dfExploded = df.select(\"last_run\",explode('trx_by_psp').alias('psp'))\\\n",
+					"                    .select(\\\n",
+					"                        col(\"last_run\")\\\n",
+					"                        ,col(\"psp.codice_articolo\")\\\n",
+					"                        ,col(\"psp.abi\")\\\n",
+					"                        ,col(\"psp.category\")\\\n",
+					"                        ,col(\"psp.current_trx\")\\\n",
+					"                        ,col(\"psp.daily_epoch\")\\\n",
+					"                        ,col(\"psp.name\")\\\n",
+					"                        ,col(\"psp.recipient_id\")\\\n",
+					"                        ,col(\"psp.value\")\\\n",
+					"                        ,col(\"psp.year_quarter\")\\\n",
+					"                        ,col(\"psp.daily\")\\\n",
+					"                    )\n",
+					"    dfExploded.repartition(1).write.options(header = True, delimiter = ',').mode('overwrite').csv(f\"{storage_url_tmp}{dataEstrazione}/\")\n",
+					"    "
+				],
+				"execution_count": 22
+			}
+		]
+	}
+}

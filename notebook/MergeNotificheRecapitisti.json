@@ -1,0 +1,201 @@
+{
+	"name": "MergeNotificheRecapitisti",
+	"properties": {
+		"folder": {
+			"name": "CESTINO"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "4b60fc78-c84e-47e6-a482-0d84a792c19b"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"# get the function to retrieve sql properties\n",
+					"%run Utility/getSQLConnectionString\n",
+					"\n",
+					"# retrieve sql connection_string and connection_properties\n",
+					"jdbcUrl,conn_Prop = getSQLConnectionString()"
+				],
+				"execution_count": 56
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = \"(SELECT * FROM [pfd].[MatriceCostiRecapitisti] ) as tb\"\n",
+					"spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop).createOrReplaceTempView(\"TmpMatriceRecapitisti\")\n",
+					""
+				],
+				"execution_count": 58
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"spark.read.jdbc(url=jdbcUrl, table=\"(SELECT * FROM [pfd].[Notifiche] WHERE notificationtype <> 'DIGITALE') as tb\", properties=conn_Prop).createOrReplaceTempView(\"Notifiche\")"
+				],
+				"execution_count": 59
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"spark.read.jdbc(url=jdbcUrl, table=\"(SELECT * FROM [pfd].[Notifiche] ) as tb\", properties=conn_Prop).createOrReplaceTempView(\"test\")"
+				],
+				"execution_count": 45
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"spark.sql(\"\"\"select\n",
+					"\tcast(left(event_timestamp,19) as timestamp) as presaincarico_data,\n",
+					"\tevent_id, dataInizioValidita, dataFineValidita,\n",
+					"\tpaper_product_type as analogico_prodotto,\n",
+					"\tcast(number_of_pages as int) as analogico_totale_pagine,\n",
+					"\tCASE\n",
+					"\t\tWHEN g_envelope_weight BETWEEN 1 AND 20 THEN 1\n",
+					"\t\tWHEN g_envelope_weight BETWEEN 21 AND 50 THEN 21\n",
+					"\t\tWHEN g_envelope_weight BETWEEN 51 AND 100 THEN 51\n",
+					"\t\tWHEN g_envelope_weight BETWEEN 101 AND 250 THEN 101\n",
+					"\t\tWHEN g_envelope_weight BETWEEN 251 AND 350 THEN 251\n",
+					"\t\tWHEN g_envelope_weight BETWEEN 351 AND 1000 THEN 351\n",
+					"\t\tWHEN g_envelope_weight BETWEEN 1001 AND 2000 THEN 1001\n",
+					"\tEND as analogico_totale_peso_gr_min,\n",
+					"\tCASE\n",
+					"\t\tWHEN paper_product_type in ('RIS', 'RIR') THEN foreign_state\n",
+					"\t\tELSE zip_code\n",
+					"\tEND as analogico_geokey\n",
+					"\tfrom Notifiche\n",
+					"\tINNER JOIN (SELECT distinct dataInizioValidita,dataFineValidita from TmpMatriceRecapitisti) c\n",
+					"    ON cast(left(event_timestamp,19) as timestamp) >= c.dataInizioValidita \n",
+					"\tAND cast(left(event_timestamp,19) as timestamp) <= c.dataFineValidita\n",
+					"\t\t\"\"\").createOrReplaceTempView(\"joinrecap\")\n",
+					"\t#20498508"
+				],
+				"execution_count": 60
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\n",
+					"\n",
+					"select count(*) from joinrecap"
+				],
+				"execution_count": 62
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df = spark.sql(\"\"\"select * from joinrecap j \n",
+					"    left JOIN TmpMatriceRecapitisti r\n",
+					"        ON j.analogico_prodotto=r.product \n",
+					"        AND (j.analogico_geokey = r.geokey OR j.analogico_geokey = r.foreign_state) \n",
+					"        AND j.analogico_totale_peso_gr_min=r.min\n",
+					"        AND r.dataInizioValidita = j.dataInizioValidita\"\"\")"
+				],
+				"execution_count": 61
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false
+					}
+				},
+				"source": [
+					"df.count()"
+				],
+				"execution_count": 33
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df.count()"
+				],
+				"execution_count": 49
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"display(df)"
+				],
+				"execution_count": 50
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"display(df)"
+				],
+				"execution_count": 30
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df.columns"
+				],
+				"execution_count": 52
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df.select(\"event_id\",\"id_recapitista\", \"j.dataInizioValidita\", \"j.dataFineValidita\", \"presaincarico_data\").write.jdbc(url=jdbcUrl, table=\"stg.updateRecapitisti\", mode = 'append', properties=conn_Prop)"
+				],
+				"execution_count": 64
+			}
+		]
+	}
+}

@@ -1,0 +1,503 @@
+{
+	"name": "MigrazioneUAT",
+	"properties": {
+		"activities": [
+			{
+				"name": "DropObjectsQuery",
+				"type": "Lookup",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "DECLARE @sql NVARCHAR(MAX) = N'';\n\n-- 1. Drop Constraints\nSELECT @sql += N'ALTER TABLE ' + QUOTENAME(OBJECT_SCHEMA_NAME(parent_object_id)) + '.' + QUOTENAME(OBJECT_NAME(parent_object_id)) +\n                N' DROP CONSTRAINT ' + QUOTENAME(name) + ';'\nFROM sys.objects \nWHERE type in ('F', 'UQ', 'D') AND is_ms_shipped = 0; --AND QUOTENAME(OBJECT_SCHEMA_NAME(parent_object_id)) + '.' + QUOTENAME(OBJECT_NAME(parent_object_id)) = '[pfw].[DatiModuloCommessa]';\n\n-- 2. Drop Stored Procedures\nSELECT @sql += N'DROP PROCEDURE ' + QUOTENAME(SCHEMA_NAME(schema_id)) + '.' + QUOTENAME(name) + ';'\n FROM sys.objects\n WHERE type = 'P'\n AND is_ms_shipped = 0; --AND QUOTENAME(SCHEMA_NAME(schema_id)) + '.' + QUOTENAME(name) = '[dbo].[spDeleteTestNotebook]';\n\n-- 3. Drop Views\nSELECT @sql += N'DROP VIEW ' + QUOTENAME(SCHEMA_NAME(schema_id)) + '.' + QUOTENAME(name) + ';'\n FROM sys.objects\n WHERE type = 'V'\n AND is_ms_shipped = 0; -- AND QUOTENAME(SCHEMA_NAME(schema_id)) + '.' + QUOTENAME(name) = '[pfd].[NotificheNoRec]';\n\n--4. Drop tables\nSELECT @sql += N'DROP TABLE ' + QUOTENAME(SCHEMA_NAME(schema_id)) + '.' + QUOTENAME(name) + ';'\n FROM sys.tables\n WHERE is_ms_shipped = 0;-- AND QUOTENAME(SCHEMA_NAME(schema_id)) + '.' + QUOTENAME(name) = '[pfw].[DatiModuloCommessa]';\n\nselect @sql as DropCommand",
+						"queryTimeout": "02:00:00",
+						"isolationLevel": "ReadCommitted",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "fat_u_db",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": " ",
+							"tablename": " "
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "DropObjects",
+				"type": "Script",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [
+					{
+						"activity": "DropObjectsQuery",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": {
+								"value": "@string(activity('DropObjectsQuery').output.value[0].DropCommand)",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "CreateTablesQuery",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "DropObjects",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT\n    'CREATE TABLE [' + SCHEMA_NAME(t.schema_id) + '].[' + t.name + '] (' +\n    STUFF((\n        SELECT\n            ', [' + c.name + '] ' +\n            TYPE_NAME(c.system_type_id) +\n            CASE\n                WHEN TYPE_NAME(c.system_type_id) IN ('varchar', 'nvarchar', 'varbinary') THEN '(' + IIF(c.max_length = -1, 'MAX', CAST(c.max_length AS VARCHAR(10))) + ')'\n                WHEN TYPE_NAME(c.system_type_id) IN ('char', 'nchar', 'binary') THEN '(' + CAST(c.max_length AS VARCHAR(10)) + ')'\n                WHEN TYPE_NAME(c.system_type_id) IN ('decimal', 'numeric') THEN '(' + CAST(c.precision AS VARCHAR(10)) + ',' + CAST(c.scale AS VARCHAR(10)) + ')'\n                WHEN TYPE_NAME(c.system_type_id) IN ('datetime2', 'datetimeoffset', 'time') THEN '(' + CAST(c.scale AS VARCHAR(10)) + ')'\n                ELSE ''\n            END +\n            CASE WHEN c.is_identity = 1 THEN ' IDENTITY(' + CAST(ISNULL(ic.seed_value,1) AS VARCHAR(10)) + ',' + CAST(ISNULL(ic.increment_value,1) AS VARCHAR(10)) + ')' ELSE '' END +\n            ' ' +\n            CASE WHEN c.is_nullable = 1 THEN 'NULL' ELSE 'NOT NULL' END --+\n            --CASE WHEN dc.definition IS NOT NULL THEN ' DEFAULT ' + dc.definition ELSE '' END\n        FROM sys.columns c\n        LEFT JOIN sys.default_constraints dc ON c.default_object_id = dc.object_id\n        LEFT JOIN sys.identity_columns ic ON c.object_id = ic.object_id AND c.column_id = ic.column_id\n        WHERE c.object_id = t.object_id\n        ORDER BY c.column_id\n        FOR XML PATH(''), TYPE\n    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') +\n    CASE WHEN EXISTS (SELECT 1 FROM sys.key_constraints kc WHERE kc.parent_object_id = t.object_id AND kc.type = 'PK')\n         THEN ', CONSTRAINT [' + (SELECT name FROM sys.key_constraints WHERE parent_object_id = t.object_id AND type = 'PK') + '] PRIMARY KEY (' +\n              STUFF((SELECT ', [' + COL_NAME(ic.object_id, ic.column_id) + ']'\n                     FROM sys.index_columns ic\n                     INNER JOIN sys.indexes i ON ic.object_id = i.object_id AND ic.index_id = i.index_id\n                     WHERE ic.object_id = t.object_id AND i.is_primary_key = 1\n                     ORDER BY ic.key_ordinal\n                     FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, '') + ')'\n         ELSE ''\n    END +\n    ');' AS create_query,\n\tSCHEMA_NAME(t.schema_id) + '.' + t.name as tablename\nFROM sys.tables t\nWHERE t.is_ms_shipped = 0 AND SCHEMA_NAME(t.schema_id) != 'dbo' AND SCHEMA_NAME(t.schema_id) + '.' + t.name in ('pfd.relupload','pfd.ContestazioniStorico')\nORDER BY SCHEMA_NAME(t.schema_id), t.name;",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEachTable",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "CreateTablesQuery",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('CreateTablesQuery').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"activities": [
+						{
+							"name": "CreateTable",
+							"type": "Script",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 3,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "NonQuery",
+										"text": {
+											"value": "@item().create_query",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "DataToUat",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "CreateTable",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 3,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "AzureSqlSink",
+									"writeBehavior": "insert",
+									"sqlWriterUseTableLock": false,
+									"disableMetricsCollection": false
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "SqlDatabse",
+									"type": "DatasetReference",
+									"parameters": {
+										"TableSql": "@substring(item().tablename, 4, sub(length(item().tablename),4))",
+										"SchemaSql": {
+											"value": "@substring(item().tablename, 0, 3)",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "fat_u_db",
+									"type": "DatasetReference",
+									"parameters": {
+										"schema": {
+											"value": "@substring(item().tablename, 0, 3)",
+											"type": "Expression"
+										},
+										"tablename": "@substring(item().tablename, 4, sub(length(item().tablename),4))"
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "CreateConstraintsQuery",
+				"type": "Lookup",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [
+					{
+						"activity": "ForEachQuery",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "DECLARE @sql NVARCHAR(MAX) = N'';\n\nSELECT\n    @sql += N'ALTER TABLE [' + SCHEMA_NAME(fk.schema_id) + '].[' + OBJECT_NAME(fk.parent_object_id) + '] WITH CHECK ADD CONSTRAINT [' + fk.name + '] FOREIGN KEY (' +\n    STUFF((\n        SELECT ', [' + COL_NAME(fcs.parent_object_id, fcs.parent_column_id) + ']'\n        FROM sys.foreign_key_columns fcs\n        WHERE fcs.constraint_object_id = fk.object_id\n        ORDER BY fcs.constraint_column_id\n        FOR XML PATH(''), TYPE\n    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') +\n    ') REFERENCES [' + SCHEMA_NAME(rob.schema_id) + '].[' + OBJECT_NAME(fk.referenced_object_id) + '] (' +\n    STUFF((\n        SELECT ', [' + COL_NAME(fcs.referenced_object_id, fcs.referenced_column_id) + ']'\n        FROM sys.foreign_key_columns fcs\n        WHERE fcs.constraint_object_id = fk.object_id\n        ORDER BY fcs.constraint_column_id\n        FOR XML PATH(''), TYPE\n    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') +\n    ')' +\n    CASE WHEN fk.delete_referential_action = 1 THEN ' ON DELETE CASCADE'\n         WHEN fk.delete_referential_action = 2 THEN ' ON DELETE SET NULL'\n         WHEN fk.delete_referential_action = 3 THEN ' ON DELETE SET DEFAULT'\n         ELSE ''\n    END +\n    CASE WHEN fk.update_referential_action = 1 THEN ' ON UPDATE CASCADE'\n         WHEN fk.update_referential_action = 2 THEN ' ON UPDATE SET NULL'\n         WHEN fk.update_referential_action = 3 THEN ' ON UPDATE SET DEFAULT'\n         ELSE ''\n    END +\n    ';' + 'ALTER TABLE [' + SCHEMA_NAME(fk.schema_id) + '].' + QUOTENAME(OBJECT_NAME(fk.parent_object_id)) + ' CHECK CONSTRAINT [' + fk.name + '];'\nFROM sys.foreign_keys fk\nINNER JOIN sys.objects AS rob ON fk.referenced_object_id = rob.object_id\nWHERE fk.is_ms_shipped = 0 -- Escludi le chiavi esterne di sistema\n\n--AND SCHEMA_NAME(fk.schema_id) + '.' + OBJECT_NAME(fk.parent_object_id) = 'pfw.DatiModuloCommessa'\n--AND '[' + SCHEMA_NAME(fk.schema_id) + '].[' + OBJECT_NAME(fk.referenced_object_id) + ']' not in ('[pfw].[Prodotti]', '[pfw].[Stato]')\n\nSELECT\n    @sql += N'ALTER TABLE [' + SCHEMA_NAME(t.schema_id) + '].[' + t.name + '] ADD CONSTRAINT [' + kc.name + '] UNIQUE (' +\n    STUFF((\n        SELECT ', [' + COL_NAME(ic.object_id, ic.column_id) + ']'\n        FROM sys.index_columns ic\n        INNER JOIN sys.indexes i ON ic.object_id = i.object_id AND ic.index_id = i.index_id\n        WHERE ic.object_id = kc.parent_object_id AND i.is_unique_constraint = 1 AND i.index_id = kc.unique_index_id\n        ORDER BY ic.key_ordinal\n        FOR XML PATH(''), TYPE\n    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') +\n    ');'\nFROM sys.key_constraints kc\nINNER JOIN sys.tables t ON kc.parent_object_id = t.object_id\nWHERE kc.type = 'UQ' -- 'UQ' sta per UNIQUE constraint\n  AND kc.is_ms_shipped = 0 -- Escludi i vincoli di sistema\n  --AND SCHEMA_NAME(t.schema_id) + '.' + t.name = 'pfw.DatiModuloCommessa'\n\nSELECT\n@sql += N'ALTER TABLE [' + SCHEMA_NAME(t.schema_id) + '].['+ t.name + '] ADD CONSTRAINT ['+ dc.name\n+ '] DEFAULT ' + REPLACE(REPLACE(dc.definition, '(',''), ')','') + ' FOR [' + c.name  + '];'\nfrom sys.default_constraints dc\ninner join sys.all_columns c on c.default_object_id = dc.object_id\ninner join sys.tables t on c.object_id = t.object_id\n--where SCHEMA_NAME(t.schema_id) + '.' + t.name = 'pfw.DatiModuloCommessa'\n\nSELECT @sql as create_query",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "CreateObjectsQuery",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "ForEachTable",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT\n\tSCHEMA_NAME(v.schema_id)+'.'+v.name as name\nFROM sys.views v\nINNER JOIN sys.sql_modules sm ON v.object_id = sm.object_id\nWHERE v.is_ms_shipped = 0 --AND SCHEMA_NAME(v.schema_id) + '.'+ v.name = 'pfd.NotificheNoRec'\nUNION ALL\nSELECT\n\tSCHEMA_NAME(p.schema_id)+'.'+p.name as name\n\tFROM sys.procedures p\nINNER JOIN sys.sql_modules sm ON p.object_id = sm.object_id\nWHERE p.is_ms_shipped = 0 --AND SCHEMA_NAME(p.schema_id) +'.'+ p.name = 'dbo.spDeleteTestNotebook'",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEachObject",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "CreateObjectsQuery",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('CreateObjectsQuery').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "CreateObject",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "CreateSingleQuery",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "fat_u_db",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "NonQuery",
+										"text": {
+											"value": "@activity('CreateSingleQuery').output.firstRow.create_query",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "CreateSingleQuery",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "@concat('DECLARE @ProcedureText NVARCHAR(MAX) = N''''; SELECT @ProcedureText = @ProcedureText + TEXT + CHAR(13) + CHAR(10)FROM syscomments WHERE id = OBJECT_ID(''',item().name,''')ORDER BY colid; select @ProcedureText as create_query')",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "fat_d_sql",
+									"type": "DatasetReference"
+								},
+								"firstRowOnly": true
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "CreateConstraints",
+				"type": "Script",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [
+					{
+						"activity": "CreateConstraintsQuery",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": {
+								"value": "@string(activity('CreateConstraintsQuery').output.value[0].create_query)",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "CreateIndexQuery",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "ForEachObject",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 3,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT ' CREATE ' +\r\n       CASE \r\n            WHEN I.is_unique = 1 THEN ' UNIQUE '\r\n            ELSE ''\r\n       END +\r\n       I.type_desc COLLATE DATABASE_DEFAULT + ' INDEX ' +\r\n       I.name + ' ON ' +\r\n       SCHEMA_NAME(T.schema_id) + '.' + T.name + ' ( ' +\r\n       KeyColumns + ' )  ' +\r\n       ISNULL(' INCLUDE (' + IncludedColumns + ' ) ', '') +\r\n       ISNULL(' WHERE  ' + I.filter_definition, '') + ' WITH ( ' +\r\n       CASE \r\n            WHEN I.is_padded = 1 THEN ' PAD_INDEX = ON '\r\n            ELSE ' PAD_INDEX = OFF '\r\n       END + ',' +\r\n       'FILLFACTOR = ' + CONVERT(\r\n           CHAR(5),\r\n           CASE \r\n                WHEN I.fill_factor = 0 THEN 100\r\n                ELSE I.fill_factor\r\n           END\r\n       ) + ',' +\r\n       -- default value \r\n       'SORT_IN_TEMPDB = OFF ' + ',' +\r\n       CASE \r\n            WHEN I.ignore_dup_key = 1 THEN ' IGNORE_DUP_KEY = ON '\r\n            ELSE ' IGNORE_DUP_KEY = OFF '\r\n       END + ',' +\r\n       CASE \r\n            WHEN ST.no_recompute = 0 THEN ' STATISTICS_NORECOMPUTE = OFF '\r\n            ELSE ' STATISTICS_NORECOMPUTE = ON '\r\n       END + ',' +\r\n       ' ONLINE = OFF ' + ',' +\r\n       CASE \r\n            WHEN I.allow_row_locks = 1 THEN ' ALLOW_ROW_LOCKS = ON '\r\n            ELSE ' ALLOW_ROW_LOCKS = OFF '\r\n       END + ',' +\r\n       CASE \r\n            WHEN I.allow_page_locks = 1 THEN ' ALLOW_PAGE_LOCKS = ON '\r\n            ELSE ' ALLOW_PAGE_LOCKS = OFF '\r\n       END + ' ) ON [' +\r\n       DS.name + ' ] ' +  CHAR(13) + CHAR(10) [CreateIndexScript]\r\nFROM   sys.indexes I\r\n       JOIN sys.tables T\r\n            ON  T.object_id = I.object_id\r\n       JOIN sys.sysindexes SI\r\n            ON  I.object_id = SI.id\r\n            AND I.index_id = SI.indid\r\n       JOIN (\r\n                SELECT *\r\n                FROM   (\r\n                           SELECT IC2.object_id,\r\n                                  IC2.index_id,\r\n                                  STUFF(\r\n                                      (\r\n                                          SELECT ' , ' + C.name + CASE \r\n                                                                       WHEN MAX(CONVERT(INT, IC1.is_descending_key)) \r\n                                                                            = 1 THEN \r\n                                                                            ' DESC '\r\n                                                                       ELSE \r\n                                                                            ' ASC '\r\n                                                                  END\r\n                                          FROM   sys.index_columns IC1\r\n                                                 JOIN sys.columns C\r\n                                                      ON  C.object_id = IC1.object_id\r\n                                                      AND C.column_id = IC1.column_id\r\n                                                      AND IC1.is_included_column = \r\n                                                          0\r\n                                          WHERE  IC1.object_id = IC2.object_id\r\n                                                 AND IC1.index_id = IC2.index_id\r\n                                          GROUP BY\r\n                                                 IC1.object_id,\r\n                                                 C.name,\r\n                                                 index_id\r\n                                          ORDER BY\r\n                                                 MAX(IC1.key_ordinal) \r\n                                                 FOR XML PATH('')\r\n                                      ),\r\n                                      1,\r\n                                      2,\r\n                                      ''\r\n                                  ) KeyColumns\r\n                           FROM   sys.index_columns IC2 \r\n                                  --WHERE IC2.Object_id = object_id('Person.Address') --Comment for all tables\r\n                           GROUP BY\r\n                                  IC2.object_id,\r\n                                  IC2.index_id\r\n                       ) tmp3\r\n            )tmp4\r\n            ON  I.object_id = tmp4.object_id\r\n            AND I.Index_id = tmp4.index_id\r\n       JOIN sys.stats ST\r\n            ON  ST.object_id = I.object_id\r\n            AND ST.stats_id = I.index_id\r\n       JOIN sys.data_spaces DS\r\n            ON  I.data_space_id = DS.data_space_id\r\n       JOIN sys.filegroups FG\r\n            ON  I.data_space_id = FG.data_space_id\r\n       LEFT JOIN (\r\n                SELECT *\r\n                FROM   (\r\n                           SELECT IC2.object_id,\r\n                                  IC2.index_id,\r\n                                  STUFF(\r\n                                      (\r\n                                          SELECT ' , ' + C.name\r\n                                          FROM   sys.index_columns IC1\r\n                                                 JOIN sys.columns C\r\n                                                      ON  C.object_id = IC1.object_id\r\n                                                      AND C.column_id = IC1.column_id\r\n                                                      AND IC1.is_included_column = \r\n                                                          1\r\n                                          WHERE  IC1.object_id = IC2.object_id\r\n                                                 AND IC1.index_id = IC2.index_id\r\n                                          GROUP BY\r\n                                                 IC1.object_id,\r\n                                                 C.name,\r\n                                                 index_id \r\n                                                 FOR XML PATH('')\r\n                                      ),\r\n                                      1,\r\n                                      2,\r\n                                      ''\r\n                                  ) IncludedColumns\r\n                           FROM   sys.index_columns IC2 \r\n                                  --WHERE IC2.Object_id = object_id('Person.Address') --Comment for all tables\r\n                           GROUP BY\r\n                                  IC2.object_id,\r\n                                  IC2.index_id\r\n                       ) tmp1\r\n                WHERE  IncludedColumns IS NOT NULL\r\n            ) tmp2\r\n            ON  tmp2.object_id = I.object_id\r\n            AND tmp2.index_id = I.index_id\r\nWHERE  I.is_primary_key = 0\r\n       AND I.is_unique_constraint = 0",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEachQuery",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "CreateIndexQuery",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('CreateIndexQuery').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"batchCount": 3,
+					"activities": [
+						{
+							"name": "CreateIndex",
+							"type": "Script",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 3,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "fat_u_db",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "NonQuery",
+										"text": {
+											"value": "@item().CreateIndexScript",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						}
+					]
+				}
+			}
+		],
+		"variables": {
+			"test": {
+				"type": "String"
+			}
+		},
+		"annotations": []
+	}
+}

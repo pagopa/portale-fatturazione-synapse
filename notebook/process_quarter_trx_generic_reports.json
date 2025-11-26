@@ -1,0 +1,348 @@
+{
+	"name": "process_quarter_trx_generic_reports",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/quarter_trx"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "6a717ba6-c89a-478b-b232-4ddb61eb6289"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Write Generic Csv Reports to Blob"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"#Attivazione modalità \"dynamic\" per la scrittura delle partizioni\r\n",
+					"spark.conf.set(\"spark.sql.sources.partitionOverwriteMode\", \"dynamic\")"
+				],
+				"execution_count": 73
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.types import StructType, StructField, IntegerType\r\n",
+					"from datetime import date, timedelta, datetime\r\n",
+					"from pyspark.sql.functions import *\r\n",
+					"from py4j.protocol import Py4JJavaError\r\n",
+					"import pandas as pd"
+				],
+				"execution_count": 74
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Reference time indicators\r\n",
+					"\r\n",
+					"In this section, the invoce period is set.\\\r\n",
+					"The reference date is 5 days before the current date.\\\r\n",
+					"The current date is by default the day on which the job runs.\\\r\n",
+					"However, this can be overwritten by uncommenting the next cell of code and inserting the year, month, and day of choice."
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"current_year_month = ''\r\n",
+					"reference_year_quarter = ''\r\n",
+					"container_path = ''"
+				],
+				"execution_count": 78
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"reference_year = reference_year_quarter[:4]\r\n",
+					"reference_quarter = reference_year_quarter[5:]\r\n",
+					"\r\n",
+					"print(f\"Current year_month: {current_year_month}\\nReference year_quarter: {reference_year_quarter}\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Write transactions without contracts report"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_trx_without_contract = spark.sql(f\"select * from pagopa.trx_without_contract where year_quarter = '{reference_year_quarter}'\")"
+				],
+				"execution_count": 81
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"if df_trx_without_contract[df_trx_without_contract[\"transactions\"]!=0].count() == 0:\r\n",
+					"    a = \"-\"\r\n",
+					"    gs_trx_without_contract = spark.createDataFrame(pd.DataFrame({\"transactions\": a, \"year\": a, \"quarter\": a, \"psp_id\": a, \"psp_name\": a,\r\n",
+					"                                               \"identificativo_canale\": a, \"membership_id\": a, \"year_quarter\": a}, index = [0]))\r\n",
+					"\r\n",
+					"else:\r\n",
+					"    gs_trx_without_contract = df_trx_without_contract"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"path = f'{container_path}/generic_reports/{reference_year_quarter}/trx_without_contract/'\r\n",
+					"\r\n",
+					"gs_trx_without_contract\\\r\n",
+					"    .coalesce(1)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .option(\"header\",\"true\")\\\r\n",
+					"    .csv(path)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Rename Report file\r\n",
+					"filename = str(reference_year) + \"-q\" + str(reference_quarter) + \"-transactions-without-contracts.csv\"\r\n",
+					"\r\n",
+					"for file in mssparkutils.fs.ls(path):\r\n",
+					"    if file.name == '_SUCCESS':\r\n",
+					"        mssparkutils.fs.rm(file.path)\r\n",
+					"    else:\r\n",
+					"        mssparkutils.fs.mv(file.path, path+filename)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Write report trx_quarter"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_trx_quarter = spark.sql(f\"select * from pagopa.trx_quarter where year_quarter = '{reference_year_quarter}'\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"path = f'{container_path}/generic_reports/{reference_year_quarter}/trx_quarter/'\r\n",
+					"\r\n",
+					"df_trx_quarter\\\r\n",
+					"    .coalesce(1)\\\r\n",
+					"    .write.mode(\"overwrite\")\\\r\n",
+					"    .option(\"header\",\"true\")\\\r\n",
+					"    .csv(path)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Rename Report file\r\n",
+					"filename = str(reference_year) + \"-q\" + str(reference_quarter) + \"-transactions.csv\"\r\n",
+					"\r\n",
+					"for file in mssparkutils.fs.ls(path):\r\n",
+					"    if file.name == '_SUCCESS':\r\n",
+					"        mssparkutils.fs.rm(file.path)\r\n",
+					"        # print(file.name)\r\n",
+					"    else:\r\n",
+					"        # print(file.name)\r\n",
+					"        mssparkutils.fs.mv(file.path, path+filename)"
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

@@ -1,0 +1,236 @@
+{
+	"name": "CheckAnticipo",
+	"properties": {
+		"folder": {
+			"name": "Invoicing"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "fb56b59e-7a8f-44b8-9f72-38e2d0cc2a55"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"from pyspark.sql.functions import col, when\n",
+					"from pyspark.sql import window as W\n",
+					""
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"tipologiaFattura = 'ANTICIPO'"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"annoriferimento = '2025'\n",
+					"meseriferimento = '3'"
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Verifica importo modulo commessa vs fattura"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# get the function to retrieve sql properties\n",
+					"%run Utility/getSQLConnectionString\n",
+					"\n",
+					"# retrieve sql connection_string and connection_properties\n",
+					"jdbcUrl,conn_Prop = getSQLConnectionString()"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"\"\"(\n",
+					"SELECT FkIdEnte \n",
+					"\t  ,AVG(PercentualeCategoria) PercAnticipo \n",
+					"      ,SUM(Totale) TotModCommessa \n",
+					"\t  ,CAST(((SUM(Totale) * AVG(PercentualeCategoria)) / 100) as decimal(18,2)) as TotFattura \n",
+					"FROM pfw.DatiModuloCommessaTotali as dmct \n",
+					"where \n",
+					"dmct.AnnoValidita = {annoriferimento} and dmct.MeseValidita = {meseriferimento} \n",
+					"group by dmct.FkIdEnte, dmct.MeseValidita, dmct.AnnoValidita \n",
+					") as tb\"\"\"\n",
+					"dfModuloCommessa = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop) "
+				],
+				"execution_count": 21
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"\"\"(\n",
+					"SELECT FkIdEnte \n",
+					"\t  ,TotaleFattura \n",
+					"FROM pfd.FattureTestata \n",
+					"where \n",
+					"AnnoRiferimento = {annoriferimento} and MeseRiferimento = {meseriferimento} \n",
+					"and FkTipologiaFattura = 'ANTICIPO'\n",
+					") as tb\"\"\"\n",
+					"dfFattura = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop) "
+				],
+				"execution_count": 22
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dfCheck = dfFattura.join(dfModuloCommessa,on=\"FkIdEnte\",how=\"inner\")\\\n",
+					"        .withColumn(\"checkCol\",when(col(\"TotFattura\") == col(\"TotaleFattura\"),'OK'))\\\n",
+					"        .select(\"FkIdEnte\").filter(\"checkCol <> 'OK'\")\n",
+					"\n",
+					"if dfCheck.count() > 0:\n",
+					"    print(\"Attenzione Tot Modulo commessa diverso da fattura di anticipo\")\n",
+					"else:\n",
+					"    print(\"Controllo importo OK\")"
+				],
+				"execution_count": 23
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Verifica univocità fattura per ente"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"%run Invoicing/CheckCommon"
+				],
+				"execution_count": 28
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dfCheckFattura = checkFatturaUnivoca(annoriferimento, meseriferimento, 'ANTICIPO')\n",
+					"\n",
+					"if dfCheckFattura.count() > 1:\n",
+					"    print(\"Attenzione le fatture non sono univoche\")\n",
+					"else:\n",
+					"    print(\"Test univocità fatture OK\")"
+				],
+				"execution_count": 29
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Verifica codici materiali"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"sqlStm = f\"\"\"\n",
+					"        WITH fattureTestata AS\n",
+					"        (\n",
+					"        SELECT DISTINCT \n",
+					"                    CASE WHEN mc.FkIdStato = 'Chiusa/Stimato' THEN 1\n",
+					"                    ELSE 0 END as IsStimata\n",
+					"                    , ft.FkIdEnte\n",
+					"                    , ft.IdFattura\n",
+					"        FROM pfd.FattureTestata ft\n",
+					"        INNER JOIN pfw.DatiModuloCommessa mc on ft.FkIdEnte = mc.FkIdEnte\n",
+					"                                            AND ft.MeseRiferimento = mc.MeseValidita\n",
+					"                                            AND ft.AnnoRiferimento = mc.AnnoValidita\n",
+					"                                            AND ft.FkTipologiaFattura = 'ANTICIPO'\n",
+					"        WHERE ft.AnnoRiferimento = {annoriferimento} and MeseRiferimento = {meseriferimento}\n",
+					"            AND ft.FkTipologiaFattura = '{tipologiaFattura}'\n",
+					"        )\n",
+					"        SELECT fft.*, fr.CodiceMateriale \n",
+					"        FROM fattureTestata fft\n",
+					"        INNER JOIN pfd.FattureRighe fr on fft.IdFattura = fr.FkIdFattura\n",
+					"\"\"\"\n",
+					"\n",
+					"dfCodMateriali = spark.read.jdbc(url=jdbcUrl, table=sqlStm, properties=conn_Prop) "
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					""
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

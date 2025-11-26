@@ -1,0 +1,230 @@
+{
+	"name": "ReportPreseInCarico",
+	"properties": {
+		"activities": [
+			{
+				"name": "Set Periodo",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "annomese",
+					"value": {
+						"value": "@formatDateTime(getPastTime(1,'Month'), 'yyyy-MM')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "RptPreseInCarico",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "Set Periodo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "Report_PreseInCarico",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"anno_mese": {
+							"value": {
+								"value": "@variables('annomese')",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": true
+					},
+					"driverSize": "Small"
+				}
+			},
+			{
+				"name": "RptPreseInCaricoConLotti",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "Set Periodo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "Report_PreseInCarico_conLotti",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"anno_mese": {
+							"value": {
+								"value": "@variables('annomese')",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": true
+					},
+					"driverSize": "Small"
+				}
+			},
+			{
+				"name": "ReportAsseverazione",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "Set Periodo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "Report PerfezionateAsseverazione",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"anno_mese": {
+							"value": {
+								"value": "@variables('annomese')",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": true
+					},
+					"driverSize": "Small"
+				}
+			},
+			{
+				"name": "JsonPreseInCarico",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "RptPreseInCarico",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "RptPreseInCaricoConLotti",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "ReportAsseverazione",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "JsonAccertamenti",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"anno_mese": {
+							"value": {
+								"value": "@variables('annomese')",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": null,
+						"spark.dynamicAllocation.minExecutors": null,
+						"spark.dynamicAllocation.maxExecutors": null
+					},
+					"driverSize": "Small",
+					"numExecutors": null
+				}
+			}
+		],
+		"variables": {
+			"annomese": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Accertamenti"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-02-05T10:43:48Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

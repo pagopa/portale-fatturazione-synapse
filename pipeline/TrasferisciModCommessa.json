@@ -1,0 +1,125 @@
+{
+	"name": "TrasferisciModCommessa",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy DatiModCommessa",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT *\nFROM pfw.DatiModuloCommessa\nWHERE AnnoValidita = 2025\nAND MeseValidita = 11\nAND FkIdStato IN ('Aperta/Caricato', 'Chiusa/Caricato')",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"preCopyScript": "TRUNCATE TABLE stg.ModuliCommessaProd",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": true,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "SqlDatabse",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableSql": "a",
+							"SchemaSql": "a"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "fat_u_db",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "stg",
+							"tablename": "ModuliCommessaProd"
+						}
+					}
+				]
+			},
+			{
+				"name": "Copy ModuliCommessaTotali",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT *\nFROM pfw.DatiModuloCommessaTotali\nWHERE AnnoValidita = 2025\nAND MeseValidita = 11\nAND FkIdStato IN ('Aperta/Caricato', 'Chiusa/Caricato')",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"preCopyScript": "TRUNCATE TABLE stg.ModuliCommessaTotaliProd",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": true,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "SqlDatabse",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableSql": "a",
+							"SchemaSql": "a"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "fat_u_db",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "stg",
+							"tablename": "ModuliCommessaTotaliProd"
+						}
+					}
+				]
+			}
+		],
+		"folder": {
+			"name": "ModCommessaPerUAT"
+		},
+		"annotations": []
+	}
+}

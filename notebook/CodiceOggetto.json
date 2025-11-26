@@ -1,0 +1,428 @@
+{
+	"name": "CodiceOggetto",
+	"properties": {
+		"folder": {
+			"name": "Ingestion"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "4aeb8bd1-af64-4b67-89e1-942167133de6"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.functions import col, from_json,lit,  concat\r\n",
+					"from pyspark.sql.types import StructType, StructField, StringType\r\n",
+					"from datetime import datetime"
+				],
+				"execution_count": 173
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#### Recupero ultimo codice oggetto disponibile per ogni notifica analogica presente su pn_timeline"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\r\n",
+					"\"\"\"with multiple_codes as (\r\n",
+					"    SELECT DISTINCT\r\n",
+					"        get_json_object(details,'$.sendRequestId') as chiave,\r\n",
+					"        get_json_object(details, '$.registeredLetterCode') as registeredLetterCode,\r\n",
+					"        timelineelementid,\r\n",
+					"        ROW_NUMBER() OVER(PARTITION BY get_json_object(details,'$.sendRequestId') ORDER BY ingestion_tms DESC) as rowno\r\n",
+					"    FROM fat_delta.pn_timeline\r\n",
+					"    WHERE get_json_object(details, '$.deliveryDetailCode') = \"CON080\"\r\n",
+					"    AND category in (\"SEND_ANALOG_PROGRESS\",\"SEND_SIMPLE_REGISTERED_LETTER_PROGRESS\")\r\n",
+					"    AND get_json_object(details, '$.registeredLetterCode') is not null)\r\n",
+					"SELECT chiave, timelineelementid, registeredLetterCode\r\n",
+					"FROM multiple_codes\r\n",
+					"WHERE rowno = 1\r\n",
+					"\"\"\").createOrReplaceTempView(\"tmpRegisteredLetterCodeNew\")"
+				],
+				"execution_count": 176
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"last_modified = datetime.now()"
+				],
+				"execution_count": 177
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#### Join con notifiche perfezionate per recuperare campi utili"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"spark.sql(f\"\"\"SELECT DISTINCT\r\n",
+					"            n.event_id\r\n",
+					"            ,p.timelineelementid\r\n",
+					"            ,n.iun\r\n",
+					"            ,n.recipients.recipientid[0] as recId\r\n",
+					"            ,n.year\r\n",
+					"            ,n.month\r\n",
+					"            ,n.daily\r\n",
+					"            ,p.registeredLetterCode\r\n",
+					"            ,'{last_modified}' as LastModified\r\n",
+					"        FROM fat_delta.notifiche n\r\n",
+					"        LEFT JOIN tmpRegisteredLetterCodeNew p ON n.event_id = p.chiave\r\n",
+					"        WHERE n.notificationtype <> 'Digitale' AND p.registeredLetterCode IS NOT NULL\"\"\").createOrReplaceTempView(\"dfNotifiche\")"
+				],
+				"execution_count": 178
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#### Upsert fat_delta.notifiche_codoggetto"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.sql(\"\"\"\r\n",
+					"MERGE INTO fat_delta.notifiche_codoggetto AS target\r\n",
+					"USING dfNotifiche AS source\r\n",
+					"ON target.event_id = source.event_id\r\n",
+					"WHEN MATCHED AND target.registeredLetterCode <> source.registeredLetterCode THEN\r\n",
+					"  UPDATE SET target.registeredLetterCode = source.registeredLetterCode,\r\n",
+					"             target.LastModified = source.LastModified\r\n",
+					"WHEN NOT MATCHED THEN\r\n",
+					"  INSERT (event_id,timelineelementid,iun,recId, year, month, daily,registeredLetterCode,LastModified)\r\n",
+					"  VALUES (source.event_id,source.timelineelementid,source.iun,source.recId,source.year,source.month,source.daily,source.registeredLetterCode,source.LastModified)\r\n",
+					"\"\"\")"
+				],
+				"execution_count": 181
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#### Selezione righe aggiornate o inserite per import su SQL"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfNotifiche_modificate = spark.sql(f\"select * from fat_delta.notifiche_codoggetto where LastModified = '{last_modified}'\")"
+				],
+				"execution_count": 182
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"dfCodOggettoDL_filtered = dfNotifiche_modificate.withColumn(\"eventId\",concat(col(\"event_id\"),lit('.'),col('recId')))\\\r\n",
+					"                          .select(\"eventId\", \"iun\", \"year\", \"month\", \"registeredLetterCode\")"
+				],
+				"execution_count": 186
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# get the function to retrieve sql properties\r\n",
+					"%run Utility/getSQLConnectionString\r\n",
+					"\r\n",
+					"# retrieve sql connection_string and connection_properties\r\n",
+					"jdbcUrl,conn_Prop = getSQLConnectionString()"
+				],
+				"execution_count": 187
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"dfToSql = dfCodOggettoDL_filtered.withColumnRenamed(\"eventid\",\"event_id\")\\\r\n",
+					"                    .withColumnRenamed(\"iun\",\"iun\")\\\r\n",
+					"                    .withColumnRenamed(\"year\",\"year\")\\\r\n",
+					"                    .withColumnRenamed(\"month\",\"month\")\\\r\n",
+					"                    .withColumnRenamed(\"registeredLetterCode\",\"CodiceOggetto\")"
+				],
+				"execution_count": 188
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"if (dfToSql.count() > 0):\r\n",
+					"    dfToSql.write.jdbc(url=jdbcUrl, table=\"stg.Notifiche_CodiceOggetto\", mode = 'overwrite', properties=conn_Prop)"
+				],
+				"execution_count": 36
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Test quadratura tabella sql con pn_timeline"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#query = \"(SELECT CodiceOggetto FROM pfd.Notifiche_CodiceOggetto) as tb\""
+				],
+				"execution_count": 190
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#codiceoggetto_sql = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop)"
+				],
+				"execution_count": 191
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# codiceoggetto_dl = spark.sql(\r\n",
+					"# \"\"\"with multiple_codes as (\r\n",
+					"#     SELECT DISTINCT\r\n",
+					"#         get_json_object(details,'$.sendRequestId') as chiave,\r\n",
+					"#         get_json_object(details, '$.registeredLetterCode') as registeredLetterCode,\r\n",
+					"#         timelineelementid,\r\n",
+					"#         ROW_NUMBER() OVER(PARTITION BY get_json_object(details,'$.sendRequestId') ORDER BY ingestion_tms DESC) as rowno\r\n",
+					"#     FROM fat_delta.pn_timeline\r\n",
+					"#     WHERE get_json_object(details, '$.deliveryDetailCode') = \"CON080\"\r\n",
+					"#     AND category in (\"SEND_ANALOG_PROGRESS\",\"SEND_SIMPLE_REGISTERED_LETTER_PROGRESS\"))\r\n",
+					"#     ,analogiche as (select * from fat_delta.notifiche where notificationtype <> 'digitale')\r\n",
+					"# SELECT distinct registeredLetterCode as CodiceOggetto\r\n",
+					"# FROM multiple_codes p\r\n",
+					"# right JOIN analogiche n ON n.event_id = p.chiave\r\n",
+					"# WHERE rowno = 1 AND p.registeredLetterCode IS NOT NULL\r\n",
+					"# \"\"\")"
+				],
+				"execution_count": 201
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# codiceoggetto_sql.exceptAll(codiceoggetto_dl).count()"
+				],
+				"execution_count": 203
+			}
+		]
+	}
+}

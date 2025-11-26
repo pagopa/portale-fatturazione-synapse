@@ -1,0 +1,712 @@
+{
+	"name": "Contestazioni Massive",
+	"properties": {
+		"activities": [
+			{
+				"name": "Read File Specifics",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 4,
+					"retryIntervalInSeconds": 60,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT * FROM pfd.reportContestazioni where link = ''', pipeline().parameters.filePath, '''')\n",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Set Link",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Read File Specifics",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "link",
+					"value": {
+						"value": "@concat(activity('Read File Specifics').output.firstRow.link)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set AnnoMese",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Read File Specifics",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "AnnoMese",
+					"value": {
+						"value": "@concat(activity('Read File Specifics').output.firstRow.anno,activity('Read File Specifics').output.firstRow.mese)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "WriteFiles",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "File to DLS",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "ContestazioniMassive",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"link": {
+							"value": {
+								"value": "@variables('link')",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"annomese": {
+							"value": {
+								"value": "@variables('AnnoMese')",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"id_ente": {
+							"value": {
+								"value": "@variables('IdEnte')",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"id_contratto": {
+							"value": {
+								"value": "@variables('IdContratto')",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"report_id": {
+							"value": {
+								"value": "@variables('ReportId')",
+								"type": "Expression"
+							},
+							"type": "int"
+						},
+						"tipo_report": {
+							"value": {
+								"value": "@variables('TipoReport')",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": null,
+						"spark.dynamicAllocation.minExecutors": null,
+						"spark.dynamicAllocation.maxExecutors": null
+					},
+					"driverSize": "Small",
+					"numExecutors": null
+				}
+			},
+			{
+				"name": "File to DLS",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Set stato elaborazioni",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "BinarySource",
+						"storeSettings": {
+							"type": "AzureBlobStorageReadSettings",
+							"recursive": true
+						},
+						"formatSettings": {
+							"type": "BinaryReadSettings"
+						}
+					},
+					"sink": {
+						"type": "BinarySink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings",
+							"copyBehavior": "PreserveHierarchy"
+						}
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "contestazioni_fatpublic",
+						"type": "DatasetReference",
+						"parameters": {
+							"guid": {
+								"value": "@variables('link')",
+								"type": "Expression"
+							},
+							"filename": " "
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "contestazioni_dls",
+						"type": "DatasetReference",
+						"parameters": {
+							"ente": {
+								"value": "@concat(variables('IdEnte'),'/',variables('ReportId'))",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "Set IdEnte",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Read File Specifics",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "IdEnte",
+					"value": {
+						"value": "@activity('Read File Specifics').output.firstRow.internal_organization_id",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set IdContratto",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Read File Specifics",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "IdContratto",
+					"value": {
+						"value": "@activity('Read File Specifics').output.firstRow.contract_id",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set ReportId",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Read File Specifics",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "ReportId",
+					"value": {
+						"value": "@activity('Read File Specifics').output.firstRow.report_id",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set stato fallito",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "If Write Fails",
+						"dependencyConditions": [
+							"Skipped",
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": {
+								"value": "@concat('UPDATE pfd.ReportContestazioni set stato = 100 where report_id = ', variables('ReportId'), '; UPDATE pfd.Messaggi set stato = 3 where fkidreport = ',variables('ReportId'), '; INSERT INTO pfd.ReportContestazioniRighe (report_id, step, DataCompletamento) VALUES (',variables('ReportId'),',100,GETDATE())')",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "If Write Fails",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Insert Righe Report SQL",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@not(equals(activity('WriteFiles').output.status.Output.result.exitValue, 'OK'))",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "UpsertContestazioni",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "pfd.UpsertContestazioniMassive",
+								"storedProcedureParameters": {
+									"ReportId": {
+										"value": {
+											"value": "@variables('ReportId')",
+											"type": "Expression"
+										},
+										"type": "Int64"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "fat_sql",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Set Messaggio",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "UpsertContestazioni",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "fat_sql",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "Query",
+										"text": {
+											"value": "@concat('UPDATE pfd.Messaggi set stato = 2 where fkidreport = ',variables('ReportId'))",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Errore formato file",
+							"type": "Script",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "fat_sql",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "Query",
+										"text": {
+											"value": "@concat('UPDATE pfd.ReportContestazioni set stato = ',activity('WriteFiles').output.status.Output.result.exitValue,' where report_id = ', variables('ReportId'), '; UPDATE pfd.Messaggi set stato = 3 where fkidreport = ',variables('ReportId'))",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Set stato elaborazioni",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "Set Link",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set AnnoMese",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set IdEnte",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set IdContratto",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set ReportId",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set TipoReport",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": {
+								"value": "@concat('UPDATE pfd.ReportContestazioni set stato = 2 where report_id = ', variables('ReportId'))",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "WriteFilesToFatPublic",
+				"type": "Copy",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [
+					{
+						"activity": "WriteFiles",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "BinarySource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"wildcardFolderPath": {
+								"value": "@concat(variables('IdEnte'),'/',variables('ReportId'),'/file_intermedi')",
+								"type": "Expression"
+							},
+							"wildcardFileName": "*.csv",
+							"deleteFilesAfterCompletion": false
+						},
+						"formatSettings": {
+							"type": "BinaryReadSettings"
+						}
+					},
+					"sink": {
+						"type": "BinarySink",
+						"storeSettings": {
+							"type": "AzureBlobStorageWriteSettings",
+							"copyBehavior": "PreserveHierarchy"
+						}
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "contestazioni_dls",
+						"type": "DatasetReference",
+						"parameters": {
+							"ente": " "
+						}
+					}
+				]
+			},
+			{
+				"name": "Insert Righe Report SQL",
+				"type": "Copy",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [
+					{
+						"activity": "WriteFilesToFatPublic",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 3,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('select * from fat_delta.dbo.reportcontestazionirighe where report_id = ', string(variables('ReportId')), 'order by step')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "LakeDatabase",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableLake": "reportcontestazionirighe",
+							"SchemaLake": "dbo"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "SqlDatabse",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableSql": "ReportContestazioniRighe",
+							"SchemaSql": "pfd"
+						}
+					}
+				]
+			},
+			{
+				"name": "Set TipoReport",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Read File Specifics",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "TipoReport",
+					"value": {
+						"value": "@string(activity('Read File Specifics').output.firstRow.FkIdTipologiaReport)",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"filePath": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"link": {
+				"type": "String"
+			},
+			"AnnoMese": {
+				"type": "String"
+			},
+			"IdEnte": {
+				"type": "String"
+			},
+			"IdContratto": {
+				"type": "String"
+			},
+			"Filename": {
+				"type": "String"
+			},
+			"ReportId": {
+				"type": "Integer"
+			},
+			"FilePath": {
+				"type": "String"
+			},
+			"test": {
+				"type": "String"
+			},
+			"TipoReport": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "ContestazioniMassive"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-08-07T15:52:13Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

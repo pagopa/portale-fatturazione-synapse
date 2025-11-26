@@ -1,0 +1,580 @@
+{
+	"name": "Report_Consuntivo_Preseincarico",
+	"properties": {
+		"folder": {
+			"name": "Accertamenti"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "d575e7e5-b691-42d4-926a-18b0878bc053"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net",
+					"authHeader": null
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql import functions as F\r\n",
+					"from pyspark.sql import Window"
+				],
+				"execution_count": 60
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"anno_mese = '2024-03'\r\n",
+					"mese = anno_mese[5:]\r\n",
+					"anno = anno_mese[:4]"
+				],
+				"execution_count": 16
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### ConsuntivoVSPreseInCarico"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"consuntivo = spark.sql(f\"\"\"\r\n",
+					"WITH consuntivo AS (\r\n",
+					"    SELECT *\r\n",
+					"    FROM fat_delta.Fatturato_vs_Preseincarico\r\n",
+					"    WHERE data_fatturazione = '01/{mese}/{anno}'\r\n",
+					"    UNION ALL\r\n",
+					"    SELECT *\r\n",
+					"    FROM fat_delta.Asseverazione_vs_Preseincarico\r\n",
+					"    WHERE data_fatturazione = '01/{mese}/{anno}'\r\n",
+					"    UNION ALL\r\n",
+					"    SELECT *\r\n",
+					"    FROM fat_delta.Contestato_vs_Preseincarico\r\n",
+					"    WHERE data_fatturazione = '01/{mese}/{anno}'\r\n",
+					")\r\n",
+					"SELECT\r\n",
+					"    id_ente\r\n",
+					"    ,ente\r\n",
+					"    ,data_fatturazione\r\n",
+					"    ,presaincarico_data\r\n",
+					"    ,tipologia_notifica\r\n",
+					"    ,SUM(tot_prezzo_ente) as tot_prezzo_ente\r\n",
+					"    ,SUM(tot_notifiche) as tot_notifiche\r\n",
+					"    ,SUM(tot_costo_consolidatore) as tot_costo_consolidatore\r\n",
+					"    ,SUM(tot_costo_recapitista) as tot_costo_recapitista\r\n",
+					"    ,SUM(tot_delta_costo) as tot_delta_costo\r\n",
+					"FROM consuntivo\r\n",
+					"GROUP BY data_fatturazione, id_ente, ente, presaincarico_data, tipologia_notifica\r\n",
+					"\"\"\")"
+				],
+				"execution_count": 38
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"##### Calcolo totali"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"def sum_col(df, col):\r\n",
+					"    return df.select(F.sum(col)).collect()[0][0]"
+				],
+				"execution_count": 21
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"totali = spark.createDataFrame([(\"\",\"\",\"\",\"\",\"\",\r\n",
+					"sum_col(consuntivo, 'tot_prezzo_ente'),\\\r\n",
+					"sum_col(consuntivo, 'tot_notifiche'),\\\r\n",
+					"sum_col(consuntivo, 'tot_costo_consolidatore'),\\\r\n",
+					"sum_col(consuntivo, 'tot_costo_recapitista'),\\\r\n",
+					"sum_col(consuntivo, 'tot_delta_costo'))],\r\n",
+					"consuntivo.columns)"
+				],
+				"execution_count": 40
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"consuntivo = consuntivo.union(totali)"
+				],
+				"execution_count": 41
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### ConsuntivoVSPreseInCarico con lotti"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"consuntivo_con_lotti = spark.sql(f\"\"\"\r\n",
+					"WITH consuntivo_conlotti AS (\r\n",
+					"    SELECT *,\r\n",
+					"    'FATTURATE' as tipo_report\r\n",
+					"    FROM fat_delta.Fatturato_vs_Preseincarico_conlotti\r\n",
+					"    WHERE data_fatturazione = '01/{mese}/{anno}'\r\n",
+					"    UNION ALL\r\n",
+					"    SELECT *,\r\n",
+					"    'ASSEVERATE' as tipo_report\r\n",
+					"    FROM fat_delta.Asseverazione_vs_Preseincarico_conlotti\r\n",
+					"    WHERE data_fatturazione = '01/{mese}/{anno}'\r\n",
+					"    UNION ALL\r\n",
+					"    SELECT *,\r\n",
+					"    'CONTESTAZIONI' as tipo_report\r\n",
+					"    FROM fat_delta.Contestato_vs_Preseincarico_conlotti\r\n",
+					"    WHERE data_fatturazione = '01/{mese}/{anno}'\r\n",
+					")\r\n",
+					"SELECT\r\n",
+					"    id_ente\r\n",
+					"    ,ente\r\n",
+					"    ,data_fatturazione\r\n",
+					"    ,presaincarico_data\r\n",
+					"    ,tipologia_notifica\r\n",
+					"    ,lotto\r\n",
+					"    ,recapitista\r\n",
+					"    ,SUM(tot_prezzo_ente) as tot_prezzo_ente\r\n",
+					"    ,SUM(tot_notifiche) as tot_notifiche\r\n",
+					"    ,SUM(tot_costo_consolidatore) as tot_costo_consolidatore\r\n",
+					"    ,SUM(tot_costo_recapitista) as tot_costo_recapitista\r\n",
+					"    ,SUM(tot_delta_costo) as tot_delta_costo\r\n",
+					"FROM consuntivo_conlotti\r\n",
+					"GROUP BY data_fatturazione, id_ente, ente, presaincarico_data, lotto, recapitista, tipologia_notifica\r\n",
+					"\"\"\")"
+				],
+				"execution_count": 47
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"##### Calcolo totali"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"totali_con_lotti = spark.createDataFrame([(\"\",\"\",\"\",\"\",\"\",\r\n",
+					"sum_col(consuntivo_con_lotti, 'tot_prezzo_ente'),\\\r\n",
+					"sum_col(consuntivo_con_lotti, 'tot_notifiche'),\\\r\n",
+					"\"\",\"\",\\\r\n",
+					"sum_col(consuntivo_con_lotti, 'tot_costo_consolidatore'),\\\r\n",
+					"sum_col(consuntivo_con_lotti, 'tot_costo_recapitista'),\\\r\n",
+					"sum_col(consuntivo_con_lotti, 'tot_delta_costo'))],\r\n",
+					"consuntivo_con_lotti.columns)"
+				],
+				"execution_count": 48
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"consuntivo_con_lotti = consuntivo_con_lotti.union(totali_con_lotti)"
+				],
+				"execution_count": 49
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"consuntivo_con_lotti.count()"
+				],
+				"execution_count": 55
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Scrittura Report su fatpdls"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"file_path = f\"abfss://reportaccertamenti@fatpdls.dfs.core.windows.net/consuntivo_vs_preseInCarico/{anno}-{mese}\""
+				],
+				"execution_count": 50
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"consuntivo.repartition(1).write.options(header = True, delimiter = ',').mode('overwrite').csv(file_path)\r\n",
+					"\r\n",
+					"consuntivo_con_lotti.repartition(1).write.options(header = True, delimiter = ',').mode('overwrite').csv(file_path+'_con_lotti')"
+				],
+				"execution_count": 51
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"for folder in mssparkutils.fs.ls(file_path[:-7]):\r\n",
+					"    if f\"{anno}-{mese}\" in folder.path:\r\n",
+					"        for file in mssparkutils.fs.ls(folder.path):\r\n",
+					"            if file.name == '_SUCCESS':\r\n",
+					"                mssparkutils.fs.rm(file.path)\r\n",
+					"            else:\r\n",
+					"                filePath = folder.path+f\"/Report_Consuntivo_vs_PreseInCarico_\"+folder.path[len(file_path)-7:]+\".csv\"\r\n",
+					"                mssparkutils.fs.mv(file.path, folder.path+f\"/Report_Consuntivo_vs_PreseInCarico_\"+folder.path[len(file_path)-7:]+\".csv\", True)"
+				],
+				"execution_count": 53
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Scrittura su FatDelta"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"\r\n",
+					"try:\r\n",
+					"    maxProgressivoDf = spark.sql(f\"select max(id) as id from fat_delta.consuntivo_vs_preseInCarico where left(presaincarico_data,4) = '{anno}'\")\r\n",
+					"    if maxProgressivoDf.count() >0:\r\n",
+					"         maxProgressivo = maxProgressivoDf.collect()[0]['id'] \r\n",
+					"    else:\r\n",
+					"         maxProgressivo = 0\r\n",
+					"except:\r\n",
+					"    maxProgressivo = 0"
+				],
+				"execution_count": 57
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"try:\r\n",
+					"    maxProgressivoConLottiDf = spark.sql(f\"select max(id) as id from fat_delta.consuntivo_vs_preseInCarico_conLotti where left(presaincarico_data,4) = '{anno}'\")\r\n",
+					"    if maxProgressivoConLottiDf.count() >0:\r\n",
+					"         maxProgressivoConLotti = maxProgressivoConLottiDf.collect()[0]['id'] \r\n",
+					"    else:\r\n",
+					"         maxProgressivoConLotti = 0\r\n",
+					"except:\r\n",
+					"    maxProgressivoConLotti = 0\r\n",
+					""
+				],
+				"execution_count": 58
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"consuntivo = consuntivo.withColumn('id', F.dense_rank().over(Window.orderBy('id_ente')) + F.lit(maxProgressivo))\r\n",
+					"consuntivo_con_lotti = consuntivo_con_lotti.withColumn('id', F.dense_rank().over(Window.orderBy('id_ente')) + F.lit(maxProgressivo))"
+				],
+				"execution_count": 61
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"consuntivo.where(\"id_ente <> ''\").write.format(\"delta\").mode(\"append\").saveAsTable(\"fat_delta.consuntivo_vs_preseInCarico\")\r\n",
+					"consuntivo_con_lotti.where(\"id_ente <> ''\").write.format(\"delta\").mode(\"append\").saveAsTable(\"fat_delta.consuntivo_vs_preseInCarico_conlotti\")"
+				],
+				"execution_count": 62
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Scrittura su pfd.Report"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"tipo_report = \"Consuntivo_vs_Preseincarico\""
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"mssparkutils.notebook.run(\"Accertamenti/InsertTabellaReportSql\",90,{\"path\":filePath,\"tipo_report\":tipo_report,\"anno_mese\":anno_mese})"
+				]
+			}
+		]
+	}
+}

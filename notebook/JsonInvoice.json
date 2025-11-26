@@ -1,0 +1,538 @@
+{
+	"name": "JsonInvoice",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/quarter_invoice"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "b7256b1a-a02e-49e9-bbe0-3010e5056ef5"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"from pyspark.sql.functions import * # collect_list, struct, explode, col,schema_of_json, from_json, to_json\n",
+					"import pyspark.sql.functions as F\n",
+					"from pyspark.sql import SparkSession\n",
+					"from pyspark.sql.window import Window\n",
+					"from pyspark.sql import Row\n",
+					"import pandas as pd\n",
+					"import json\n",
+					"from decimal import Decimal"
+				],
+				"execution_count": 64
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"anno_trimestre = \"2025_2\"\n",
+					"importTrimestrale = False"
+				],
+				"execution_count": 65
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"if importTrimestrale==False:\n",
+					"    mssparkutils.notebook.exit(\"no import trimestrale\")\n",
+					""
+				],
+				"execution_count": 55
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"anno = anno_trimestre[:4]\n",
+					"trimestre = anno_trimestre[5:].rjust(2,'Q')\n",
+					"print(anno,trimestre)"
+				],
+				"execution_count": 66
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# get the function to retrieve sql properties\n",
+					"%run Utility/getSQLConnectionString\n",
+					"\n",
+					"# retrieve sql connection_string and connection_properties\n",
+					"jdbcUrl,conn_Prop = getSQLConnectionString()"
+				],
+				"execution_count": 67
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"\"\"(SELECT \n",
+					"\t\t\t  recipient_id\n",
+					"\t\t\t  ,CodiceArticolo\n",
+					"\t\t\t  ,SUM([numero_tot]) as trx_Priv\n",
+					"\t\t\t  ,SUM([valore_tot]) as val_Priv\n",
+					"\t\t  FROM [ppa].[report_privati]\n",
+					"\t\twhere year_quarter = '{anno_trimestre}'\n",
+					"\t\tgroup by recipient_id,CodiceArticolo) as tb\"\"\"\n",
+					"#dfMatriceRecapitisti = \n",
+					"spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop).createOrReplaceTempView(\"tmpReportPrivati\")\n",
+					"#display(dfMatriceRecapitisti)"
+				],
+				"execution_count": 68
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"#sconti\n",
+					"dfSconti = spark.sql(f\"\"\"\n",
+					"WITH sconti AS (\n",
+					"SELECT recipient_id\n",
+					"      ,year_quarter\n",
+					"      ,SUM(value_discount_sum) as sconto\n",
+					"      ,FlagMQ\n",
+					"\t  ,CASE \n",
+					"\t\tWHEN FlagMQ = 1 THEN\n",
+					"\t\t\t4\n",
+					"\t\tELSE\n",
+					"\t\t\tPercSconto\n",
+					"\t   END  as perSconto      \n",
+					"FROM pagopa.financial_report_sconti\n",
+					"WHERE \n",
+					"year_quarter = '{anno_trimestre}'\n",
+					"GROUP BY recipient_id,year_quarter,FlagMQ,CASE \n",
+					"\t\tWHEN FlagMQ = 1 THEN\n",
+					"\t\t\t4\n",
+					"\t\tELSE\n",
+					"\t\t\tPercSconto\n",
+					"\t   END)\n",
+					"SELECT \n",
+					"\t\tK.Numero as numero\n",
+					"\t\t,K.Riferimento_data as dataFattura\n",
+					"\t\t,'PROD-PAGOPA' as prodotto\n",
+					"\t\t,K.Numero as identificativo\n",
+					"\t\t,'SALDO PAGOPA' as tipologiaFattura\n",
+					"\t\t,K.contract_id as istitutionId\n",
+					"\t\t,K.contract_id as onboardingTokenID\n",
+					"\t\t,K.Tipo_doc as tipoDocumento\n",
+					"\t\t,'EUR' as divisa\n",
+					"\t\t,K.Condizioni as metodoPagamento\n",
+					"\t\t,'Piattaforma pagoPA - periodo {trimestre}-{anno}' as causale\n",
+					"\t\t,'X' as split\n",
+					"\t\t,'' as sollecito\n",
+					"\n",
+					"\t\t,'' as tipologia\n",
+					"\t\t,'' as riferimentoNumeroLinea\n",
+					"\t\t,'' as idDocumento\n",
+					"\t\t,'' as data\n",
+					"\t\t,'' as numItem\n",
+					"\t\t,'' as codiceCommessaConvenzione\n",
+					"\t\t,'' as CUP\n",
+					"\t\t,'' as CIG\n",
+					"\n",
+					"\t\t,'' as testo\n",
+					"\t\t,2 as numeroLinea\n",
+					"\t\t,CASE \n",
+					"            WHEN s.perSconto = 4 THEN\n",
+					"                'SCONTO'\n",
+					"            ELSE\n",
+					"                'SCONTO_MTA'\n",
+					"        END  as codiceMateriale\n",
+					"\t\t,1 as quantita\n",
+					"\t\t,s.sconto as PrezzoUnitario\n",
+					"\t\t,'' as Imponibile\n",
+					"\t\t,'' as PeriodoRiferimento\n",
+					"FROM sconti s\n",
+					"LEFT JOIN pagopa.kpmg_import k ON k.year_quarter = s.year_quarter\n",
+					"\t\t\t\t\t\t\tAND k.contract_id = recipient_id\n",
+					"\t\t\t\t\t\t\tAND k.Progressivo_Riga = 1\n",
+					"\"\"\")"
+				],
+				"execution_count": 69
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"editable": false,
+					"run_control": {
+						"frozen": true
+					}
+				},
+				"source": [
+					"df = spark.sql(f\"\"\"\n",
+					"\tSELECT \n",
+					"\t\t\tK.Numero as numero\n",
+					"\t\t\t,K.Riferimento_data as dataFattura\n",
+					"\t\t\t,'PROD-PAGOPA' as prodotto\n",
+					"\t\t\t,K.Numero as identificativo\n",
+					"\t\t\t,'SALDO PAGOPA' as tipologiaFattura\n",
+					"\t\t\t,K.contract_id as istitutionId\n",
+					"\t\t\t,K.contract_id as onboardingTokenID\n",
+					"\t\t\t,K.Tipo_doc as tipoDocumento\n",
+					"\t\t\t,'EUR' as divisa\n",
+					"\t\t\t,K.Condizioni as metodoPagamento\n",
+					"\t\t\t,'Piattaforma pagoPA - periodo {trimestre}-{anno}' as causale\n",
+					"\t\t\t,'X' as split\n",
+					"\t\t\t,'' as sollecito\n",
+					"\n",
+					"\t\t\t,'' as tipologia\n",
+					"\t\t\t,'' as riferimentoNumeroLinea\n",
+					"\t\t\t,'' as idDocumento\n",
+					"\t\t\t,'' as data\n",
+					"\t\t\t,'' as numItem\n",
+					"\t\t\t,'' as codiceCommessaConvenzione\n",
+					"\t\t\t,'' as CUP\n",
+					"\t\t\t,'' as CIG\n",
+					"\n",
+					"\t\t\t,CASE \n",
+					"\t\t\t\tWHEN K.Progressivo_Riga = 1 THEN\n",
+					"\t\t\t\t\tK.Descrizione_riga\n",
+					"\t\t\t\tELSE ''\n",
+					"\t\t\tEND as testo\n",
+					"\t\t\t,K.Progressivo_riga as numeroLinea\n",
+					"\t\t\t,CASE \n",
+					"\t\t\t\tWHEN K.Progressivo_Riga = 1 THEN\n",
+					"\t\t\t\t\t'LINK'\n",
+					"\t\t\t\tELSE K.Codice_articolo\n",
+					"\t\t\tEND as codiceMateriale\n",
+					"\t\t\t,K.Q_ta as quantita\n",
+					"\t\t\t,K.Importo as PrezzoUnitario\n",
+					"\t\t\t,'' as Imponibile\n",
+					"\t\t\t,'' as PeriodoRiferimento\n",
+					"\t\t\t\n",
+					"\n",
+					"\tFROM pagopa.kpmg_import K\n",
+					"\tWHERE year_quarter = '{anno_trimestre}'\n",
+					"\tORDER BY contract_id,Progressivo_riga\n",
+					"\"\"\")"
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df = spark.sql(f\"\"\"\n",
+					"\tSELECT \n",
+					"\t\t\tK.Numero as numero\n",
+					"\t\t\t,K.Riferimento_data as dataFattura\n",
+					"\t\t\t,'PROD-PAGOPA' as prodotto\n",
+					"\t\t\t,K.Numero as identificativo\n",
+					"\t\t\t,'SALDO PAGOPA' as tipologiaFattura\n",
+					"\t\t\t,K.contract_id as istitutionId\n",
+					"\t\t\t,K.contract_id as onboardingTokenID\n",
+					"\t\t\t,K.Tipo_doc as tipoDocumento\n",
+					"\t\t\t,'EUR' as divisa\n",
+					"\t\t\t,K.Condizioni as metodoPagamento\n",
+					"\t\t\t,'Piattaforma pagoPA - periodo {trimestre}-{anno}' as causale\n",
+					"\t\t\t,'X' as split\n",
+					"\t\t\t,'' as sollecito\n",
+					"\n",
+					"\t\t\t,'' as tipologia\n",
+					"\t\t\t,'' as riferimentoNumeroLinea\n",
+					"\t\t\t,'' as idDocumento\n",
+					"\t\t\t,'' as data\n",
+					"\t\t\t,'' as numItem\n",
+					"\t\t\t,'' as codiceCommessaConvenzione\n",
+					"\t\t\t,'' as CUP\n",
+					"\t\t\t,'' as CIG\n",
+					"\n",
+					"\t\t\t,CASE \n",
+					"\t\t\t\tWHEN K.Progressivo_Riga = 1 THEN\n",
+					"\t\t\t\t\tK.Descrizione_riga\n",
+					"\t\t\t\tELSE ''\n",
+					"\t\t\tEND as testo\n",
+					"\t\t\t,K.Progressivo_riga as numeroLinea\n",
+					"\t\t\t,CASE \n",
+					"\t\t\t\tWHEN K.Progressivo_Riga = 1 THEN\n",
+					"\t\t\t\t\t'LINK'\n",
+					"\t\t\t\tELSE K.Codice_articolo\n",
+					"\t\t\tEND as codiceMateriale\n",
+					"\t\t\t--,K.Q_ta as quantita\n",
+					"\t\t\t--,rp.trx_Priv as qPriv\n",
+					"\t\t\t,K.q_ta - IF(rp.trx_Priv IS NULL,0 , rp.trx_Priv) as quantita\n",
+					"\t\t\t--,K.Importo as PrezzoUnitario\n",
+					"\t\t\t--,rp.val_Priv as valPriv\n",
+					"\t\t\t,K.importo - IF(rp.val_Priv IS NULL, 0, rp.val_Priv) as PrezzoUnitario\n",
+					"\t\t\t,'' as Imponibile\n",
+					"\t\t\t,'PUB' as PeriodoRiferimento\n",
+					"\t\t\t\n",
+					"\n",
+					"\tFROM pagopa.kpmg_import K\n",
+					"\tLEFT JOIN tmpReportPrivati rp ON k.contract_id = rp.recipient_id\n",
+					"\t\t\t\t\t\t\t\t\tAND k.codice_articolo = rp.CodiceArticolo\n",
+					"\tWHERE k.year_quarter = '{anno_trimestre}'\n",
+					"\tORDER BY contract_id,Progressivo_riga\n",
+					"\"\"\")"
+				],
+				"execution_count": 70
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dfPriv = spark.sql(f\"\"\"\n",
+					"\tSELECT \n",
+					"\t\t\tK.Numero as numero\n",
+					"\t\t\t,K.Riferimento_data as dataFattura\n",
+					"\t\t\t,'PROD-PAGOPA' as prodotto\n",
+					"\t\t\t,K.Numero as identificativo\n",
+					"\t\t\t,'SALDO PAGOPA' as tipologiaFattura\n",
+					"\t\t\t,K.contract_id as istitutionId\n",
+					"\t\t\t,K.contract_id as onboardingTokenID\n",
+					"\t\t\t,K.Tipo_doc as tipoDocumento\n",
+					"\t\t\t,'EUR' as divisa\n",
+					"\t\t\t,K.Condizioni as metodoPagamento\n",
+					"\t\t\t,'Piattaforma pagoPA - periodo {trimestre}-{anno}' as causale\n",
+					"\t\t\t,'X' as split\n",
+					"\t\t\t,'' as sollecito\n",
+					"\n",
+					"\t\t\t,'' as tipologia\n",
+					"\t\t\t,'' as riferimentoNumeroLinea\n",
+					"\t\t\t,'' as idDocumento\n",
+					"\t\t\t,'' as data\n",
+					"\t\t\t,'' as numItem\n",
+					"\t\t\t,'' as codiceCommessaConvenzione\n",
+					"\t\t\t,'' as CUP\n",
+					"\t\t\t,'' as CIG\n",
+					"\n",
+					"\t\t\t,CASE \n",
+					"\t\t\t\tWHEN K.Progressivo_Riga = 1 THEN\n",
+					"\t\t\t\t\tK.Descrizione_riga\n",
+					"\t\t\t\tELSE ''\n",
+					"\t\t\tEND as testo\n",
+					"\t\t\t,K.Progressivo_riga as numeroLinea\n",
+					"\t\t\t,rp.CodiceArticolo as codiceMateriale\n",
+					"\t\t\t--,K.Q_ta as quantita\n",
+					"\t\t\t--,rp.trx_Priv as qPriv\n",
+					"\t\t\t,rp.trx_Priv as quantita\n",
+					"\t\t\t--,K.Importo as PrezzoUnitario\n",
+					"\t\t\t--,rp.val_Priv as valPriv\n",
+					"\t\t\t,rp.val_Priv as PrezzoUnitario\n",
+					"\t\t\t,'' as Imponibile\n",
+					"\t\t\t,'PRI' as PeriodoRiferimento\n",
+					"\tFROM tmpReportPrivati rp\n",
+					"\tINNER JOIN pagopa.kpmg_import K ON k.contract_id = rp.recipient_id and k.codice_articolo = rp.CodiceArticolo\n",
+					"\tWHERE k.year_quarter = '{anno_trimestre}'\n",
+					"\"\"\")"
+				],
+				"execution_count": 71
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dfUnion = df.union(dfSconti).union(dfPriv)"
+				],
+				"execution_count": 72
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"#df per ordinamento linee\n",
+					"OrdineData = [(\"LINK\",1),\n",
+					"            (\"SCONTO\",99998),\n",
+					"            (\"SCONTO_MTA\",99998),\n",
+					"            (\"BOLLO\",99999)]\n",
+					"dfOrdine = spark.createDataFrame(OrdineData,[\"codiceMateriale\", \"order\"])\n",
+					"\n",
+					"dfUnion = dfUnion.join(dfOrdine, on=\"codiceMateriale\",how=\"left\")\n",
+					""
+				],
+				"execution_count": 73
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"dfUnion = dfUnion.withColumn(\"newOrder\", when(col(\"order\").isNull(), col(\"numeroLinea\") + 2).otherwise(col(\"order\")))\n",
+					"dfUnion = dfUnion.drop(\"order\",\"numeroLinea\")\n",
+					"#display(dfUnion)"
+				],
+				"execution_count": 74
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dfUnion= dfUnion.withColumn(\"pu\", when(col(\"newOrder\") == 99998, round(col(\"PrezzoUnitario\"),2)).otherwise(\"\"))\n",
+					"dfUnion = dfUnion.drop(\"PrezzoUnitario\")\n",
+					"dfUnion = dfUnion.withColumnRenamed(\"pu\",\"PrezzoUnitario\").filter(col(\"numero\").isNotNull())"
+				],
+				"execution_count": 75
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"dfUnion = dfUnion.withColumn(\"daEliminare\", when(\\\n",
+					"                            ((col(\"codiceMateriale\") == \"SCONTO\") | (col(\"codiceMateriale\") == \"SCONTO_MTA\")) & (col(\"PrezzoUnitario\") == 0.0), 1)\\\n",
+					"                            .otherwise(0))\n",
+					"\n",
+					"dfUnion = dfUnion.filter(\"daEliminare=0\")"
+				],
+				"execution_count": 76
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"\n",
+					"\n",
+					"\n",
+					"window_spec = Window.partitionBy(\"istitutionId\").orderBy(\"newOrder\", \"codicemateriale\")\n",
+					"\n",
+					"dfNew = dfUnion.withColumn(\"numeroLinea\", row_number().over(window_spec))#.drop(\"newOrder\")\n",
+					"\n",
+					""
+				],
+				"execution_count": 77
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"editable": false,
+					"run_control": {
+						"frozen": true
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(dfNew.filter(\"istitutionid = 'pagopa-psp-02'\"))"
+				],
+				"execution_count": 52
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"\n",
+					"# dfNew= dfNew.withColumn(\"pu\", when(col(\"numeroLinea\") == 2, round((col(\"PrezzoUnitario\") / 100),2)).otherwise(\"\"))\n",
+					"# dfNew = dfNew.drop(\"PrezzoUnitario\")\n",
+					"# dfNew = dfNew.withColumnRenamed(\"pu\",\"PrezzoUnitario\").filter(col(\"numero\").isNotNull())\n",
+					"#display(dfNew)"
+				],
+				"execution_count": 59
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"#display(dfNew)"
+				],
+				"execution_count": 60
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"result = {\"listaFatture\": []}\n",
+					"fatture_dict = {}\n",
+					"\n",
+					"for row in dfNew.collect():\n",
+					"    istitutionID = row[\"istitutionId\"]\n",
+					"    \n",
+					"    if (istitutionID) not in fatture_dict:\n",
+					"        fatture_dict[(istitutionID)] = {\n",
+					"            \"numero\": row[\"numero\"],\n",
+					"            \"dataFattura\":row[\"dataFattura\"],\n",
+					"            \"prodotto\":row[\"prodotto\"],\n",
+					"            \"identificativo\":row[\"identificativo\"],\n",
+					"            \"tipologiaFattura\":row[\"tipologiaFattura\"],\n",
+					"            \"istitutioID\": istitutionID,\n",
+					"            \"onboardingTokenID\":row[\"onboardingTokenID\"],\n",
+					"            \"tipoDocumento\":row[\"tipoDocumento\"],\n",
+					"            \"divisa\":row[\"divisa\"],\n",
+					"            \"metodoPagamento\":row[\"metodoPagamento\"],\n",
+					"            \"causale\":row[\"causale\"],\n",
+					"            \"split\": False, #row[\"split\"],\n",
+					"            \"sollecito\":row[\"sollecito\"],\n",
+					"            \"datiGeneraliDocumento\": [{\"tipologia\":row[\"tipologia\"],\"idDocumento\":row[\"idDocumento\"],\\\n",
+					"                                     \"numItem\":row[\"numItem\"], \"codiceCommessaConvenzione\":row[\"codiceCommessaConvenzione\"],\"CUP\": row[\"CUP\"], \"CIG\": row[\"CIG\"]}],\n",
+					"            \"posizioni\": []\n",
+					"        }\n",
+					"    \n",
+					"    fatture_dict[(istitutionID)][\"posizioni\"].append({\n",
+					"        \"numerolinea\": row[\"numeroLinea\"],\n",
+					"        \"testo\": row[\"testo\"],\n",
+					"        \"codiceMateriale\":row[\"codiceMateriale\"],\n",
+					"        \"quantita\": \"\" if row[\"numeroLinea\"] == 1 else row[\"quantita\"],\n",
+					"        \"prezzoUnitario\": float(row['PrezzoUnitario']) if ((row[\"PrezzoUnitario\"] is not None) & (row[\"newOrder\"] == 99998))  else \"\",\n",
+					"        \"imponibile\": \"\", #row[\"Imponibile\"],\n",
+					"        \"periodoRiferimento\": \"PUB\" if row[\"PeriodoRiferimento\"] != \"PRI\" else \"PRI\"\n",
+					"    })\n",
+					"\n",
+					"result[\"listaFatture\"] = [{\"fattura\": fattura} for fattura in fatture_dict.values()]\n",
+					"#print(result)\n",
+					"\n",
+					"# Converti in stringa JSON\n",
+					"json_result = json.dumps(result, indent=4)\n",
+					"\n",
+					"# Stampa il risultato JSON\n",
+					"#print(json_result)"
+				],
+				"execution_count": 78
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"file_path = f\"abfss://pagopa@fatpdls.dfs.core.windows.net/KPMG_report/{anno_trimestre}/Json/fatturepagopa_{anno_trimestre}.json\"\n",
+					"\n",
+					"\n",
+					"mssparkutils.fs.put(file_path, json_result, overwrite=True)\n",
+					""
+				],
+				"execution_count": 79
+			}
+		]
+	}
+}

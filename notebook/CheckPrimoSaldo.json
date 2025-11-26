@@ -1,0 +1,347 @@
+{
+	"name": "CheckPrimoSaldo",
+	"properties": {
+		"folder": {
+			"name": "Invoicing"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "d2717ce4-926e-473c-9d25-231f759be6cb"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": true,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"anno_ref = '2024'\n",
+					"mese_ref = '12'"
+				],
+				"execution_count": 24
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# get the function to retrieve sql properties\n",
+					"%run Utility/getSQLConnectionString\n",
+					"\n",
+					"# retrieve sql connection_string and connection_properties\n",
+					"jdbcUrl,conn_Prop = getSQLConnectionString()"
+				],
+				"execution_count": 25
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"CHECK REPORT FATTURATO"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"\"\"(\n",
+					"    SELECT *,\n",
+					"    CASE WHEN CodiceMateriale = 'PRIMO SALDO N.ANL' THEN 'ANALOGICO'\n",
+					"         WHEN CodiceMateriale = 'PRIMO SALDO N.DIG.' THEN 'DIGITALE'\n",
+					"    END AS tipo_notifica\n",
+					"    FROM pfd.FattureTestata \n",
+					"    INNER JOIN pfd.FattureRighe ON idfattura = fkidfattura\n",
+					"    WHERE annoRiferimento = {anno_ref} AND meseRiferimento = {mese_ref} AND FkTipologiaFattura = 'PRIMO SALDO' and CodiceMateriale not like '%STORNO%') as tb\n",
+					"\"\"\"\n",
+					"\n",
+					"spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop).createOrReplaceTempView(\"dfFatture\")"
+				],
+				"execution_count": 46
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"spark.read.csv(f\"abfss://reportaccertamenti@fatpdls.dfs.core.windows.net/Fatturato_vs_Preseincarico/{anno_ref}-{mese_ref}\", header=True).createOrReplaceTempView(\"report_fatturato\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"fatture_vs_report = spark.sql(f\"\"\"\n",
+					"    SELECT * FROM dfFatture df\n",
+					"    LEFT JOIN report_fatturato rf\n",
+					"    ON df.fkidEnte = rf.id_ente AND split(presaincarico_data,'/',2)[1] = PeriodoRiferimento AND tipo_notifica = tipologia_notifica\n",
+					"\"\"\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"display(fatture_vs_report)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"CHECK ASSEVERAZIONE"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"\"\"(\n",
+					"        SELECT internal_organization_id, tipologiaFattura, sum(cost_eurocent) as costo_fattura\n",
+					"        FROM pfd.Notifiche\n",
+					"        WHERE month = {mese_ref} AND year = {anno_ref}\n",
+					"        group by internal_organization_id, tipologiaFattura\n",
+					"        ) as tb\n",
+					"\"\"\"\n",
+					"\n",
+					"spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop).createOrReplaceTempView(\"notifiche\")"
+				],
+				"execution_count": 15
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"\"\"(\n",
+					"        SELECT fkidente, SUM(Imponibile) AS Costo, 'PRIMO SALDO' AS tipofattura FROM (\n",
+					"            SELECT fkidente, Imponibile from pfd.FattureTestata\n",
+					"            INNER JOIN pfd.FattureRighe ON idfattura = fkidfattura\n",
+					"            WHERE MeseRiferimento = {mese_ref} and AnnoRiferimento = {anno_ref} and CodiceMateriale like '%PRIMO SALDO%') F\n",
+					"        GROUP BY fkIdEnte\n",
+					"        ) as tb\n",
+					"\"\"\"\n",
+					"\n",
+					"spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop).createOrReplaceTempView(\"fatture\")"
+				],
+				"execution_count": 16
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"display(spark.sql(\"\"\"\n",
+					"    SELECT fkIdEnte, CAST(Costo as DECIMAL)*100 AS Costo, costo_fattura,\n",
+					"    CASE WHEN costo_fattura = CAST(Costo as DECIMAL)*100 THEN 'OK' ELSE 'KO' END AS Semaforo\n",
+					"    FROM notifiche INNER JOIN fatture ON fkIdEnte = internal_organization_id AND tipologiaFattura = tipofattura\n",
+					"\"\"\"))"
+				],
+				"execution_count": 17
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# query = f\"\"\"(\n",
+					"#         SELECT internal_organization_id, iun FROM pfd.Notifiche\n",
+					"#         INNER JOIN pfd.Enti ON internal_organization_id = Internalistitutionid\n",
+					"#         INNER JOIN pfd.FattureTestata on internal_organization_id = fkidente\n",
+					"#         WHERE month != {mese_ref} AND year != {anno_ref} AND asseverazione = 0 AND datauscitaasseverazione IS NOT NULL AND tipologiaFattura = 'ASSEVERAZIONE'\n",
+					"#         AND MeseRiferimento = {mese_ref} AND AnnoRiferimento = {anno_ref}\n",
+					"#         ) as tb\n",
+					"# \"\"\"\n",
+					"\n",
+					"# spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop).createOrReplaceTempView(\"assev\")"
+				],
+				"execution_count": 162
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"# todi = spark.sql(\"\"\"\n",
+					"#     with cte as (select MIN(internal_organization_id) as id_ente, iun from assev group by iun)\n",
+					"#     select id_ente, count(1) from cte\n",
+					"#     group by id_ente\n",
+					"#     having count(1) != 10\n",
+					"# \"\"\")"
+				],
+				"execution_count": 163
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\n",
+					" \n",
+					"select * from assev where internal_organization_id = '00a07094-6b35-417c-aee5-4b207a334a74'"
+				],
+				"execution_count": 178
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Check Storni"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"\"\"(\n",
+					"        SELECT FT.fkidente, FR.CodiceMateriale, AA.CodiceMateriale AS CodiceMateriale_anticipo_acconto, AA.codice_storno, FR.PrezzoUnitario AS StornoPrimoSaldo, AA.CostoAnticipoAcconto,\n",
+					"        CASE WHEN FR.PrezzoUnitario = AA.CostoAnticipoAcconto OR (AA.Codice_storno in ('STORNO 50% ANT.ND','STORNO 50% ANT.NA') AND FR.PrezzoUnitario = AA.CostoAnticipoAcconto/2) THEN 'OK'\n",
+					"        ELSE 'KO' END AS Semaforo\n",
+					"        FROM pfd.FattureTestata FT\n",
+					"        INNER JOIN pfd.FattureRighe FR ON idFattura = FkIdFattura\n",
+					"        INNER JOIN (\n",
+					"            SELECT fkidente, CodiceMateriale, PrezzoUnitario as CostoAnticipoAcconto,\n",
+					"            CASE WHEN CodiceMateriale = 'ANTICIPO ND 30%' THEN 'STORNO 50% ANT.ND'\n",
+					"                 WHEN CodiceMateriale = 'ANTICIPO NA 30%' THEN 'STORNO 50% ANT.NA'\n",
+					"                 WHEN CodiceMateriale = 'ANTICIPO ND 50%' THEN 'STORNO ANTICIPO ND'\n",
+					"                 WHEN CodiceMateriale = 'ANTICIPO NA 50%' THEN 'STORNO ANTICIPO NA'\n",
+					"                 WHEN CodiceMateriale = 'ACCONTO NOT.DIG.' THEN 'STORNO ACCONTO ND'\n",
+					"                 WHEN CodiceMateriale = 'ACCONTO NOT.ANL.' THEN 'STORNO ACCONTO NA'\n",
+					"            END AS codice_storno\n",
+					"            FROM pfd.FattureTestata INNER JOIN pfd.FattureRighe ON FkIdFattura = IdFattura\n",
+					"            WHERE MeseRiferimento = {mese_ref} and AnnoRiferimento = {anno_ref} and FkTipologiaFattura in ('ACCONTO','ANTICIPO') AND CodiceMateriale NOT LIKE '%STORNO%'\n",
+					"        ) AA ON AA.codice_storno = FR.CodiceMateriale AND AA.fkIdEnte = FT.fkIdEnte\n",
+					"        WHERE FT.MeseRiferimento = {mese_ref} and FT.AnnoRiferimento = {anno_ref} and FT.FkTipologiaFattura = 'PRIMO SALDO'\n",
+					"        ) as tb\n",
+					"\"\"\"\n",
+					"\n",
+					"spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop).createOrReplaceTempView(\"fatture\")"
+				],
+				"execution_count": 13
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\n",
+					"\n",
+					"select * from fatture where semaforo != 'OK' --where fkidente in ('2a7bc3ff-a110-40ba-9ec4-23817127f8e1','b34aad56-ee4a-4e3b-b37b-17fe50697b8d','c9a8ffc1-7337-46a2-aac8-cd7543ea2215')"
+				],
+				"execution_count": 14
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Check Tipo Fattura"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"\"\"(\n",
+					"        SELECT FT.fkidente, FR.CodiceMateriale, FR.PrezzoUnitario, FT.fkidtipoDocumento\n",
+					"        FROM pfd.FattureTestata FT\n",
+					"        INNER JOIN pfd.FattureRighe FR ON idFattura = FkIdFattura\n",
+					"        WHERE FT.MeseRiferimento = {mese_ref} and FT.AnnoRiferimento = {anno_ref} and FT.FkTipologiaFattura = 'PRIMO SALDO'\n",
+					"        ) as tb\n",
+					"\"\"\"\n",
+					"\n",
+					"spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop).createOrReplaceTempView(\"checktipofattura\")"
+				],
+				"execution_count": 43
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"TipoFatturaCheck = spark.sql(\"\"\"\n",
+					"            WITH Storni AS (\n",
+					"                SELECT fkidente, SUM(PrezzoUnitario) AS Importo, fkidtipoDocumento\n",
+					"                FROM (SELECT * FROM checktipofattura WHERE CodiceMateriale LIKE '%STORNO%')\n",
+					"                GROUP BY fkidente, fkidtipoDocumento\n",
+					"            ), Fatturato AS (\n",
+					"                SELECT fkidente, SUM(PrezzoUnitario) AS Importo, fkidtipoDocumento\n",
+					"                from (SELECT * FROM checktipofattura WHERE CodiceMateriale NOT LIKE '%STORNO%')\n",
+					"                GROUP BY fkidente, fkidtipoDocumento\n",
+					"            )\n",
+					"            SELECT S.fkidente, S.fkidtipoDocumento, S.Importo AS ImportoStorni, F.Importo AS ImportoFattura,\n",
+					"            CASE WHEN (S.Importo > F.Importo AND s.fkidtipoDocumento = 'TD04')\n",
+					"            OR (S.Importo < F.Importo AND s.fkidtipoDocumento = 'TD01') THEN 'OK'\n",
+					"            ELSE 'KO' END AS Semaforo\n",
+					"            FROM Storni S INNER JOIN Fatturato F ON S.fkidente = F.fkidente\n",
+					"             \"\"\")"
+				],
+				"execution_count": 45
+			}
+		]
+	}
+}

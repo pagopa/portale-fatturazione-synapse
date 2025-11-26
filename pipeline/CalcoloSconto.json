@@ -1,0 +1,386 @@
+{
+	"name": "CalcoloSconto",
+	"properties": {
+		"activities": [
+			{
+				"name": "Calcolo_KPI_psp",
+				"type": "SynapseNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "CalcoloKpi_Psp",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"year_quarter": {
+							"value": {
+								"value": "@pipeline().parameters.year_quarter",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"year_month": {
+							"value": {
+								"value": "@pipeline().parameters.year_month",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": true
+					},
+					"driverSize": "Small"
+				}
+			},
+			{
+				"name": "Calcolo Sconto",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "Calcolo_KPI_psp",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "CalcoloSconto",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"year_quarter": {
+							"value": {
+								"value": "@pipeline().parameters.year_quarter",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"year_month": {
+							"value": {
+								"value": "@pipeline().parameters.year_month",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": true
+					},
+					"driverSize": "Small"
+				}
+			},
+			{
+				"name": "CopyToFatPublic",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Calcolo Sconto",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "CopyToFatPublic",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"tableName": " ",
+						"containerName": "pagopa",
+						"folderName": "invoices",
+						"wildcard": {
+							"value": "@concat(\n    split(pipeline().parameters.year_quarter,'_' )[0],\n    '-q',\n    split(pipeline().parameters.year_quarter,'_' )[1],\n    '-KpiPagamenti_Sconto.csv')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Genera SAS token",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "CopyToFatPublic",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "ScontiSasToken",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"year_quarter": {
+							"value": {
+								"value": "@pipeline().parameters.year_quarter",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": null,
+						"spark.dynamicAllocation.minExecutors": null,
+						"spark.dynamicAllocation.maxExecutors": null
+					},
+					"driverSize": "Small",
+					"numExecutors": null
+				}
+			},
+			{
+				"name": "ScontiToSql",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "Genera SAS token",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "ScontiToSql",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"year_quarter": {
+							"value": {
+								"value": "@pipeline().parameters.year_quarter",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": null,
+						"spark.dynamicAllocation.minExecutors": null,
+						"spark.dynamicAllocation.maxExecutors": null
+					},
+					"driverSize": "Small",
+					"numExecutors": null
+				}
+			},
+			{
+				"name": "Json",
+				"type": "SynapseNotebook",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [
+					{
+						"activity": "stgToSqlKpiPagamentiSconti",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "stgToSqlKpiSconti",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "JsonInvoice",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"anno_trimestre": {
+							"value": {
+								"value": "@pipeline().parameters.year_quarter",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"importTrimestrale": {
+							"value": {
+								"value": "@pipeline().parameters.importTrimestrale",
+								"type": "Expression"
+							},
+							"type": "bool"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": null,
+						"spark.dynamicAllocation.minExecutors": null,
+						"spark.dynamicAllocation.maxExecutors": null
+					},
+					"driverSize": "Small",
+					"numExecutors": null
+				}
+			},
+			{
+				"name": "stgToSqlKpiSconti",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "ScontiToSql",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "ppa.ReplaceKpiPagamenti"
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "stgToSqlKpiPagamentiSconti",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "ScontiToSql",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "ppa.UpdateKpiPagamentiSconto",
+					"storedProcedureParameters": {
+						"year_quarter": {
+							"value": {
+								"value": "@pipeline().parameters.year_quarter",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"year_quarter": {
+				"type": "string"
+			},
+			"year_month": {
+				"type": "string"
+			},
+			"container_path": {
+				"type": "string"
+			},
+			"importTrimestrale": {
+				"type": "bool"
+			}
+		},
+		"variables": {
+			"year_month": {
+				"type": "String"
+			},
+			"year_quarter": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "PagoPA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-08T14:37:53Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

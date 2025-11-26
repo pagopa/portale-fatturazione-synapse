@@ -1,0 +1,240 @@
+{
+	"name": "FatturaPrimoSaldo",
+	"properties": {
+		"activities": [
+			{
+				"name": "SendJsonPrimoSaldoToSAP",
+				"type": "ExecutePipeline",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [
+					{
+						"activity": "OrdinaRighePrimoSaldo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "SendJsonToSap",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"AnnoRiferimento": {
+							"value": "@pipeline().parameters.AnnoRiferimento",
+							"type": "Expression"
+						},
+						"MeseRiferimento": {
+							"value": "@pipeline().parameters.MeseRiferimento",
+							"type": "Expression"
+						},
+						"TipologiaFattura": "PRIMO SALDO"
+					}
+				}
+			},
+			{
+				"name": "spCreazioneFatturePrimoSaldo",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[CreazioneFatturePrimoSaldo]",
+					"storedProcedureParameters": {
+						"AnnoRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoRiferimento",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"DataFatturazione": {
+							"value": {
+								"value": "@pipeline().parameters.DataFatturazione",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"MeseRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.MeseRiferimento",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "OrdinaRighePrimoSaldo",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "spCreazioneFatturePrimoSaldo",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[updateNumLineaFattura]",
+					"storedProcedureParameters": {
+						"AnnoRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.AnnoRiferimento",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"MeseRiferimento": {
+							"value": {
+								"value": "@pipeline().parameters.MeseRiferimento",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TipologiaFattura": {
+							"value": "PRIMO SALDO",
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "ReportFatturateVsPreseIncarico",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "SendJsonPrimoSaldoToSAP",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "Report_Accertamenti",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"anno_mese": {
+							"value": {
+								"value": "@concat(string(pipeline().parameters.AnnoRiferimento),'-', concat(if(\n    equals(\n        length(string(pipeline().parameters.MeseRiferimento)), 1), '0', ''), string(pipeline().parameters.MeseRiferimento)))",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"tipo_report": {
+							"value": "Fatturato_vs_Preseincarico",
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"driverSize": "Small"
+				}
+			},
+			{
+				"name": "DeduplicaReport",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "ReportFatturateVsPreseIncarico",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "pfd.DeduplicaReportAccertamenti"
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"AnnoRiferimento": {
+				"type": "int"
+			},
+			"MeseRiferimento": {
+				"type": "int"
+			},
+			"DataFatturazione": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"AnnoRiferimento": {
+				"type": "Integer"
+			},
+			"MeseRiferimento": {
+				"type": "Integer"
+			},
+			"AnnoPrimoSaldo": {
+				"type": "Integer"
+			},
+			"MesePrimoSaldo": {
+				"type": "Integer"
+			},
+			"test": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "ManageInvoice"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-03-25T14:53:05Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

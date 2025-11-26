@@ -1,0 +1,126 @@
+{
+	"name": "CopyAnagrafiche",
+	"properties": {
+		"activities": [
+			{
+				"name": "GetTables",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT s.name as schemaName, o.name as tableName\nFROM sys.objects o\nINNER JOIN sys.schemas s ON o.schema_id = s.schema_id\nWHERE type = 'U'\nAND o.name not in (\n\t'FattureRighe'\n\t,'FattureRighe_Eliminate'\n\t,'FattureTestata'\n\t,'FattureTestata_Eliminate'\n\t,'Notifiche'\n\t,'RelRighe'\n\t,'RelTestata'\n\t,'Contestazioni'\n\t,'DatiModuloCommessa'\n\t,'DatiModuloCommessaTotali'\n\t,'DatiModuloCommessa_Previsionale'\n\t,'DatiModuloCommessaTotali_Previsionale')\nand s.name <> 'stg'",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "fat_svil_sql",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "a",
+							"table": "a"
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "GetTables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('GetTables').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Copy data1",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "@concat('SELECT * FROM ', item().schemaName, '.', item().tableName)",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "AzureSqlSink",
+									"preCopyScript": {
+										"value": "@concat('TRUNCATE TABLE ', item().schemaName,'.', item().tableName)",
+										"type": "Expression"
+									},
+									"writeBehavior": "insert",
+									"sqlWriterUseTableLock": false
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "fat_d_sql",
+									"type": "DatasetReference"
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "fat_svil_sql",
+									"type": "DatasetReference",
+									"parameters": {
+										"schema": {
+											"value": "@item().schemaName",
+											"type": "Expression"
+										},
+										"table": {
+											"value": "@item().tableName",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"folder": {
+			"name": "CopyDataToDev"
+		},
+		"annotations": []
+	}
+}

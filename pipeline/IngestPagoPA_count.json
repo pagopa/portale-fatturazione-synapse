@@ -1,0 +1,320 @@
+{
+	"name": "IngestPagoPA_count",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get source path",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "Set date",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "Get year_quarter_count",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"tab_to_import": {
+							"value": {
+								"value": "@pipeline().parameters.TabToImport",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"today_date": {
+							"value": {
+								"value": "@variables('Today_date')",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"export_trimestrale": {
+							"value": {
+								"value": "@pipeline().parameters.ImportTrimestrale",
+								"type": "Expression"
+							},
+							"type": "bool"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": true
+					},
+					"driverSize": "Small"
+				}
+			},
+			{
+				"name": "Set source path",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Get source path",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "SourcePath",
+					"value": {
+						"value": "@activity('Get source path').output.status.Output.result.exitValue",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set date",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Today_date",
+					"value": {
+						"value": "@if(equals(string(pipeline().parameters.ImportDate), '-'),formatDateTime(utcNow(), 'yyyy-MM-dd'),pipeline().parameters.ImportDate)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "IfPathExists",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "CheckPath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(activity('CheckPath').output.exists, true)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "SetImportFalse",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "pipelineReturnValue",
+								"value": [
+									{
+										"key": "ImportBool",
+										"value": {
+											"type": "Int",
+											"content": 0
+										}
+									}
+								],
+								"setSystemVariable": true
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "StageToRaw",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "PPA_StageToRaw_count",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"SourcePath": {
+										"value": "@variables('SourcePath')",
+										"type": "Expression"
+									},
+									"ImportTrimestrale": {
+										"value": "@pipeline().parameters.ImportTrimestrale",
+										"type": "Expression"
+									},
+									"TabToImport": {
+										"value": "@pipeline().parameters.TabToImport",
+										"type": "Expression"
+									},
+									"Container_path": {
+										"value": "@pipeline().parameters.Container_path",
+										"type": "Expression"
+									},
+									"ImportDate": {
+										"value": "@variables('Today_date')",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Set ImportBool",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "StageToRaw",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "pipelineReturnValue",
+								"value": [
+									{
+										"key": "ImportBool",
+										"value": {
+											"type": "Int",
+											"content": 1
+										}
+									}
+								],
+								"setSystemVariable": true
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "CheckPath",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "Set source path",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 5,
+					"retryIntervalInSeconds": 60,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "fat_stage_parquet",
+						"type": "DatasetReference",
+						"parameters": {
+							"PathFolderFile": {
+								"value": "@variables('SourcePath')",
+								"type": "Expression"
+							}
+						}
+					},
+					"fieldList": [
+						"exists"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "ParquetReadSettings"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"TabToImport": {
+				"type": "string",
+				"defaultValue": "gold_invoicing_payments"
+			},
+			"ImportTrimestrale": {
+				"type": "bool",
+				"defaultValue": false
+			},
+			"ImportDate": {
+				"type": "string",
+				"defaultValue": "-"
+			},
+			"Container_path": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"RawStorage": {
+				"type": "String"
+			},
+			"SourcePath": {
+				"type": "String"
+			},
+			"Today_date": {
+				"type": "String"
+			},
+			"SinkPath": {
+				"type": "String"
+			},
+			"ContainerPath": {
+				"type": "String"
+			},
+			"ImportBool": {
+				"type": "Integer"
+			},
+			"test": {
+				"type": "String"
+			},
+			"ReportsPath": {
+				"type": "String"
+			},
+			"SemaforoCount": {
+				"type": "String",
+				"defaultValue": "false"
+			},
+			"SwitchKey": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "PagoPA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-02T13:38:16Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

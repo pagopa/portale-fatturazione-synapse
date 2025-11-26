@@ -1,0 +1,89 @@
+{
+	"name": "query_pago_privati",
+	"properties": {
+		"folder": {
+			"name": "CESTINO"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "c3ffd037-3339-4f3c-a50f-0194b6c3b784"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"language_info": {
+				"name": "python"
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\n",
+					"WITH trx AS (\n",
+					"SELECT sc.taxcode,sc.description, st.servizio,\n",
+					"    CASE WHEN st.servizio = 'gpd-payments/api/v1' OR st.servizio_pof = 'gpd-payments/api/v1' THEN\n",
+					"        'async'\n",
+					"    ELSE\n",
+					"        'sync'\n",
+					"    END as tipoT\n",
+					"from pagopa.enti sc right join pagopa.transaction_raw gp on sc.taxcode = gp.pa_fiscal_code\n",
+					"left join pagopa.stazioni st on partner_station = id_stazione\n",
+					"where\n",
+					"product = 'prod-pagopa' AND\n",
+					"origin IN ('SELC', 'PDND_INFOCAMERE') AND\n",
+					"institutiontype IN ('PRV', 'GPU')\n",
+					"AND sc.notificationtype='UPDATE'\n",
+					"and gp.daily >= '20241001' and gp.daily<'20250101')\n",
+					"SELECT taxcode,description,tipoT,count(*)\n",
+					"FROM trx\n",
+					"GROUP BY taxcode,description,tipoT\n",
+					"ORDER BY 1"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\n",
+					" \n",
+					"SELECT sc.taxcode,sc.description, count(*)\n",
+					"from pagopa.enti sc inner join pagopa.transaction_raw gp on sc.taxcode = gp.pa_fiscal_code\n",
+					"inner join pagopa.stazioni on partner_station = id_stazione\n",
+					"where\n",
+					"product = 'prod-pagopa' AND\n",
+					"origin IN ('SELC', 'PDND_INFOCAMERE') AND\n",
+					"institutiontype IN ('PRV', 'GPU')\n",
+					"AND sc.notificationtype='UPDATE'\n",
+					"and gp.daily >= '20250401' --and gp.daily<'20250401'\n",
+					"group by sc.taxcode,sc.description;"
+				]
+			}
+		]
+	}
+}

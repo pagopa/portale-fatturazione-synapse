@@ -1,0 +1,197 @@
+{
+	"name": "IngestCountSend",
+	"properties": {
+		"activities": [
+			{
+				"name": "ForEachFolder",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "GetFolders",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('GetFolders').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"activities": [
+						{
+							"name": "StageToRawCount",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "ParquetSource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": true,
+										"wildcardFolderPath": {
+											"value": "@concat('send/count/', item().name, '/', formatDateTime(addToTime(utcNow(),-1,'Month'),'yyyy'), '/m', if(equals(first(formatDateTime(addToTime(utcNow(),-1,'Month'),'MM')),'0'),replace(formatDateTime(addToTime(utcNow(),-1,'Month'),'MM'),'0',''),formatDateTime(addToTime(utcNow(),-1,'Month'),'MM')))",
+											"type": "Expression"
+										},
+										"wildcardFileName": "*.parquet",
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "ParquetReadSettings"
+									}
+								},
+								"sink": {
+									"type": "ParquetSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings",
+										"copyBehavior": "FlattenHierarchy"
+									},
+									"formatSettings": {
+										"type": "ParquetWriteSettings"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "fat_stage_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"PathFolderFile": " "
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "fat_ddls_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"PathFolderSink": {
+											"value": "@concat('send/count/',item().name,'/',formatDateTime(addToTime(utcNow(),-1,'Month'),'yyyy'),'/',formatDateTime(addToTime(utcNow(),-1,'Month'),'MM'))",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "DeleteFiles",
+							"type": "Delete",
+							"dependsOn": [
+								{
+									"activity": "StageToRawCount",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "fat_stage_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"PathFolderFile": "@concat('send/count/', item().name, '/', formatDateTime(addToTime(utcNow(),-1,'Month'),'yyyy'), '/m', if(equals(first(formatDateTime(addToTime(utcNow(),-1,'Month'),'MM')),'0'),replace(formatDateTime(addToTime(utcNow(),-1,'Month'),'MM'),'0',''),formatDateTime(addToTime(utcNow(),-1,'Month'),'MM')))"
+									}
+								},
+								"enableLogging": false,
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "GetItems",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 4,
+					"retryIntervalInSeconds": 60,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "fat_stage_parquet",
+						"type": "DatasetReference",
+						"parameters": {
+							"PathFolderFile": "send/count/"
+						}
+					},
+					"fieldList": [
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "ParquetReadSettings"
+					}
+				}
+			},
+			{
+				"name": "GetFolders",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "GetItems",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('GetItems').output.childItems",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@equals(item().type, 'Folder')",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"folder": {
+			"name": "Ingestion"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-05-05T07:36:10Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

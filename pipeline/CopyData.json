@@ -1,0 +1,753 @@
+{
+	"name": "CopyData",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy Notifiche",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT *\nFROM pfd.Notifiche\nWHERE year in (2024,2025)\nAND internal_organization_id in (\n'76fd95f3-c1a1-410f-95c8-a6ac00989aae',\n'c9a8ffc1-7337-46a2-aac8-cd7543ea2215',\n'dba89a46-56d6-4260-b411-43ca98c5f5f2',\n'0010e2b5-6933-44b6-9ac1-1d5e43c04ca0',\n'7c72c2bd-096b-46c7-a3a2-784be418b207'\n)",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "fat_svil_sql",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "pfd",
+							"table": "Notifiche"
+						}
+					}
+				]
+			},
+			{
+				"name": "Copy NotificheCodOggetto",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Copy Notifiche",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT nco.*\nFROM pfd.Notifiche_CodiceOggetto nco\nLEFT JOIN pfd.Notifiche n on n.event_id = nco.event_id\nWHERE n.year in (2024,2025)\nAND n.internal_organization_id in (\n'76fd95f3-c1a1-410f-95c8-a6ac00989aae',\n'c9a8ffc1-7337-46a2-aac8-cd7543ea2215',\n'dba89a46-56d6-4260-b411-43ca98c5f5f2',\n'0010e2b5-6933-44b6-9ac1-1d5e43c04ca0',\n'7c72c2bd-096b-46c7-a3a2-784be418b207'\n)",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "fat_svil_sql",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "pfd",
+							"table": "Notifiche_CodiceOggetto"
+						}
+					}
+				]
+			},
+			{
+				"name": "Copy FattureTestata",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Identity OFF",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT *\nFROM pfd.FattureTestata\nWHERE AnnoRiferimento in (2024, 2025)\nAND FkIdEnte in (\n'76fd95f3-c1a1-410f-95c8-a6ac00989aae',\n'c9a8ffc1-7337-46a2-aac8-cd7543ea2215',\n'dba89a46-56d6-4260-b411-43ca98c5f5f2',\n'0010e2b5-6933-44b6-9ac1-1d5e43c04ca0',\n'7c72c2bd-096b-46c7-a3a2-784be418b207'\n)",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "fat_svil_sql",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "pfd",
+							"table": "FattureTestata"
+						}
+					}
+				]
+			},
+			{
+				"name": "Copy FattureRighe",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Identity ON",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT fr.*\nFROM pfd.FattureRighe fr\nINNER JOIN pfd.FattureTestata ft on ft.IdFattura = fr.FkIdFattura\nWHERE ft.AnnoRiferimento in (2024, 2025)\nAND ft.FkIdEnte in (\n'76fd95f3-c1a1-410f-95c8-a6ac00989aae',\n'c9a8ffc1-7337-46a2-aac8-cd7543ea2215',\n'dba89a46-56d6-4260-b411-43ca98c5f5f2',\n'0010e2b5-6933-44b6-9ac1-1d5e43c04ca0',\n'7c72c2bd-096b-46c7-a3a2-784be418b207'\n)",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "fat_svil_sql",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "pfd",
+							"table": "FattureRighe"
+						}
+					}
+				]
+			},
+			{
+				"name": "Identity OFF",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "DevSql",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": "SET IDENTITY_INSERT pfd.FattureTestata OFF"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "Identity ON",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "Copy FattureTestata",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "DevSql",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": "SET IDENTITY_INSERT pfd.FattureTestata ON"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "Copy FattureRighe Eliminate",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Copy FattureTestata Eliminate",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT fr.*\nFROM pfd.FattureRighe_Eliminate fr\nINNER JOIN pfd.FattureTestata_Eliminate ft on ft.IdFattura = fr.FkIdFattura\nWHERE ft.AnnoRiferimento in (2024, 2025)\nAND ft.FkIdEnte in (\n'76fd95f3-c1a1-410f-95c8-a6ac00989aae',\n'c9a8ffc1-7337-46a2-aac8-cd7543ea2215',\n'dba89a46-56d6-4260-b411-43ca98c5f5f2',\n'0010e2b5-6933-44b6-9ac1-1d5e43c04ca0',\n'7c72c2bd-096b-46c7-a3a2-784be418b207'\n)",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "fat_svil_sql",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "pfd",
+							"table": "FattureRighe_Eliminate"
+						}
+					}
+				]
+			},
+			{
+				"name": "Copy FattureTestata Eliminate",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT *\nFROM pfd.FattureTestata_Eliminate\nWHERE AnnoRiferimento in (2024, 2025)\nAND FkIdEnte in (\n'76fd95f3-c1a1-410f-95c8-a6ac00989aae',\n'c9a8ffc1-7337-46a2-aac8-cd7543ea2215',\n'dba89a46-56d6-4260-b411-43ca98c5f5f2',\n'0010e2b5-6933-44b6-9ac1-1d5e43c04ca0',\n'7c72c2bd-096b-46c7-a3a2-784be418b207'\n)",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "fat_svil_sql",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "pfd",
+							"table": "FattureTestata_Eliminate"
+						}
+					}
+				]
+			},
+			{
+				"name": "Copy REL Testata",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Copy Notifiche",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT *\nFROM pfd.RelTestata\nWHERE year in (2024, 2025)\nAND internal_organization_id in (\n'76fd95f3-c1a1-410f-95c8-a6ac00989aae',\n'c9a8ffc1-7337-46a2-aac8-cd7543ea2215',\n'dba89a46-56d6-4260-b411-43ca98c5f5f2',\n'0010e2b5-6933-44b6-9ac1-1d5e43c04ca0',\n'7c72c2bd-096b-46c7-a3a2-784be418b207'\n)",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "fat_svil_sql",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "pfd",
+							"table": "RelTestata"
+						}
+					}
+				]
+			},
+			{
+				"name": "Copy REL Righe",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Copy REL Testata",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT *\nFROM pfd.RelRighe\nWHERE year in (2024, 2025)\nAND internal_organization_id in (\n'76fd95f3-c1a1-410f-95c8-a6ac00989aae',\n'c9a8ffc1-7337-46a2-aac8-cd7543ea2215',\n'dba89a46-56d6-4260-b411-43ca98c5f5f2',\n'0010e2b5-6933-44b6-9ac1-1d5e43c04ca0',\n'7c72c2bd-096b-46c7-a3a2-784be418b207'\n)",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "fat_svil_sql",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "pfd",
+							"table": "RelRighe"
+						}
+					}
+				]
+			},
+			{
+				"name": "Copy Contestazioni",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Identity OFF contestazioni",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT c.*\nFROM pfw.Contestazioni c\nLEFT JOIN pfd.Notifiche n ON n.event_id = c.FkIdNotifica\nWHERE n.year in (2024,2025)\nAND n.internal_organization_id in (\n'76fd95f3-c1a1-410f-95c8-a6ac00989aae',\n'c9a8ffc1-7337-46a2-aac8-cd7543ea2215',\n'dba89a46-56d6-4260-b411-43ca98c5f5f2',\n'0010e2b5-6933-44b6-9ac1-1d5e43c04ca0',\n'7c72c2bd-096b-46c7-a3a2-784be418b207'\n)",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "fat_svil_sql",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "pfw",
+							"table": "Contestazioni"
+						}
+					}
+				]
+			},
+			{
+				"name": "Identity OFF contestazioni",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "Copy Notifiche",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "DevSql",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": "SET IDENTITY_INSERT pfw.Contestazioni OFF"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "Identity ON contestazioni",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "Copy Contestazioni",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "DevSql",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": "SET IDENTITY_INSERT pfw.Contestazioni ON"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "Copy ModCommessa",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT *\nFROM pfw.DatiModuloCommessa\nWHERE AnnoValidita in (2024,2025)\nAND FkIdEnte in (\n'76fd95f3-c1a1-410f-95c8-a6ac00989aae',\n'c9a8ffc1-7337-46a2-aac8-cd7543ea2215',\n'dba89a46-56d6-4260-b411-43ca98c5f5f2',\n'0010e2b5-6933-44b6-9ac1-1d5e43c04ca0',\n'7c72c2bd-096b-46c7-a3a2-784be418b207'\n)",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "fat_svil_sql",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "pfw",
+							"table": "DatiModuloCommessa"
+						}
+					}
+				]
+			},
+			{
+				"name": "Copy ModCommessa Totali",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Copy ModCommessa",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT *\nFROM pfw.DatiModuloCommessaTotali\nWHERE AnnoValidita in (2024,2025)\nAND FkIdEnte in (\n'76fd95f3-c1a1-410f-95c8-a6ac00989aae',\n'c9a8ffc1-7337-46a2-aac8-cd7543ea2215',\n'dba89a46-56d6-4260-b411-43ca98c5f5f2',\n'0010e2b5-6933-44b6-9ac1-1d5e43c04ca0',\n'7c72c2bd-096b-46c7-a3a2-784be418b207'\n)",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "fat_d_sql",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "fat_svil_sql",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "pfw",
+							"table": "DatiModuloCommessaTotali"
+						}
+					}
+				]
+			}
+		],
+		"folder": {
+			"name": "CopyDataToDev"
+		},
+		"annotations": []
+	}
+}

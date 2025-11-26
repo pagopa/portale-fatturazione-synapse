@@ -1,0 +1,185 @@
+{
+	"name": "Get_files_to_process",
+	"properties": {
+		"folder": {
+			"name": "PagoPA/IngestPipe"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "1f945f1b-e407-4d1a-aa89-f6075dd3f8ac"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"language_info": {
+				"name": "python"
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"import regex as re"
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"files = ''\r\n",
+					"import_trimestrale = False\r\n",
+					"tab_to_import = ''"
+				],
+				"execution_count": 28
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"pattern = r'\\d{8}_\\d{10}'\r\n",
+					"\r\n",
+					"# Find all matches in the string\r\n",
+					"file_list = re.findall(pattern, files)"
+				],
+				"execution_count": 29
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"latest = {}\r\n",
+					"for filename in file_list:\r\n",
+					"    parts = filename.split('_')\r\n",
+					"    date = parts[0]\r\n",
+					"    timestamp = parts[1]\r\n",
+					"    if date not in latest or timestamp > latest[date][1]:\r\n",
+					"        latest[date] = (filename, timestamp)\r\n",
+					"        \r\n",
+					"filtered_list = [filename for filename,_ in latest.values()]\r\n",
+					"\r\n",
+					"ordered_list = sorted(filtered_list, key=lambda x: x.split('_')[0])"
+				],
+				"execution_count": 30
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"if tab_to_import == 'gold_invoicing_payments':\r\n",
+					"    if import_trimestrale == True:\r\n",
+					"        ordered_list = [f\"fdr_{x}\" for x in ordered_list]\r\n",
+					"    else:\r\n",
+					"        ordered_list = [f\"biz_{x}\" for x in ordered_list]"
+				],
+				"execution_count": 31
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"final_file_list = ', '.join(ordered_list)"
+				],
+				"execution_count": 32
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"mssparkutils.notebook.exit(final_file_list)"
+				],
+				"execution_count": 33
+			}
+		]
+	}
+}

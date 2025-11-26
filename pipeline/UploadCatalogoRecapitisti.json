@@ -1,0 +1,581 @@
+{
+	"name": "UploadCatalogoRecapitisti",
+	"properties": {
+		"activities": [
+			{
+				"name": "FileToSQL",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Set DataInizioValidita",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "geokey",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "geokey",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "product",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "product",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "recapitista",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "recapitista",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "lotto",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "lotto",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "costo_plico",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "costo_plico",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "costo_foglio",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "costo_foglio",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "costo_demat",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "costo_demat",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "min",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "min",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "max",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "max",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "costo",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "costo",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "costo_base_20gr",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "costo_base_20gr",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							}
+						],
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "FileRecapitisti",
+						"type": "DatasetReference",
+						"parameters": {
+							"Folder": "/",
+							"FileName": "@activity('GetFile').output.value[0].name"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "SqlDatabse",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableSql": "MatriceCostiRecapitisti",
+							"SchemaSql": "stg"
+						}
+					}
+				]
+			},
+			{
+				"name": "UploadCatalogoRecapitisti",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "FileToSQL",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[pfd].[UpdateCatalogoRecapitisti]",
+					"storedProcedureParameters": {
+						"data_inizio_validita": {
+							"value": {
+								"value": "@variables('DataInizioValidita')",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Set DataInizioValidita",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "GetFile",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "DataInizioValidita",
+					"value": {
+						"value": "@substring(string(activity('GetFile').output.value[0].name),0,10)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "GetItems",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "FileRecapitisti",
+						"type": "DatasetReference",
+						"parameters": {
+							"Folder": "/",
+							"FileName": "/"
+						}
+					},
+					"fieldList": [
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "AzureBlobFSReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "DelimitedTextReadSettings"
+					}
+				}
+			},
+			{
+				"name": "GetFile",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "GetItems",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('GetItems').output.childItems",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@equals(item().type, 'File')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "FileToProcessatiFolder",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "UploadCatalogoRecapitisti",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings",
+							"copyBehavior": "FlattenHierarchy"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".csv"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "geokey",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "geokey",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "product",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "product",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "recapitista",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "recapitista",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "lotto",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "lotto",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "costo_plico",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "costo_plico",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "costo_foglio",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "costo_foglio",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "costo_demat",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "costo_demat",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "min",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "min",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "max",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "max",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "costo",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "costo",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "costo_base_20gr",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "costo_base_20gr",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							}
+						],
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "FileRecapitisti",
+						"type": "DatasetReference",
+						"parameters": {
+							"Folder": "/",
+							"FileName": "@activity('GetFile').output.value[0].name"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "FileRecapitisti",
+						"type": "DatasetReference",
+						"parameters": {
+							"Folder": "FileProcessati",
+							"FileName": "@activity('GetFile').output.value[0].name"
+						}
+					}
+				]
+			},
+			{
+				"name": "DeleteFileFromOriginalFolder",
+				"type": "Delete",
+				"dependsOn": [
+					{
+						"activity": "FileToProcessatiFolder",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "FileRecapitisti",
+						"type": "DatasetReference",
+						"parameters": {
+							"Folder": "/",
+							"FileName": "@activity('GetFile').output.value[0].name"
+						}
+					},
+					"enableLogging": false,
+					"storeSettings": {
+						"type": "AzureBlobFSReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					}
+				}
+			}
+		],
+		"variables": {
+			"DataInizioValidita": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Ingestion"
+		},
+		"annotations": [],
+		"lastPublishTime": "2024-09-30T10:06:49Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

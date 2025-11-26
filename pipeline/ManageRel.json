@@ -1,0 +1,426 @@
+{
+	"name": "ManageRel",
+	"properties": {
+		"activities": [
+			{
+				"name": "If Condition1",
+				"type": "IfCondition",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(pipeline().parameters.TipoRel,'PRIMO SALDO')",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Generazione REL Secondo Saldo",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "REL Secondo Saldo",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Anno": {
+										"value": "@pipeline().parameters.AnnoCompetenza",
+										"type": "Expression"
+									},
+									"Mese": {
+										"value": "@pipeline().parameters.MeseCompetenza",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "GenerazioneRelPrimoSaldo",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "REL Primo Saldo",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Recalculate": false,
+									"Anno": {
+										"value": "@pipeline().parameters.AnnoCompetenza",
+										"type": "Expression"
+									},
+									"Mese": {
+										"value": "@pipeline().parameters.MeseCompetenza",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Creazione report REL righe",
+				"type": "AzureFunctionActivity",
+				"dependsOn": [
+					{
+						"activity": "Switch1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"functionName": {
+						"value": "@concat('CreateRelRigheHandler?',\n        'Anno=', string(pipeline().parameters.AnnoCompetenza),\n        '&Mese=', string(pipeline().parameters.MeseCompetenza),\n        '&tipologiafattura=', pipeline().parameters.TipoRel\n        )",
+						"type": "Expression"
+					},
+					"method": "GET"
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_api_func",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Set variable1",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Creazione report REL righe",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "checkUrl",
+					"value": {
+						"value": "@activity('Creazione report REL righe').output.statusQueryGetUri",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Until1",
+				"type": "Until",
+				"dependsOn": [
+					{
+						"activity": "Set variable1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@or(equals(variables('status'), 'Completed'),equals(variables('status'), 'Failed'))",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "checkUrl",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "GET",
+								"url": {
+									"value": "@variables('checkUrl')",
+									"type": "Expression"
+								},
+								"connectVia": {
+									"referenceName": "AutoResolveIntegrationRuntime",
+									"type": "IntegrationRuntimeReference"
+								}
+							}
+						},
+						{
+							"name": "setStatus",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "checkUrl",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "status",
+								"value": {
+									"value": "@activity('checkUrl').output.runtimeStatus",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Wait1",
+							"type": "Wait",
+							"dependsOn": [
+								{
+									"activity": "setStatus",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"waitTimeInSeconds": 10
+							}
+						}
+					],
+					"timeout": "0.12:00:00"
+				}
+			},
+			{
+				"name": "If Condition2",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Until1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(variables('status'),'Failed')",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Invio PEC",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "SendMailPec",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Anno": {
+										"value": "@pipeline().parameters.AnnoCompetenza",
+										"type": "Expression"
+									},
+									"Mese": {
+										"value": "@pipeline().parameters.MeseCompetenza",
+										"type": "Expression"
+									},
+									"TipologiaFattura": {
+										"value": "@pipeline().parameters.TipoRel",
+										"type": "Expression"
+									},
+									"Ricalcola": "0"
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Fail1",
+							"type": "Fail",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"message": "Errore durante l'esecuzione dell'handler",
+								"errorCode": "500"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Switch1",
+				"type": "Switch",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"on": {
+						"value": "@pipeline().parameters.TipoRel",
+						"type": "Expression"
+					},
+					"cases": [
+						{
+							"value": "PRIMO SALDO",
+							"activities": [
+								{
+									"name": "GenerazioneRelPrimoSaldo_copy1",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "REL Primo Saldo",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"Recalculate": false,
+											"Anno": {
+												"value": "@pipeline().parameters.AnnoCompetenza",
+												"type": "Expression"
+											},
+											"Mese": {
+												"value": "@pipeline().parameters.MeseCompetenza",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						},
+						{
+							"value": "SECONDO SALDO",
+							"activities": [
+								{
+									"name": "Generazione REL Secondo Saldo_copy1",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "REL Secondo Saldo",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"Anno": {
+												"value": "@pipeline().parameters.AnnoCompetenza",
+												"type": "Expression"
+											},
+											"Mese": {
+												"value": "@pipeline().parameters.MeseCompetenza",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						},
+						{
+							"value": "VAR. SEMESTRALE",
+							"activities": [
+								{
+									"name": "Stored procedure1",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "pfd.spUpsertConguaglioRel",
+										"storedProcedureParameters": {
+											"Year": {
+												"value": {
+													"value": "@pipeline().parameters.AnnoCompetenza",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"Month": {
+												"value": {
+													"value": "@pipeline().parameters.MeseCompetenza",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "fat_sql",
+										"type": "LinkedServiceReference"
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"TipoRel": {
+				"type": "string"
+			},
+			"MeseCompetenza": {
+				"type": "int"
+			},
+			"AnnoCompetenza": {
+				"type": "int"
+			}
+		},
+		"variables": {
+			"checkUrl": {
+				"type": "String"
+			},
+			"status": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "ManageREL"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-14T15:24:01Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

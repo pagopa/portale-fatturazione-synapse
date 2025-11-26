@@ -1,0 +1,98 @@
+{
+	"name": "getSQLConnectionString",
+	"properties": {
+		"folder": {
+			"name": "Utility"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "feed2589-0663-407e-9d53-189812ed738f"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"This notebook define the function to get the SQL connection_string and connection_properties"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"key_vault_linkedservice = 'KeyVault'\n",
+					"kv_secret = 'JdbcConnectionString'\n",
+					"sql_linkedservice = 'fat_sql'"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"def getSQLConnectionString():\n",
+					"\n",
+					"    # get the connection_string\n",
+					"    jdbcUrl = mssparkutils.credentials.getSecretWithLS(key_vault_linkedservice, kv_secret)\n",
+					"\n",
+					"    # get the access token from the LinkedService\n",
+					"    token = TokenLibrary.getConnectionString(sql_linkedservice)\n",
+					"    conn_properties = {\n",
+					"        \"driver\": \"com.microsoft.sqlserver.jdbc.SQLServerDriver\",\n",
+					"        \"accessToken\": token\n",
+					"    }\n",
+					"\n",
+					"    return(jdbcUrl, conn_properties)"
+				],
+				"execution_count": 2
+			}
+		]
+	}
+}

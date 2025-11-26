@@ -1,0 +1,395 @@
+{
+	"name": "IngestNotification",
+	"properties": {
+		"folder": {
+			"name": "Ingestion"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "3ca6d6f2-02b9-46fc-b8a2-893d93815c4b"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Parameters"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"#Variables\r\n",
+					"tableNameNotification = 'fat_delta.notification'\r\n",
+					"\r\n",
+					"linked_service_name = 'nomeLinkedService'\r\n",
+					"# sourcefile = 'abfss://raw@fatpdls.dfs.core.windows.net/send/2024/10/10/notification'\r\n",
+					""
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Import libraries"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql import functions as F\r\n",
+					"from delta.tables import *\r\n",
+					"from pyspark.sql.functions import max\r\n",
+					"from datetime import datetime\r\n",
+					"import pandas as pd\r\n",
+					"\r\n",
+					"from pyspark.sql.functions import col, from_json, struct,array\r\n",
+					"from pyspark.sql.types import StructType, StructField, StringType, ArrayType, Any"
+				],
+				"execution_count": 93
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Load and process source file"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df = spark.read.format(\"parquet\").load(sourcefile)"
+				],
+				"execution_count": 94
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfNotification = df.select('eventid',\\\r\n",
+					"                                    'eventname', \\\r\n",
+					"                                    'tablename', \\\r\n",
+					"                                    'amount', \\\r\n",
+					"                                    'cancelledbyiun', \\\r\n",
+					"                                    'cancellediun', \\\r\n",
+					"                                    'documents', \\\r\n",
+					"                                    'group', \\\r\n",
+					"                                    'idempotencetoken', \\\r\n",
+					"                                    'iun', \\\r\n",
+					"                                    df['abstract'].alias(\"notificationabstract\"), \\\r\n",
+					"                                    'notificationfeepolicy', \\\r\n",
+					"                                    'pagopaintmode', \\\r\n",
+					"                                    'panotificationid', \\\r\n",
+					"                                    'paymentexpirationdate', \\\r\n",
+					"                                    'physicalcommunicationtype', \\\r\n",
+					"                                    'recipients', \\\r\n",
+					"                                    'requestid', \\\r\n",
+					"                                    'senderdenomination', \\\r\n",
+					"                                    'senderpaid', \\\r\n",
+					"                                    'sendertaxid', \\\r\n",
+					"                                    'sentat', \\\r\n",
+					"                                    'sourcechannel', \\\r\n",
+					"                                    'sourcechanneldetails', \\\r\n",
+					"                                    'subject', \\\r\n",
+					"                                    'taxonomycode', \\\r\n",
+					"                                    'ingestion_tms', \\\r\n",
+					"                                    'year', \\\r\n",
+					"                                    'month', \\\r\n",
+					"                                    'daily', \\\r\n",
+					"                                    'usedServices',\\\r\n",
+					"                                    'dl_processed_tms')\r\n",
+					"                                    \r\n",
+					"# dfNotification = dfNotification.withColumn(\"usedServices\", F.lit(None).cast(StringType()))                                    \r\n",
+					"# dfNotification = dfNotification.withColumn(\"dl_processed_tms\", F.lit(None).cast(StringType()))                      "
+				],
+				"execution_count": 95
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"dfNewCol = df.select('iun',\\\r\n",
+					"                    'eventid',\\\r\n",
+					"                    'sentat',\\\r\n",
+					"                    'senderpaid',\\\r\n",
+					"                    'recipients',\\\r\n",
+					"                    'year',\\\r\n",
+					"                    'month',\\\r\n",
+					"                    'daily',\\\r\n",
+					"                    'pafee',\\\r\n",
+					"                    'vat',\\\r\n",
+					"                    'version')"
+				],
+				"execution_count": 96
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"actualTimeStamp = datetime.now()\r\n",
+					"dfNotification = dfNotification.withColumn(\"LastModified\",  F.lit(actualTimeStamp))\r\n",
+					"dfNotification = dfNotification.withColumn(\"SourceFile\",  F.lit(sourcefile))\r\n",
+					"\r\n",
+					"dfNewCol = dfNewCol.withColumn(\"LastModified\",  F.lit(actualTimeStamp))\r\n",
+					"dfNewCol = dfNewCol.withColumn(\"SourceFile\",  F.lit(sourcefile))"
+				],
+				"execution_count": 97
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#dfNewFile.printSchema()"
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"###TEST ON JOIN####\r\n",
+					"#CAN'T BE DONE SIMPLE### IS NOT A JSON BUT AN ARRAY ### POSSIBILITY OF LOSSING DATA/DUPLICATING#####\r\n",
+					"#keys_df = dfNewFile.select(F.explode(F.map_keys(F.col(\"documents\")))).distinct()\r\n",
+					"# keys = list(map(lambda row: row[0], keys_df.collect()))\r\n",
+					"# key_cols = list(map(lambda f: F.col(\"signals\").getItem(f).alias(str(f)), keys))\r\n",
+					"# final_cols = [F.col(\"asset\"), F.col(\"ts\")] + key_cols\r\n",
+					"# dfNewFile.select(final_cols).show()"
+				],
+				"execution_count": 17
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#spark.sql('DROP TABLE IF EXISTS fat_delta.notification')\r\n",
+					"\r\n",
+					"# dfNotification.write.format(\"delta\").mode(\"append\").option(\"mergeSchema\", \"true\").saveAsTable(\"fat_delta.notification\")\r\n",
+					"tDeltaNotifiche = DeltaTable.forName(spark, tableNameNotification)\r\n",
+					"\r\n",
+					"tDeltaNotifiche.alias(\"target\").merge(\r\n",
+					"    dfNotification.alias(\"source\"),\r\n",
+					"    \"target.iun = source.iun\"\r\n",
+					").whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()\r\n",
+					"\r\n",
+					"\r\n",
+					"# dfNewCol.write.format(\"delta\").mode(\"append\").saveAsTable(\"fat_delta.notification_add\")\r\n",
+					"\r\n",
+					"tDeltaNotificheAdd = DeltaTable.forName(spark, \"fat_delta.notification_add\")\r\n",
+					"\r\n",
+					"tDeltaNotificheAdd.alias(\"target\").merge(\r\n",
+					"    dfNewCol.alias(\"source\"),\r\n",
+					"    \"target.iun = source.iun\"\r\n",
+					").whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()"
+				],
+				"execution_count": 102
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Update watermark table"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from delta.exceptions import ConcurrentAppendException\r\n",
+					"import time\r\n",
+					"\r\n",
+					"try:\r\n",
+					"    watermarkTable =  DeltaTable.forName(spark, \"fat_delta.watermark\")\r\n",
+					"    watermarkTable.update(\"TableName = 'notification'\", {\"LastModified\": F.lit(actualTimeStamp)})\r\n",
+					"except ConcurrentAppendException:\r\n",
+					"    time.sleep(60)\r\n",
+					"    watermarkTable =  DeltaTable.forName(spark, \"fat_delta.watermark\")\r\n",
+					"    watermarkTable.update(\"TableName = 'notification'\", {\"LastModified\": F.lit(actualTimeStamp)})\r\n",
+					"\r\n",
+					"# Assuming you have the actualTimeStamp variable defined\r\n",
+					"#actualTimeStamp = \"2022-01-01T12:00:00\"  # Replace with your actual timestamp\r\n",
+					"\r\n",
+					"# Load the Delta table\r\n",
+					"#watermarkTable = DeltaTable.forName(spark, \"fat_delta.watermark\")\r\n",
+					"\r\n",
+					"# Define the data to be merged\r\n",
+					"#data_to_merge = {\"TableName\": \"notification\", \"LastModified\": actualTimeStamp}\r\n",
+					"\r\n",
+					"# Perform the merge operation\r\n",
+					"#watermarkTable.alias(\"target\").merge(\r\n",
+					"#    source=spark.createDataFrame([data_to_merge]),\r\n",
+					"#    condition=\"target.TableName = 'notification'\",\r\n",
+					"#).whenMatchedUpdate(\r\n",
+					"#    set={\"LastModified\": F.lit(actualTimeStamp)}\r\n",
+					"#).whenNotMatchedInsertAll().execute()\r\n",
+					""
+				],
+				"execution_count": 9
+			}
+		]
+	}
+}

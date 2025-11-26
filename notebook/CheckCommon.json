@@ -1,0 +1,188 @@
+{
+	"name": "CheckCommon",
+	"properties": {
+		"folder": {
+			"name": "Invoicing"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "a516a26e-9ba5-40eb-a08b-2d41836bf6b5"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": true,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/5c587d75-fb91-4559-bda2-8612949a2b7d/resourceGroups/fat-d-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-d-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-d-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"def checkFatturaUnivoca(annoRif, meseRif, tipoFattura, jdbcUrl, conn_Prop):\n",
+					"\n",
+					"    query = f\"\"\"(\n",
+					"    SELECT FkIdEnte \n",
+					"        ,Count(*) as nFatture\n",
+					"    FROM pfd.FattureTestata \n",
+					"    where \n",
+					"    AnnoRiferimento = {annoRif} and MeseRiferimento = {meseRif} \n",
+					"    and FkTipologiaFattura = '{tipoFattura}'\n",
+					"    GROUP BY FkIdEnte\n",
+					"    ) as tb\"\"\"\n",
+					"\n",
+					"    dfFattura = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop) \n",
+					"\n",
+					"    return dfFattura.filter(\"nFatture > 1\")\n",
+					""
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"annoRif = 2025\n",
+					"meseRif = 3\n",
+					"tipoFattura = 'anticipo'"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# get the function to retrieve sql properties\n",
+					"%run Utility/getSQLConnectionString\n",
+					"\n",
+					"# retrieve sql connection_string and connection_properties\n",
+					"jdbcUrl,conn_Prop = getSQLConnectionString()   \n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"def checkCodiceMateriale(annoRif, meseRif, tipoFattura, jdbcUrl, conn_Prop):\n",
+					"\n",
+					"    pac = {\n",
+					"    'anticipo': [\n",
+					"        'ANTICIPO ND 30%', 'ANTICIPO NA 30%', 'ANT ND ST 30%', 'ANT NA ST 30%'\n",
+					"        ],\n",
+					"    'acconto': [\n",
+					"        'ACCONTO NOT.DIG.', 'ACCONTO NOT.ANL.', 'STORNO 50% ANT.ND', 'STORNO 50% ANT.NA'\n",
+					"        ],\n",
+					"    'primo saldo': [\n",
+					"        'P SALDO PAC N.DIG.', 'P SALDO PAC N.ANL', 'STORNO 50% ANT.ND', 'STORNO 50% ANT.NA', 'STORNO ACCONTO ND', 'STORNO ACCONTO NA'\n",
+					"    ]\n",
+					"    }\n",
+					"\n",
+					"    pal = {\n",
+					"        'anticipo': [\n",
+					"            'ANTICIPO ND 50%','ANTICIPO NA 50%', 'ANT ND ST 50%', 'ANT NA ST 50%'\n",
+					"            ],\n",
+					"        'primo saldo': [\n",
+					"            'P SALDO PAC N.DIG.', 'P SALDO PAC N.ANL', 'STORNO ANTICIPO ND', 'STORNO ANTICIPO NA'\n",
+					"        ]\n",
+					"    }\n",
+					"\n",
+					"    codici_PAC = ', '.join({f'\\'{codice}\\'' for codice in pac.get(tipoFattura)})\n",
+					"\n",
+					"    codici_PAL = ', '.join({f'\\'{codice}\\'' for codice in pal.get(tipoFattura, ['NONE'])})\n",
+					"    \n",
+					"    print(codici_PAC,\"\\n\", codici_PAL)\n",
+					"\n",
+					"    query = f\"\"\"(\n",
+					"        SELECT FT.IdFattura, FT.AnnoRiferimento, FT.MeseRiferimento, FT.FkIdEnte, FR.CodiceMateriale,\n",
+					"        CASE WHEN TC.Descrizione = 'PAC' AND \n",
+					"            CodiceMateriale IN ({codici_PAC})\n",
+					"            THEN 'OK PAC'\n",
+					"            WHEN TC.Descrizione = 'PAL' AND \n",
+					"            CodiceMateriale IN ({codici_PAL})\n",
+					"            THEN 'OK PAL'\n",
+					"        ELSE 'KO' END AS CheckCodiceContratto\n",
+					"        FROM pfd.FattureTestata FT\n",
+					"        INNER JOIN pfd.FattureRighe FR ON  IdFattura = FkIdFattura\n",
+					"        INNER JOIN pfd.Contratti C on FT.FkIdEnte = C.internalistitutionid\n",
+					"        INNER JOIN pfw.TipoContratto TC on C.FkIdTipoContratto = TC.IdTipoContratto\n",
+					"        WHERE FT.AnnoRiferimento = {annoRif} and FT.MeseRiferimento = {meseRif} AND FkTipologiaFattura = '{tipoFattura}'\n",
+					"    ) as tb\"\"\"\n",
+					"\n",
+					"    dfFatture = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop) \n",
+					"\n",
+					"    return dfFatture#.filter(\"CheckCodiceContratto = 'KO'\")"
+				],
+				"execution_count": 94
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"query = f\"\"\"\n",
+					"        (SELECT FT.IdFattura, FT.AnnoRiferimento, FT.MeseRiferimento, FT.FkIdEnte, FR.CodiceMateriale,\n",
+					"        CASE WHEN TC.Descrizione = 'PAC' AND \n",
+					"            CodiceMateriale IN ({codici_PAC})\n",
+					"            THEN 'CORRETTO PAC'\n",
+					"            WHEN TC.Descrizione = 'PAL' AND \n",
+					"            CodiceMateriale IN ({codici_PAL})\n",
+					"            THEN 'CORRETTO PAL'\n",
+					"        ELSE 'KO' END AS CheckCodiceContratto\n",
+					"        FROM pfd.FattureTestata FT\n",
+					"        INNER JOIN pfd.FattureRighe FR ON  IdFattura = FkIdFattura\n",
+					"        INNER JOIN pfd.Contratti C on FT.FkIdEnte = C.internalistitutionid\n",
+					"        INNER JOIN pfw.TipoContratto TC on C.FkIdTipoContratto = TC.IdTipoContratto\n",
+					"        WHERE FT.AnnoRiferimento = {annoRif} and FT.MeseRiferimento = {meseRif} AND FkTipologiaFattura = '{tipoFattura}')\n",
+					"        as tb\"\"\"\n",
+					"\n",
+					"dfFattura = spark.read.jdbc(url=jdbcUrl, table=query, properties=conn_Prop)"
+				],
+				"execution_count": 95
+			}
+		]
+	}
+}

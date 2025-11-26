@@ -1,0 +1,209 @@
+{
+	"name": "Privati",
+	"properties": {
+		"activities": [
+			{
+				"name": "CalcoloPrivati",
+				"type": "SynapseNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "pagopa_privati",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"year_quarter": {
+							"value": {
+								"value": "@pipeline().parameters.year_quarter",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"year_month": {
+							"value": {
+								"value": "@pipeline().parameters.year_month",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": null,
+						"spark.dynamicAllocation.minExecutors": null,
+						"spark.dynamicAllocation.maxExecutors": null
+					},
+					"driverSize": "Small",
+					"numExecutors": null
+				}
+			},
+			{
+				"name": "PrivatiJson",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "InsertReportPrivati",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "pagopa_privati_json",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"year_quarter": {
+							"value": {
+								"value": "@pipeline().parameters.year_quarter",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": null,
+						"spark.dynamicAllocation.minExecutors": null,
+						"spark.dynamicAllocation.maxExecutors": null
+					},
+					"driverSize": "Small",
+					"numExecutors": null
+				}
+			},
+			{
+				"name": "InsertReportPrivati",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "CalcoloPrivati",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "ppa.InsertReportPrivati",
+					"storedProcedureParameters": {
+						"year_quarter": {
+							"value": {
+								"value": "@pipeline().parameters.year_quarter",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Json",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "InsertReportPrivati",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "JsonInvoice",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"anno_trimestre": {
+							"value": {
+								"value": "@pipeline().parameters.year_quarter",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"importTrimestrale": {
+							"value": {
+								"value": "@pipeline().parameters.ImportTrimestrale",
+								"type": "Expression"
+							},
+							"type": "bool"
+						}
+					},
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "sparkcls01",
+						"type": "BigDataPoolReference"
+					},
+					"executorSize": "Small",
+					"conf": {
+						"spark.dynamicAllocation.enabled": null,
+						"spark.dynamicAllocation.minExecutors": null,
+						"spark.dynamicAllocation.maxExecutors": null
+					},
+					"driverSize": "Small",
+					"numExecutors": null
+				}
+			}
+		],
+		"parameters": {
+			"year_quarter": {
+				"type": "string"
+			},
+			"year_month": {
+				"type": "string"
+			},
+			"ImportTrimestrale": {
+				"type": "bool"
+			}
+		},
+		"folder": {
+			"name": "PagoPA"
+		},
+		"annotations": []
+	}
+}

@@ -1,0 +1,157 @@
+{
+	"name": "DeltaToSQL",
+	"properties": {
+		"activities": [
+			{
+				"name": "DeltaToStage",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "SetTimeClause",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT * FROM ', pipeline().parameters.TabToExport, variables('TimeClause'))",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"preCopyScript": {
+							"value": "@concat('TRUNCATE TABLE stg.ppa_', pipeline().parameters.TabToExport)",
+							"type": "Expression"
+						},
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false,
+						"tableOption": "autoCreate",
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "pagopa_deltalake",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "SqlDatabse",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableSql": "@concat('ppa_', pipeline().parameters.TabToExport)",
+							"SchemaSql": "stg"
+						}
+					}
+				]
+			},
+			{
+				"name": "ImportDeltaToSQL",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "DeltaToStage",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[ppa].[ImportDeltaToSQL]",
+					"storedProcedureParameters": {
+						"inputTable": {
+							"value": {
+								"value": "@pipeline().parameters.TabToExport",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"year_quarter": {
+							"value": {
+								"value": "@pipeline().parameters.QuarterFilter",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "fat_sql",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "SetTimeClause",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "TimeClause",
+					"value": {
+						"value": "@if(equals(pipeline().parameters.TabToExport, 'contracts_raw'), concat(' where year_month = ',pipeline().parameters.MonthFilter), concat(' where year_quarter = ''',pipeline().parameters.QuarterFilter, ''''))",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"TabToExport": {
+				"type": "string",
+				"defaultValue": "contracts_raw"
+			},
+			"MonthFilter": {
+				"type": "string"
+			},
+			"QuarterFilter": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"TimeClause": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "PagoPA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-02-07T16:40:46Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

@@ -1,0 +1,412 @@
+{
+	"name": "JsonAccertamenti",
+	"properties": {
+		"folder": {
+			"name": "Accertamenti"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "sparkcls01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "592439c0-a9fe-4299-a6fd-953bdd9c3f27"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/794146a8-9ae6-4002-b37c-f51d91ecc399/resourceGroups/fat-p-analytics-rg/providers/Microsoft.Synapse/workspaces/fat-p-synw/bigDataPools/sparkcls01",
+				"name": "sparkcls01",
+				"type": "Spark",
+				"endpoint": "https://fat-p-synw.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/sparkcls01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.functions import * # collect_list, struct, explode, col,schema_of_json, from_json, to_json\r\n",
+					"import pyspark.sql.functions as F\r\n",
+					"from pyspark.sql import SparkSession\r\n",
+					"from pyspark.sql.window import Window\r\n",
+					"from pyspark.sql import Row\r\n",
+					"import pandas as pd\r\n",
+					"import json"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"anno_mese = \"2025-05\""
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"anno = anno_mese[:4]\r\n",
+					"mese = anno_mese[5:]"
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"editable": true,
+					"run_control": {
+						"frozen": false
+					}
+				},
+				"source": [
+					"df = spark.sql(f\"\"\"\r\n",
+					"                    with cte as (\r\n",
+					"                        SELECT\r\n",
+					"                        CASE WHEN (tipologia_notifica = 'DIGITALE') THEN\r\n",
+					"                        'PRIMO SALDO N.DIG.'\r\n",
+					"                        ELSE 'PRIMO SALDO N.ANL' END as codiceMateriale\r\n",
+					"                        ,SUM(tot_prezzo_ente/100) as importo\r\n",
+					"                        ,id_ente as istitutioID\r\n",
+					"                        FROM (SELECT * FROM fat_delta.allpreseincarico where presaincarico_data = '{anno_mese}')\r\n",
+					"                        GROUP BY id_ente, tipologia_notifica\r\n",
+					"                    )\r\n",
+					"                    SELECT\r\n",
+					"                    last_day(CAST(CONCAT('{anno_mese}', '-01') as date)) as data\r\n",
+					"                    ,'PROD-PN' as prodotto\r\n",
+					"                    ,'{mese}/{anno}' as identificativo\r\n",
+					"                    ,'AC' as tipologiaDocumento\r\n",
+					"                    ,'EUR' as divisa\r\n",
+					"                    ,codiceMateriale\r\n",
+					"                    ,ROW_NUMBER() OVER(PARTITION BY istitutioID ORDER BY codiceMateriale desc) as numerolinea\r\n",
+					"                    ,importo\r\n",
+					"                    ,istitutioID\r\n",
+					"                    FROM cte\r\n",
+					"                \r\n",
+					"                \"\"\")"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"run_control": {
+						"frozen": true
+					},
+					"editable": false,
+					"collapsed": false
+				},
+				"source": [
+					"display(df.filter(\"istitutioID = '00c786d8-2832-4b27-9f5b-78412bab6c4f'\"))"
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"editable": true,
+					"run_control": {
+						"frozen": false
+					}
+				},
+				"source": [
+					"#LEGGO TUTTE LE PRESE IN CARICO ASSEVERATE NEL MESE IN ESAME\r\n",
+					"identificativo = concat(mese,'/',anno)\r\n",
+					"\r\n",
+					"#,data_presa_in_carico as dataTmp \\\r\n",
+					"\r\n",
+					"df_asseverazione = spark.sql(f\"SELECT DISTINCT data_presa_in_carico as dataTmp \\\r\n",
+					"                                    ,'PROD-PN' as prodotto \\\r\n",
+					"                                    ,CONCAT(RIGHT(data_presa_in_carico,2),'/',LEFT(data_presa_in_carico,4)) as identificativo \\\r\n",
+					"                                    ,'AS' as tipologiaDocumento \\\r\n",
+					"                                    ,'EUR' as divisa \\\r\n",
+					"                                    ,'PRIMO SALDO N.DIG.' as codiceMateriale \\\r\n",
+					"                                    ,1 as numerolinea \\\r\n",
+					"                                    ,CAST(tot_prezzo_ente as decimal(18,1)) as importo \\\r\n",
+					"                                    ,id_ente as istitutioID \\\r\n",
+					"                                FROM fat_delta.perfezionateasseverazione \\\r\n",
+					"                                WHERE data_fatturazione = '{anno_mese}' and data_presa_in_carico = '{anno_mese}'\")\\\r\n",
+					"                                .withColumn(\"data\", last_day(concat(lit(anno),lit('-'),lit(mese),lit('-01')))).drop(\"dataTmp\")"
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"run_control": {
+						"frozen": true
+					},
+					"editable": false,
+					"collapsed": false
+				},
+				"source": [
+					"display(df_asseverazione.filter(\"istitutioID = '00c786d8-2832-4b27-9f5b-78412bab6c4f'\"))"
+				],
+				"execution_count": 11
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"editable": true,
+					"run_control": {
+						"frozen": false
+					}
+				},
+				"source": [
+					"#LEGGO TUTTE LE PRESE IN CARICO DEI MESI PRECEDENTI MA PERFEZIONATE NEL MESE IN ESAME\r\n",
+					"identificativo = concat(mese,'/',anno)\r\n",
+					"\r\n",
+					"#,data_presa_in_carico as dataTmp \\\r\n",
+					"\r\n",
+					"df_mesiPrecedenti = spark.sql(f\"SELECT DISTINCT data_presa_in_carico as dataTmp \\\r\n",
+					"                                    ,'PROD-PN' as prodotto \\\r\n",
+					"                                    ,CONCAT(RIGHT(data_presa_in_carico,2),'/',LEFT(data_presa_in_carico,4)) as identificativo \\\r\n",
+					"                                    ,'AS' as tipologiaDocumento \\\r\n",
+					"                                    ,'EUR' as divisa \\\r\n",
+					"                                    ,'PRIMO SALDO N.DIG.' as codiceMateriale \\\r\n",
+					"                                    ,1 as numerolinea \\\r\n",
+					"                                    ,CAST(tot_prezzo_ente as decimal(18,1)) as importo \\\r\n",
+					"                                    ,id_ente as istitutioID \\\r\n",
+					"                                FROM fat_delta.perfezionateasseverazione \\\r\n",
+					"                                WHERE data_fatturazione = '{anno_mese}' and data_presa_in_carico < '{anno_mese}'\")\\\r\n",
+					"                                .withColumn(\"data\", last_day(concat(lit(anno),lit('-'),lit(mese),lit('-01')))).drop(\"dataTmp\")"
+				],
+				"execution_count": 12
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"#display(df_mesiPrecedenti.filter(\"istitutioID = '1d671a9f-0fff-431c-a4e3-403188773777'\"))"
+				],
+				"execution_count": 21
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"editable": true,
+					"run_control": {
+						"frozen": false
+					}
+				},
+				"source": [
+					"df_tot = df.union(df_mesiPrecedenti.select(\"data\",\"prodotto\",\"identificativo\",\"tipologiaDocumento\",\"divisa\",\"codiceMateriale\",\"numerolinea\",\"importo\",\"istitutioID\"))\\\r\n",
+					"        .union(df_asseverazione.select(\"data\",\"prodotto\",\"identificativo\",\"tipologiaDocumento\",\"divisa\",\"codiceMateriale\",\"numerolinea\",\"importo\",\"istitutioID\"))"
+				],
+				"execution_count": 13
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# df_tot = df_ac.select(\"numero\",\"data\",\"prodotto\",\"identificativo\",\"tipologiaDocumento\",\"divisa\",\"codiceMateriale\",\"numerolinea\",\"importo\",\"istitutioID\")\\\r\n",
+					"#             .union(df_mesiPrecedenti.select(\"numero\",\"data\",\"prodotto\",\"identificativo\",\"tipologiaDocumento\",\"divisa\",\"codiceMateriale\",\"numerolinea\",\"importo\",\"istitutioID\"))"
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"editable": true,
+					"run_control": {
+						"frozen": false
+					}
+				},
+				"source": [
+					"Numero = anno[2:4]+mese\r\n",
+					"Numero = int(Numero) * 1000000\r\n",
+					"\r\n",
+					"wspec = Window.partitionBy(\"data\",\"istitutioID\",\"tipologiaDocumento\").orderBy(\"istitutioID\")\r\n",
+					"df_tmp = df_tot.withColumn(\"unique_id\", F.concat_ws(\"_\", col(\"istitutioID\"), col(\"data\"),col(\"tipologiaDocumento\"),col(\"identificativo\")))\r\n",
+					"df_tmp = df_tmp.withColumn(\"id\", F.dense_rank().over(Window.orderBy(\"unique_id\")))\\\r\n",
+					"        .drop(\"unique_id\").withColumn(\"numero\",Numero + col(\"id\") )"
+				],
+				"execution_count": 14
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false
+					},
+					"editable": false,
+					"run_control": {
+						"frozen": true
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(df.filter(\"istitutioID = '1d671a9f-0fff-431c-a4e3-403188773777'\"))"
+				],
+				"execution_count": 26
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"json_df = df_tmp.groupBy(\"numero\",\"data\",\"prodotto\",\"identificativo\",\"tipologiaDocumento\",\"istitutioID\",\"divisa\") \\\r\n",
+					"    .agg(sort_array(collect_list(struct(\"numerolinea\",\"codiceMateriale\",\"importo\")),asc=True).alias(\"posizioni\")) \\\r\n",
+					"    .agg(to_json(collect_list(struct(\"numero\",\"data\",\"prodotto\",\"identificativo\",\"tipologiaDocumento\",\"istitutioID\",\"divisa\", \"posizioni\"))))\r\n",
+					"#.select(collect_list(struct(\"numero\",\"data\",\"prodotto\",\"identificativo\",\"tipologiaDocumento\",\"istitutionID\",\"divisa\", \"posizioni\")))"
+				],
+				"execution_count": 15
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"run_control": {
+						"frozen": true
+					},
+					"editable": false,
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(json_df)"
+				],
+				"execution_count": 16
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"file_path = f\"abfss://jsonaccertamenti@fatpdls.dfs.core.windows.net/{anno_mese}\"\r\n",
+					"\r\n",
+					"#pippo = json_df.repartition(1).write.options(header = False, dateFormat = \"yyyy-MM-dd\", lineSep=\",\").mode('overwrite').json(file_path)\r\n",
+					"json_df.coalesce(1).write.mode(\"overwrite\").text(file_path)"
+				],
+				"execution_count": 17
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"#Rinomino il file txt in json\r\n",
+					"\r\n",
+					"for file in mssparkutils.fs.ls(file_path):\r\n",
+					"    if file.name == '_SUCCESS':\r\n",
+					"        mssparkutils.fs.rm(file.path)\r\n",
+					"        #print(file.path)\r\n",
+					"    else:\r\n",
+					"        newFilePath = file_path + \"/jsonAccertamenti.json\"\r\n",
+					"        mssparkutils.fs.cp(file.path, newFilePath,False)\r\n",
+					"        mssparkutils.fs.rm(file.path)"
+				],
+				"execution_count": 18
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"editable": false,
+					"run_control": {
+						"frozen": true
+					}
+				},
+				"source": [
+					"print(newFilePath, tipo_report, anno_mese)"
+				],
+				"execution_count": 27
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"tipo_report = 'jsonaccertamento'\r\n",
+					"mssparkutils.notebook.run(\"Accertamenti/InsertTabellaReportSql\",90,{\"path\":newFilePath,\"tipo_report\":tipo_report,\"anno_mese\":anno_mese})"
+				],
+				"execution_count": 19
+			}
+		]
+	}
+}
